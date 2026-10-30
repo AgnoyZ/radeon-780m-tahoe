@@ -33,6 +33,11 @@ jobs:
     timeout-minutes: 15
     needs: source-tests
     steps:
+      - name: Refuse public binary publishing before license audit
+        if: ${{ inputs.retain_artifacts && !github.event.repository.private }}
+        run: |
+          echo '::error::Public binary artifacts are blocked pending the upstream license/provenance audit and explicit publication approval.'
+          exit 1
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           submodules: true
@@ -62,7 +67,7 @@ jobs:
         if: ${{ !inputs.retain_artifacts }}
         run: echo '::notice::Compile/test-only run. Binaries are not retained; storage quota was exhausted on 2026-10-30. Build report and checksums remain in this job log. No hardware test has run.'
       - name: Preserve private experimental artifacts and upstream license notices
-        if: ${{ inputs.retain_artifacts }}
+        if: ${{ inputs.retain_artifacts && github.event.repository.private }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: experimental-780m-${{ github.sha }}

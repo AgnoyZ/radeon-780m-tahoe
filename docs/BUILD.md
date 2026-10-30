@@ -42,3 +42,6 @@ See EXPERIMENTAL.md before considering any hardware test. This repository does n
 
 ## CI retention limitation
 The first native build succeeded but GitHub rejected artifact upload because Actions storage was full. Default push runs now compile, sign, inspect and test without retaining binaries; they do not claim to deliver a downloadable package. Build reports and hashes are printed in the job log. When storage is available, manually dispatch with retain_artifacts=true to retain the experimental outputs for seven days. Requested upload failures are not suppressed. No account data is deleted or billing changed automatically.
+
+## Public repository policy (2026-10-30)
+The owner authorized public source visibility. Public runs remain compile/test-only. Requesting binary artifact retention on a public repository fails explicitly until the outstanding upstream license/provenance audit and publication approval are resolved. Existing run 41056667927 passed both source-tests and macos-kexts (including the no-device refusal test); it retained no binary artifacts.
