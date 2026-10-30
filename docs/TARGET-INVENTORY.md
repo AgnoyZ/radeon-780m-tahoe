@@ -88,5 +88,8 @@ Tests use synthetic PCI data and check privacy exclusions, missing/ambiguous
 matches, malformed types, range overflow/duplicates, timeouts and host refusal.
 Native CI additionally invokes the collector on its own non-target Intel Mac,
 logging only system metadata and aggregate counts, never candidate addresses or
-raw registry data. A CI inventory is not the user's target inventory. Native
-collector validation is pending; the owner still needs to provide target data.
+raw registry data. A CI inventory is not the user's target inventory. The native
+preflight containing this collector passed run `41096096384`, code `ff3345a`, at
+`2026-10-30T17:08:40Z` (October 31 in Asia/Shanghai). The step result is preserved
+in `validation/ci-ff3345a-submission.json`; its detailed host metadata has not yet
+been extracted from the still-running native job. Target data is still missing.

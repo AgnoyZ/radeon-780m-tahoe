@@ -57,8 +57,9 @@ host test; it asserts the exact call count so a later write cannot masquerade as
 an acceptable error. Native preflight separately compiles/links the patched tool
 against real macOS IOKit without executing it. Run `41087992288` / code `b2cadc9`
 passed all 47 injected cases and the real-I/O-library compile/link preflight.
-The full native driver build remains in progress; see
-`validation/ci-b2cadc9-transport.json`. Neither check executes the real transport
+The full native driver build subsequently passed; see
+`validation/ci-b2cadc9-full.json` and `validation/ci-b2cadc9-transport.json`.
+Neither check executes the real transport
 or a GPU workload.
 
 Source provenance is retained for the new patch. The staged tool uses the pinned
@@ -129,8 +130,12 @@ Sixteen new actual-source host cases cover first/last valid submissions, the las
 valid sequence, unaligned packet storage, invalid sizes/offsets, one-word overflow,
 full/high-word/max pointers and sequence exhaustion. Negative cases require zero
 transport calls and unchanged packet/pointer/sequence; positive cases check all
-128 ring writes in order. These fake-transport cases require native sanitizer CI;
-they are not GPU execution or permission to initialize hardware.
+128 ring writes in order. All sixteen passed Linux ASan/UBSan in run
+`41096096384`, code `ff3345a`, along with the existing 52 transport and 20
+completion cases. The macOS preflight also passed real IOKit compilation/linking
+without executing the tool. Evidence: `validation/ci-ff3345a-submission.json`.
+The full native build is still running at this observation. These are not GPU
+execution or permission to initialize hardware.
 
 ## Evidence required before an initialization experiment
 

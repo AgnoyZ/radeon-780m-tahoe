@@ -1,0 +1,152 @@
+{
+  "ci_run_id": 41096096384,
+  "project_commit": "ff3345aaf8aa9a53966e30be149c79b1b693ffc6",
+  "source_tests_conclusion": "success",
+  "source_provenance": {
+    "nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+    "patches_sha256": {
+      "patches/0001-strict-hardware-execution.patch": "53af4e33ac223b8ea2ccdb49721e99507ef718f21a4198c9082df140244273ec",
+      "patches/0002-plugin-relative-radv.patch": "67235b00d8e420353cd7f4351a1ff5ade88fe72b6a1a506ed84ba19b88808a7a",
+      "patches/0003-bringup-aperture-bounds.patch": "4942a952b7da1bd37af728e9d5e7d921dc3996c8fd024a1126615da9e29a6898",
+      "patches/0004-checked-bringup-transport.patch": "c1a04745a43c9defc39fdfa0e85465398f78912f5ecb63d246e5a34644e99887",
+      "patches/0005-checked-gpu-completion.patch": "0d5220a1321fdd3b56a0139cb7f5e308fa47a192cec360f517f4a8afe0f1b1bf",
+      "patches/0006-bounded-mes-submission.patch": "e77c3bd279241a4c19eb597329e4f71823ef79ec436a2b577feff09f9b575d30"
+    },
+    "policy_sha256": "2cde00d8647958d0151f98332f33f935cb10ad27c987dea9ac5acfff85340ebe",
+    "runtime_path_sha256": "c0413b83f37eeece90543905914628624ceee7c6998e0b886229d09713d554ad",
+    "hardware_tested": false
+  },
+  "transport_cases_passed": 52,
+  "completion_cases_passed": 20,
+  "submission_boundary_cases_passed": [
+    {
+      "case": "first-frame",
+      "calls": 144,
+      "ring_writes": 128,
+      "wptr": 128,
+      "seq": 1
+    },
+    {
+      "case": "last-frame",
+      "calls": 144,
+      "ring_writes": 128,
+      "wptr": 1024,
+      "seq": 1
+    },
+    {
+      "case": "last-sequence",
+      "calls": 144,
+      "ring_writes": 128,
+      "wptr": 128,
+      "seq": 18446744073709551615
+    },
+    {
+      "case": "unaligned",
+      "calls": 144,
+      "ring_writes": 128,
+      "wptr": 128,
+      "seq": 1
+    },
+    {
+      "case": "null",
+      "calls": 0,
+      "ring_writes": 0,
+      "wptr": 0,
+      "seq": 0
+    },
+    {
+      "case": "short-frame",
+      "calls": 0,
+      "ring_writes": 0,
+      "wptr": 0,
+      "seq": 0
+    },
+    {
+      "case": "long-frame",
+      "calls": 0,
+      "ring_writes": 0,
+      "wptr": 0,
+      "seq": 0
+    },
+    {
+      "case": "huge-frame",
+      "calls": 0,
+      "ring_writes": 0,
+      "wptr": 0,
+      "seq": 0
+    },
+    {
+      "case": "offset-past-end",
+      "calls": 0,
+      "ring_writes": 0,
+      "wptr": 0,
+      "seq": 0
+    },
+    {
+      "case": "offset-truncated",
+      "calls": 0,
+      "ring_writes": 0,
+      "wptr": 0,
+      "seq": 0
+    },
+    {
+      "case": "offset-unaligned",
+      "calls": 0,
+      "ring_writes": 0,
+      "wptr": 0,
+      "seq": 0
+    },
+    {
+      "case": "ring-one-over",
+      "calls": 0,
+      "ring_writes": 0,
+      "wptr": 897,
+      "seq": 0
+    },
+    {
+      "case": "ring-full",
+      "calls": 0,
+      "ring_writes": 0,
+      "wptr": 1024,
+      "seq": 0
+    },
+    {
+      "case": "ring-high-word",
+      "calls": 0,
+      "ring_writes": 0,
+      "wptr": 4294967296,
+      "seq": 0
+    },
+    {
+      "case": "ring-max",
+      "calls": 0,
+      "ring_writes": 0,
+      "wptr": 18446744073709551615,
+      "seq": 0
+    },
+    {
+      "case": "sequence-exhausted",
+      "calls": 0,
+      "ring_writes": 0,
+      "wptr": 0,
+      "seq": 18446744073709551615
+    }
+  ],
+  "sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "native_preflight_step": {
+    "completedAt": "2026-10-30T17:08:40Z",
+    "conclusion": "success",
+    "name": "Preflight Apple Metal tooling and native probe compilation",
+    "number": 4,
+    "startedAt": "2026-10-30T17:08:15Z",
+    "status": "completed"
+  },
+  "native_inventory_scope": "CI host only; successful enclosing step, detailed metadata not yet extracted",
+  "full_native_build_status_at_observation": "in_progress",
+  "hardware_executed": false,
+  "target_inventory_collected": false,
+  "limitation": "Actual-source fake-transport boundary tests and compile/link preflight only; no ring reuse, ownership proof, target initialization or acceleration"
+}

@@ -1,0 +1,133 @@
+{
+  "ci_run_id": 41087992288,
+  "project_commit": "b2cadc9ddfa705d0ccb5a2471eab05d67789200f",
+  "ci_overall_conclusion": "success",
+  "jobs": [
+    {
+      "name": "source-tests",
+      "conclusion": "success",
+      "completed_at": "2026-10-30T16:14:17Z"
+    },
+    {
+      "name": "macos-kexts",
+      "conclusion": "success",
+      "completed_at": "2026-10-30T17:04:07Z"
+    }
+  ],
+  "host": "macOS-15.7.9-x86_64-i386-64bit-Mach-O",
+  "source_provenance": {
+    "nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+    "patches_sha256": {
+      "patches/0001-strict-hardware-execution.patch": "53af4e33ac223b8ea2ccdb49721e99507ef718f21a4198c9082df140244273ec",
+      "patches/0002-plugin-relative-radv.patch": "67235b00d8e420353cd7f4351a1ff5ade88fe72b6a1a506ed84ba19b88808a7a",
+      "patches/0003-bringup-aperture-bounds.patch": "4942a952b7da1bd37af728e9d5e7d921dc3996c8fd024a1126615da9e29a6898",
+      "patches/0004-checked-bringup-transport.patch": "c1a04745a43c9defc39fdfa0e85465398f78912f5ecb63d246e5a34644e99887"
+    },
+    "policy_sha256": "2cde00d8647958d0151f98332f33f935cb10ad27c987dea9ac5acfff85340ebe",
+    "runtime_path_sha256": "c0413b83f37eeece90543905914628624ceee7c6998e0b886229d09713d554ad"
+  },
+  "build_artifacts": {
+    "PhxBringup": {
+      "sha256": "0cbc056fdbf74440c1d55447fa2a14870cfdd77640164da484f2542e50b30683",
+      "bytes": 99776
+    },
+    "PhxAccel": {
+      "sha256": "21aab7eaced7fe995e52231cc861035e593723e34caca8760871992b232cee30",
+      "bytes": 336416
+    },
+    "NVMTLDriver": {
+      "sha256": "d58c9712a36c0e75a3d2d84152e4731167d1470cd434fe4950cffe964b73a2f7",
+      "bytes": 1531088
+    },
+    "nvmtl-translator": {
+      "sha256": "b8bebbd69419d656c548daf8be533fed3ca8df38e434e3f0ea4bd70ea22a0c2c",
+      "bytes": 14659472
+    },
+    "Mesa-RADV": {
+      "sha256": "bf386fee7ab64d49618c5daf753b74eed28e002bc70aa8e72a638aa26401e915",
+      "bytes": 20264208
+    },
+    "LLVM-AIR": {
+      "sha256": "615e6eab713a5d08f578d1b645a12b5d35ee9f7b6297831e850875370d48fa2b",
+      "bytes": 48405008
+    },
+    "metal-smoke": {
+      "sha256": "8e43eacbadfb05c73b6012415b2f27d5fb8f2e9721325cd41596065a4e99cb46",
+      "bytes": 23784
+    }
+  },
+  "plugin_functional_report": {
+    "plugin_sha256": "d58c9712a36c0e75a3d2d84152e4731167d1470cd434fe4950cffe964b73a2f7",
+    "translator_sha256": "b8bebbd69419d656c548daf8be533fed3ca8df38e434e3f0ea4bd70ea22a0c2c",
+    "llvm_sha256": "615e6eab713a5d08f578d1b645a12b5d35ee9f7b6297831e850875370d48fa2b",
+    "radv_sha256": "bf386fee7ab64d49618c5daf753b74eed28e002bc70aa8e72a638aa26401e915",
+    "cases": [
+      {
+        "case": "increment17",
+        "plugin_loaded": true,
+        "plugin_compiler_executed": true,
+        "bundled_runtimes_loaded": true,
+        "bundled_radv_loaded": true,
+        "no_device_init_rejected": true,
+        "gpu_commands_begun": 0,
+        "gpu_commands_submitted": 0,
+        "gpu_commands_abandoned": 0,
+        "spirv_bytes": 1168,
+        "spirv_sha256": "780106044905cb734e1f59b47af8af46af14dbd21a2198f0901f9393af72a484",
+        "spirv_val": "passed"
+      },
+      {
+        "case": "increment29",
+        "plugin_loaded": true,
+        "plugin_compiler_executed": true,
+        "bundled_runtimes_loaded": true,
+        "bundled_radv_loaded": true,
+        "no_device_init_rejected": true,
+        "gpu_commands_begun": 0,
+        "gpu_commands_submitted": 0,
+        "gpu_commands_abandoned": 0,
+        "spirv_bytes": 1168,
+        "spirv_sha256": "1d1521ef1a49a3271fc53f47f5cdcacf1b27719677a987dd456fa5747abee977",
+        "spirv_val": "passed"
+      }
+    ],
+    "negative_cases_passed": [
+      "missing_translator",
+      "missing_llvm",
+      "missing_radv",
+      "malformed_metallib"
+    ],
+    "relocated_bundle_tested": true,
+    "hardware_executed": false,
+    "metal_device_created": false,
+    "full_metal_pipeline_tested": false,
+    "limitation": "Actual plugin compiler and no-device ICD initialization; no Metal/Vulkan device, GPU execution or target runtime integration"
+  },
+  "direct_air_cases": [
+    {
+      "case": "llvm_roundtrip",
+      "bitcode_sha256": "18a09c6ba8eabdf9c888c9958c4e08aadd1a358529d2336fe7f4a35cf4f83eda",
+      "spirv_bytes": 1128,
+      "spirv_sha256": "2de25fd364d0724c2837e9fdebd544a931ce918a35a4c148edf28d9c96b88307",
+      "spirv_val": "passed"
+    },
+    {
+      "case": "apple_metal17",
+      "bitcode_sha256": "b3ad80ae1427345fd363a0a04a45de35a10f392c8fc8b99fa5d6f74eb61cbae6",
+      "spirv_bytes": 1168,
+      "spirv_sha256": "780106044905cb734e1f59b47af8af46af14dbd21a2198f0901f9393af72a484",
+      "spirv_val": "passed"
+    },
+    {
+      "case": "apple_metal29",
+      "bitcode_sha256": "b3fede374fb221c8a691a9d47748e507dc3ca6fa2cf918768d3d06e7d7256918",
+      "spirv_bytes": 1168,
+      "spirv_sha256": "1d1521ef1a49a3271fc53f47f5cdcacf1b27719677a987dd456fa5747abee977",
+      "spirv_val": "passed"
+    }
+  ],
+  "plugin_matches_direct_air": true,
+  "retained_artifact_count": 0,
+  "hardware_executed": false,
+  "limitation": "macOS CI host integration only; predates completion/submission patches and does not establish target Tahoe or GPU execution"
+}
