@@ -7,6 +7,7 @@
 - Removed cross-engine queue fallback; mixed-engine indirect buffers are refused.
 - Replaced overflowing 64-bit end-address checks in debug doorbell and PSP ring setup with a shared subtraction-based aperture bound check. Target-region ownership and the broader bring-up workflow remain unresolved; see `BRINGUP-AUDIT.md`.
 - Patched every `mesboot.c` IOKit transaction to stop on failed status or mismatched reply length instead of continuing with zero/partial data. Run `41087992288` / code `b2cadc9` passed 47 actual-source fake-transport cases under ASan/UBSan and compiled/linked the real tool against macOS IOKit without running it. See `validation/ci-b2cadc9-transport.json`. Firmware/layout/timeout semantics remain unresolved, and the tool is not deployed.
+- Added terminal MES/compute/graphics completion checks before later writes or queue adoption, full-width MES fence/token reads, alignment-safe packet-field encoding and a poisoned graphics result buffer. Expanded the actual-source fake-observation harness; native validation of these additions is pending. Other boot experiments and the target memory layout are still not validated.
 - Isolated source preparation, native macOS builds, binary inspection, regression tests and private CI artifacts.
 - Real Metal compute correctness probe; no CPU or other-GPU fallback.
 - Source-build integration for the actual NVMTLDriver Metal plugin, pinned Vulkan headers, normal symbol resolution, exported Objective-C entrypoint checks, matching bundle metadata and dependency license notices. Native CI verification passed (see evidence below).
@@ -37,7 +38,7 @@
 The goal remains a working 780M Tahoe graphics stack. This milestone is a code/build foundation, not completion. Current working EFI and Windows disks are untouched.
 
 ## Verified locally
-- Current suite: 60 Python tests passed, including real Git/worktree patch-order tests, aperture-check wiring, plugin-relative RADV staging, resource metadata paths/overwrite refusal, shared compiler recipes, preflight guards and transport/compiler-runner rejection checks. The real 16-patch Mesa source stage also applied successfully; no native RADV binary has been built locally.
+- Current suite: 63 Python tests passed, including real Git/worktree patch-order tests, aperture-check wiring, plugin-relative RADV staging, resource metadata paths/overwrite refusal, shared compiler recipes, preflight guards and transport/completion/compiler-runner rejection checks. The real 16-patch Mesa source stage also applied successfully; no native RADV binary has been built locally.
 - Previous Windows Python regression suite: 23 tests passed, including applying the patch to the pinned source, validating the plugin build/entrypoint contract, source-integrity rejection and SPIR-V envelope rejection. New module tests were first observed failing before their implementations existed.
 - Actual translator release archive hash and layout verified locally; 321 Rust source files are present. Rust compilation itself was performed on macOS CI, not this Windows host.
 - Python syntax compilation passed. Native C++/kext/Metal builds are delegated to CI, not claimed as local passes.

@@ -49,7 +49,22 @@ class SourceTests(unittest.TestCase):
             prepare(self.stage)
     def test_provenance_is_not_hardware_pass(self):
         self.assertFalse(self.provenance["hardware_tested"])
-        self.assertEqual(4, len(self.provenance["patches_sha256"]))
+        self.assertEqual(5, len(self.provenance["patches_sha256"]))
+    def test_mesboot_rejects_missing_gpu_completion_before_later_writes(self):
+        text = (self.stage / "tools/phxctl/mesboot.c").read_text(encoding="utf-8")
+        submit = text.split("static int mes_submit(")[1].split("#define CMP_RING")[0]
+        self.assertIn('gpu_failure("MES completion")', submit)
+        self.assertLess(submit.index('gpu_failure("MES completion")'), submit.index("grbm_select(3, 0, 0, 0)"))
+        self.assertIn("st != 1", submit)
+        self.assertIn("uint64_t f = vr64(SCH_WB + 32), st = vr64(SCH_WB + 64)", submit)
+        self.assertIn("memcpy((char *)pkt + api_status_off, status_words, sizeof(status_words))", submit)
+        self.assertNotIn("*(uint64_t *)", submit)
+        self.assertIn("vw(TESTBUF + 0x40, ~0x6F7A6F7Au)", text)
+        for name, adopt in (("compute", 'env_on("ADOPT")'), ("gfx", 'env_on("ADOPT_GFX")')):
+            body = text.split(f"static void {name}_via_mes(void)\n{{")[1].split("\n}\n", 1)[0]
+            check = f'gpu_failure("{name} execution")'
+            self.assertIn(check, body)
+            self.assertLess(body.index(check), body.index(adopt))
     def test_mesboot_checks_all_iokit_calls_and_reply_lengths(self):
         text = (self.stage / "tools/phxctl/mesboot.c").read_text(encoding="utf-8")
         self.assertEqual(1, text.count("IOConnectCallScalarMethod("))

@@ -24,18 +24,55 @@ def check_case(result, expected_return, expected_calls):
 
 
 def cases():
-    operations = ("open", "rd", "vr", "wr", "vw", "db", "sm", "read-then-write",
+    operations = ("open", "rd", "vr", "vr64", "wr", "vw", "db", "sm", "read-then-write",
                   "vram-read-then-write", "write-then-doorbell", "claim", "adopt")
     for operation in operations:
         yield operation, "ok", 0, 2 if "-then-" in operation else 1
         yield operation, "status", 74, 1
-    for operation in ("rd", "vr", "wr", "sm", "read-then-write", "vram-read-then-write"):
+    for operation in ("rd", "vr", "vr64", "wr", "sm", "read-then-write", "vram-read-then-write"):
         yield operation, "zero", 0, 2 if "-then-" in operation else 1
-    for operation in ("open", "rd", "vr", "wr", "sm", "read-then-write", "vram-read-then-write"):
+    for operation in ("open", "rd", "vr", "vr64", "wr", "sm", "read-then-write", "vram-read-then-write"):
         for fault in ("short", "long"):
             yield operation, fault, 74, 1
     for fault, calls_count in (("bad-abi", 1), ("no-service", 0), ("open-failure", 0)):
         yield "open", fault, 1, calls_count
+
+
+def completion_cases():
+    for operation in ("mes", "sched", "compute", "gfx"):
+        faults = ("ok", "timeout", "zero-token", "wrong-token", "wrong-fence-high", "wrong-token-high") if operation in ("mes", "sched") else (
+            "ok", "timeout", "wrong-scratch", "wrong-memory")
+        for fault in faults:
+            yield operation, fault
+
+
+def check_completion_case(result, operation, fault):
+    success = fault == "ok"
+    if result.returncode != (0 if success else 75):
+        raise RuntimeError(f"Unexpected completion exit ({operation}/{fault}): {result.returncode}: {result.stderr}")
+    if ("gpu-returned" in result.stdout) != success:
+        raise RuntimeError("GPU failure was swallowed or positive path did not return")
+    if not success and "mesboot GPU:" not in result.stderr:
+        raise RuntimeError("Negative result was not a checked completion failure")
+    prefix = "fake-gpu-summary "
+    summaries = [line[len(prefix):] for line in result.stderr.splitlines() if line.startswith(prefix)]
+    if len(summaries) != 1:
+        raise RuntimeError("Missing or repeated completion-path accounting")
+    summary = json.loads(summaries[0])
+    work = operation in ("compute", "gfx")
+    expected = {"scheduler_bells": 2 if operation == "sched" and success else 1,
+                "work_bells": 1 if work else 0, "adoptions": 1 if work and success else 0,
+                "writes_after_failure": 0}
+    if set(summary) != set(expected) | {"sleeps"} or any(type(value) is not int for value in summary.values()):
+        raise RuntimeError("Invalid completion-path accounting types")
+    if any(summary[key] != value for key, value in expected.items()):
+        raise RuntimeError("Initialization continued or adopted a queue after a failed prerequisite")
+    expected_sleeps = (2 if operation == "sched" else 1) if success else (400 if fault in ("timeout", "wrong-fence-high") else 1)
+    if work:
+        expected_sleeps = 2 if success else 51
+    if summary["sleeps"] != expected_sleeps:
+        raise RuntimeError("Completion polling did not follow the actual bounded path")
+    return summary
 
 
 def exercise(out):
@@ -57,10 +94,16 @@ def exercise(out):
         result = subprocess.run([str(binary), operation, fault], capture_output=True, text=True, timeout=10)
         check_case(result, status, count)
         passed.append(operation + ":" + fault)
+    completions = []
+    for operation, fault in completion_cases():
+        result = subprocess.run([str(binary), operation, fault], capture_output=True, text=True, timeout=10)
+        observed = check_completion_case(result, operation, fault)
+        completions.append({"case": operation + ":" + fault, **observed})
     report = {"source_provenance": provenance, "fault_injection_cases_passed": passed,
+              "completion_path_cases_passed": completions,
               "transport_backend": "fake IOKit; actual patched mesboot source",
               "hardware_executed": False, "driver_runtime_tested": False,
-              "limitation": "Checks transport status, exact reply lengths and fail-stop sequencing, not GPU initialization"}
+              "limitation": "Injected transport/completion observations test actual userspace control flow, not GPU execution or packet correctness"}
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2), flush=True)
     return report

@@ -71,6 +71,39 @@ validate firmware responses, propagate every GPU timeout, or remove the hardcode
 reference memory layout. No automatic GPU reset or speculative recovery writes
 are added. The real tool is not executed or installed by these checks.
 
+## Completion handling added; native verification pending
+
+`patches/0005-checked-gpu-completion.patch` makes missing MES completion terminal
+(exit 75), so callers such as `sched_test` cannot ignore a timeout and launch the
+next initialization stage. The tool compares the entire 64-bit query fence and
+command completion token, requiring the token value 1 that it put in the command.
+It validates these before even diagnostic register-selection writes. Reading a
+previous scheduler sequence also retains its high 32 bits.
+
+Compute and graphics queue tests now require both their expected scratch-register
+value and their expected memory write before later register changes or queue
+adoption. The graphics target is initialized to the complement of its expected
+value so stale data cannot satisfy the memory check. These markers are the
+reference tool's basic execution checks, not a Metal shader/rendering workload.
+
+Completion-field encoding uses `memcpy` rather than an unaligned `uint64_t *`
+store: the pinned MES frames have only four-byte alignment. The host harness
+exercises a deliberately four-but-not-eight-byte-aligned frame under sanitizers.
+
+The harness now has 52 transport cases plus 20 injected completion-path cases.
+The latter run the actual MES submission, scheduler initialization, compute and
+graphics functions, including positive adoption paths, timeouts, missing/wrong
+tokens, mismatched high fence/token words, and independent scratch/memory failures.
+They check bounded polling, no next stage or adoption after failure, and no later
+scalar write after the injected failed completion. This is **control-flow testing
+with fake observations**, not GPU emulation, packet correctness or hardware proof.
+The new native checks have not yet completed.
+
+No hardware rollback is attempted. KIQ/SDMA experiments, ring capacity/ownership,
+sequence exhaustion, firmware responses, target mappings and safe recovery still
+need separate validation before deployment. Process exit is not proof that the
+GPU is idle or its earlier writes have been undone.
+
 ## Evidence required before an initialization experiment
 
 1. Confirm the actual target Tahoe build, a tested external-disk/EFI recovery path

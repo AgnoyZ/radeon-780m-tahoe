@@ -133,7 +133,10 @@ later checks against actual built components. No binaries are published by CI.
 
 The source-test job runs `python3 tools/test_bringup_transport.py --out build/transport-tests`.
 It compiles the real patched `mesboot.c` into an ASan/UBSan-instrumented harness
-with **fake IOKit**, then executes 47 positive/error/short/long-response cases.
+with **fake IOKit**, then executes 52 positive/error/short/long-response cases and
+20 injected MES/compute/graphics completion-path cases. The completion cases run
+the actual tool functions with deliberately fake observations and no real sleeps;
+they verify exact poll counts and rejection before subsequent writes/adoption.
 No GPU or kernel connection exists in this harness. The macOS preflight also
 compiles and links the actual tool against real IOKit, but does not execute it.
 Neither executable is copied into the build's deliverable artifacts.
