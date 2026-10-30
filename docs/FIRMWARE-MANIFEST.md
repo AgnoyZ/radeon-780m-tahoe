@@ -75,6 +75,10 @@ The evidence contains metadata only: `validation/firmware-08624cd.json`.
 Fifteen synthetic tests additionally exercise malformed hashes/lengths, version
 mismatches, overlap, dword conversion, missing optional components, path/name
 rejection and output overwrite/failure handling. They do not execute firmware.
+Run `41098224904`, code `db8d907`, passed all 92 Python tests including these
+fifteen cases, the existing native sanitizer cases, and macOS toolchain preflight.
+The full macOS build is still running at this observation. CI did not download
+or execute the nine firmware files; their actual-file validation was local.
 
 Neither file parsing nor matching reference slices verifies firmware signatures,
 PSP command IDs/order, target IP discovery, device-memory placement, exclusive

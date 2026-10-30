@@ -100,8 +100,9 @@ scalar write after the injected failed completion. This is **control-flow testin
 with fake observations**, not GPU emulation, packet correctness or hardware proof.
 Run `41089800738` / code `61c5c0e` passed all 52 transport and 20 completion
 cases under ASan/UBSan. Its macOS preflight also compiled/linked the real tool
-without executing it. The full native driver build remains in progress; see
-`validation/ci-61c5c0e-completion.json`.
+without executing it. Its full native driver/plugin build subsequently passed,
+including real Metal/AIR translation and relocated plugin compilation; see
+`validation/ci-61c5c0e-completion.json` and `validation/ci-61c5c0e-full.json`.
 
 No hardware rollback is attempted. KIQ/SDMA experiments, ring reuse/ownership,
 firmware responses, target mappings and safe recovery still
