@@ -1,0 +1,33 @@
+{
+  "ci_run_id": 41086848246,
+  "project_commit": "3263e3aa155e187ebae61751c4c4dc7bbf8b1992",
+  "ci_status_at_observation": "in_progress",
+  "ci_overall_conclusion_at_observation": null,
+  "evidence_source": "GitHub Actions run/job/step API; full native job log not yet available",
+  "source_tests": {
+    "job_id": 124170122030,
+    "conclusion": "success",
+    "python_regressions": "passed",
+    "cpp_address_undefined_sanitizers": "passed"
+  },
+  "native_preflight": {
+    "job_id": 124170256314,
+    "step": "Preflight Apple Metal tooling and native probe compilation",
+    "conclusion": "success",
+    "completed_at": "2026-10-30T16:07:03Z",
+    "real_metal_source_compilation_and_linking": true,
+    "native_probe_compilation": true,
+    "synthetic_bundle_signing_and_strict_verification": true,
+    "both_json_resource_mutations_rejected": true,
+    "original_resource_bytes_restored_and_reverified": true,
+    "synthetic_binaries_loaded_or_executed": false,
+    "driver_runtime_tested": false,
+    "hardware_executed": false
+  },
+  "limitations": [
+    "A passed preflight step is not a completed full build or actual plugin runtime pass.",
+    "The bundle signing fixture uses project-owned stub binaries, not RADV, LLVM or translator implementations.",
+    "Actual full-component signing and subsequent AIR/plugin functional tests remain pending.",
+    "No target deployment, Metal device creation, GPU execution or display acceleration is verified."
+  ]
+}
