@@ -9,6 +9,7 @@ import shutil
 import subprocess
 
 from test_translator_runtime import spirv_instructions
+from macos_toolchain import metal_command, probe_command
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {"plugin_loaded": True, "plugin_compiler_executed": True, "bundled_runtimes_loaded": True,
@@ -63,16 +64,14 @@ def exercise(bundle, fixture, validator, out):
     def run(*command, timeout=60):
         return subprocess.run(list(map(str, command)), check=True, env=env, timeout=timeout)
     probe = out / "plugin-compile-probe"
-    run("xcrun", "clang", "-arch", "x86_64", "-mmacosx-version-min=15.0", "-fobjc-arc", "-Wall", "-Wextra", "-Werror",
-        "-framework", "Foundation", "-framework", "Metal", "-framework", "IOKit", "-framework", "CoreFoundation",
-        ROOT / "tools/plugin_compile_probe.m", "-o", probe)
+    run(*probe_command("plugin-compile-probe", probe))
     relocated = out / "relocated/NVMTLDriver.bundle"
     copy_bundle(bundle, relocated)
     run("codesign", "--verify", "--strict", relocated)
     inputs = {}
     for value in (17, 29):
         air, lib = out / f"increment{value}.air", out / f"increment{value}.metallib"
-        run("xcrun", "-sdk", "macosx", "metal", "-std=macos-metal3.1", "-c", fixture, f"-DADD_VALUE={value}", "-o", air)
+        run(*metal_command(fixture, air, value))
         run("xcrun", "-sdk", "macosx", "metallib", air, "-o", lib)
         inputs[value] = lib
     reports = []

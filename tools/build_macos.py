@@ -13,6 +13,7 @@ from build_userspace import build_plugin, PLUGIN_IDENTIFIER
 from build_translator import build_translator
 from build_radv import build_radv
 from build_air_runtime import build_air_runtime
+from macos_toolchain import probe_command
 
 def run(*args):
     print("RUN", " ".join(map(str, args)), flush=True)
@@ -95,10 +96,7 @@ def main():
     # Every plugin-adjacent dylib must be present before sealing the enclosing bundle.
     report["NVMTLDriver"].update(inspect_plugin(plugin, PLUGIN_IDENTIFIER))
     smoke = artifacts / "metal-smoke"
-    run("xcrun", "clang", "-arch", "x86_64", "-mmacosx-version-min=13.0", "-fobjc-arc", "-fblocks",
-        "-Wall", "-Wextra", "-Werror", "-framework", "Foundation", "-framework", "Metal",
-        "-framework", "IOKit", "-I" + str(ROOT / "src"),
-        ROOT / "tools/metal_smoke.m", "-o", smoke)
+    run(*probe_command("metal-smoke", smoke))
     report["metal-smoke"] = inspect_macho(smoke, 2)
     shutil.copytree(stage / "LICENSES", artifacts / "LICENSES")
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):

@@ -42,6 +42,8 @@ jobs:
         with:
           submodules: true
           persist-credentials: false
+      - name: Preflight Apple Metal tooling and native probe compilation
+        run: python3 tools/macos_toolchain.py --out build/toolchain-preflight
       - name: Checkout pinned MacKernelSDK
         run: |
           git clone https://github.com/acidanthera/MacKernelSDK.git build-sdk

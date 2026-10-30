@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 from test_translator_runtime import spirv_instructions
+from macos_toolchain import metal_command
 
 LIMIT = 16 * 1024 * 1024
 DIAGNOSTIC = C.CFUNCTYPE(None, C.c_void_p, C.c_void_p)
@@ -171,8 +172,7 @@ def exercise(llvm, translator, plugin_source, ir_fixture, metal_fixture, validat
     compiler = subprocess.check_output(["xcrun", "-sdk", "macosx", "metal", "--version"], text=True, timeout=30).strip()
     for value in (17, 29):
         path = out / f"metal{value}.air"
-        subprocess.run(["xcrun", "-sdk", "macosx", "metal", "-std=macos-metal3.1", "-c",
-                        str(Path(metal_fixture).resolve()), f"-DADD_VALUE={value}", "-o", str(path)], check=True, timeout=60)
+        subprocess.run(metal_command(metal_fixture, path, value), check=True, timeout=60)
         cases.append((f"apple_metal{value}", path.read_bytes()))
     reports = []
     for name, data in cases:

@@ -16,21 +16,23 @@
 - The downstream driver refuses mock/host-only devices and non-Phoenix profiles; hardware fallback is not a success path. Existing EFI is unchanged.
 - First native attempt, run `41062610926` / commit `6cf8369`, reached the shared-header ABI probe but failed because the C11 test omitted `<assert.h>` while the upstream Phoenix header uses `static_assert`. Added the standard header; no assertions or compiler diagnostics are disabled. Mesa compilation and ICD runtime tests were not reached by that failed run.
 
-## LLVM AIR reader integration in progress
+## LLVM AIR build verified; compiler-chain validation in progress
 - Selected and fetched LLVM 21.1.8 at `2078da43e25a4623cab2d0d60decddf709aaea28`; audited the source license and the plugin's 38 mandatory/optional C API references. This does not establish equivalence with nullarc's unversioned packaged LLVM.
-- Implemented source build, plugin-relative staging, dependency rejection, export and ad-hoc signing checks and bounded real Metal -> AIR -> LLVM IR -> SPIR-V host tests. These new native steps are pending CI; no successful reader/Metal compiler-chain execution is claimed yet.
+- Run `41069365794` (`dadac3f`) built the actual LLVM runtime, verified all 38 plugin exports and system-only dependencies, and passed signing checks. The 48,405,008-byte x86_64 dylib has SHA-256 `615e6eab713a5d08f578d1b645a12b5d35ee9f7b6297831e850875370d48fa2b`.
+- The overall run then failed when Apple's compiler rejected `-std=macos-metal3.1`, before completing the real Metal/AIR/SPIR-V tests. The recipe now uses the diagnostic's supported `-std=metal3.1` spelling, shared by both compiler tests. An early native toolchain/probe preflight now detects such failures before the expensive dependency builds. Native validation of this correction is pending.
+- Curated build evidence: `validation/ci-dadac3f.json`. The failed overall result and absence of target execution are retained; GitHub confirms zero binary artifacts.
 
 ## Not implemented / not verified
 - Machine-specific firmware carve-out safety, all kernel memory/concurrency paths, panel/power differences and full ABI compatibility audit.
 - Initial boot-workflow audit found reference-machine addresses, unchecked IOKit results, masked pipeline failures and automatic reboot/NVRAM changes. See `BRINGUP-AUDIT.md`; the original scripts were inspected but not executed or installed.
-- Verified LLVM AIR runtime build, GPU firmware and boot orchestration; runtime integration of the full Metal stack on the target GPU. RADV's direct system-only dependencies now pass host validation, not target deployment validation.
+- Verified LLVM AIR processing and full plugin compiler-chain behavior, GPU firmware and boot orchestration; runtime integration of the full Metal stack on the target GPU. LLVM builds and RADV's direct system-only dependencies now pass host validation, not target deployment validation.
 - Tahoe installation on the target laptop and actual GPU command completion, Metal rendering, WindowServer integration and long-run stability.
 - Resolved ABI provenance discrepancy noted in EXPERIMENTAL.md; no external redistribution authorization is inferred.
 
 The goal remains a working 780M Tahoe graphics stack. This milestone is a code/build foundation, not completion. Current working EFI and Windows disks are untouched.
 
 ## Verified locally
-- Current suite: 45 Python tests passed, including real Git/worktree patch-order tests, plugin-relative RADV staging and compiler-runner rejection checks. The real 16-patch Mesa source stage also applied successfully; no native RADV binary has been built locally.
+- Current suite: 50 Python tests passed, including real Git/worktree patch-order tests, plugin-relative RADV staging, shared compiler recipes, preflight guards and compiler-runner rejection checks. The real 16-patch Mesa source stage also applied successfully; no native RADV binary has been built locally.
 - Previous Windows Python regression suite: 23 tests passed, including applying the patch to the pinned source, validating the plugin build/entrypoint contract, source-integrity rejection and SPIR-V envelope rejection. New module tests were first observed failing before their implementations existed.
 - Actual translator release archive hash and layout verified locally; 321 Rust source files are present. Rust compilation itself was performed on macOS CI, not this Windows host.
 - Python syntax compilation passed. Native C++/kext/Metal builds are delegated to CI, not claimed as local passes.
