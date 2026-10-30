@@ -181,8 +181,9 @@ Patch `0010` connects the TOC response's actual TMR-size field to exact-size,
 aligned TMR setup and prevents managed engine loading before TMR completion.
 The staged TOC uses the checked snapshot transport. This implements part of the
 initialization sequence, but component selection, owned memory and the broader
-GART/queue/power workflow remain unresolved. Its new C/C++ cases are pending;
-see `PSP-TOC.md`.
+GART/queue/power workflow remain unresolved. Its 69 actual-kernel-method and 60
+actual-CLI cases passed ASan/UBSan in run `41145000196`; full native kernel
+compilation is still pending. See `PSP-TOC.md`.
 
 1. Confirm the actual target Tahoe build, a tested external-disk/EFI recovery path
    and the exact driver/firmware revisions. The last verified target environment

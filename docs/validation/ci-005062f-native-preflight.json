@@ -1,0 +1,77 @@
+{
+  "ci_run_id": 41104430767,
+  "native_job_id": 124230226528,
+  "project_commit": "005062fc25822309c438a66c76bd7524e24737de",
+  "ci_overall_conclusion": "failure",
+  "native_preflight": {
+    "source_provenance": {
+      "nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+      "patches_sha256": {
+        "patches/0001-strict-hardware-execution.patch": "53af4e33ac223b8ea2ccdb49721e99507ef718f21a4198c9082df140244273ec",
+        "patches/0002-plugin-relative-radv.patch": "67235b00d8e420353cd7f4351a1ff5ade88fe72b6a1a506ed84ba19b88808a7a",
+        "patches/0003-bringup-aperture-bounds.patch": "4942a952b7da1bd37af728e9d5e7d921dc3996c8fd024a1126615da9e29a6898",
+        "patches/0004-checked-bringup-transport.patch": "c1a04745a43c9defc39fdfa0e85465398f78912f5ecb63d246e5a34644e99887",
+        "patches/0005-checked-gpu-completion.patch": "0d5220a1321fdd3b56a0139cb7f5e308fa47a192cec360f517f4a8afe0f1b1bf",
+        "patches/0006-bounded-mes-submission.patch": "e77c3bd279241a4c19eb597329e4f71823ef79ec436a2b577feff09f9b575d30",
+        "patches/0007-checked-psp-completion.patch": "64b8ede45d56618de4846dc7fc68f2966cfc660b752e8359ecd65ab1c324cdea",
+        "patches/0008-checked-firmware-control.patch": "4fc48ed11563223f1afabe31e5dc4a96aefdb1c2606279caa6dcd96f8cb9e37b",
+        "patches/0009-explicit-psp-layout.patch": "a760606bb9ea30225348fb0dba23dd3883ec0630e5bc147abc531899adc8ab59"
+      },
+      "policy_sha256": "2cde00d8647958d0151f98332f33f935cb10ad27c987dea9ac5acfff85340ebe",
+      "psp_layout_sha256": "183a931fec90396a1d7b3d58a41bfdf91dabc259b195d103a0bd5fd7875e023b",
+      "runtime_path_sha256": "c0413b83f37eeece90543905914628624ceee7c6998e0b886229d09713d554ad",
+      "hardware_tested": false
+    },
+    "binary": {
+      "architecture": "x86_64",
+      "macho_type": 2,
+      "sha256": "ba95b06e45a640417f9557310b0b279babbf3530aeb85dc66ab9ff4cec58a647",
+      "bytes": 59496
+    },
+    "native_iokit_linked": true,
+    "mesboot_executed": false,
+    "hardware_executed": false,
+    "firmware_control_offline_check": {
+      "binary": {
+        "architecture": "x86_64",
+        "macho_type": 2,
+        "sha256": "99f83d0f35e1f0a5f0c1498db2fe1ecf5331295f3c38f1dc06c0f7f222ac898f",
+        "bytes": 18512
+      },
+      "mode": "verify-file only, before IOKit service opening",
+      "real_commoncrypto_executed": true,
+      "cases": [
+        {
+          "case": "matching-hash",
+          "expected_exit": 0,
+          "observed_exit": 0
+        },
+        {
+          "case": "wrong-hash",
+          "expected_exit": 65,
+          "observed_exit": 65
+        },
+        {
+          "case": "malformed-hash",
+          "expected_exit": 64,
+          "observed_exit": 64
+        },
+        {
+          "case": "changed-file",
+          "expected_exit": 65,
+          "observed_exit": 65
+        }
+      ],
+      "hardware_executed": false,
+      "firmware_staged_or_loaded": false
+    },
+    "deployable": false,
+    "limitation": "Reference memory layout remains unsafe for target use; compile only"
+  },
+  "native_kernel_build_verified": false,
+  "hardware_executed": false,
+  "failure_stage": "Prepare pinned Mesa RADV sources and build dependencies",
+  "failure_component": "Cobalt64 pinned commit fetch",
+  "failure_diagnostic": "Could not resolve host: github.com",
+  "limitation": "Native offline crypto and tool compile/link passed; dependency fetch failed before the full kernel/plugin build."
+}

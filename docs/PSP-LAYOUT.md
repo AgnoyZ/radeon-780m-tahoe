@@ -92,7 +92,11 @@ calls during configuration. Run `41104430767`, source job `124230027410`, passed
 all 48 kernel-method cases and all 46 actual-CLI cases under ASan/UBSan, including
 standalone control compilation. Patch/header hashes and all seven extracted
 method hashes were cross-checked; see `validation/ci-005062f-layout.json`.
-Native kernel compilation and real CommonCrypto execution remain unverified.
+Native tool compilation and all four real CommonCrypto offline checks also
+passed. That run then failed while fetching pinned Cobalt64 sources because the
+runner could not resolve `github.com`; it did not reach full kernel compilation.
+See `validation/ci-005062f-native-preflight.json` for the partial pass and overall
+failure. The later TOC revision is being built separately.
 A fake-memory ring
 creation is not hardware execution, and a successful source build will not prove
 target firmware compatibility.

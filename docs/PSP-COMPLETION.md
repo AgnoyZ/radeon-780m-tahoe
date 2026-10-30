@@ -64,8 +64,9 @@ available. All 32 per-case reports passed; the six extracted method hashes match
 the currently staged method bodies and all seven recorded patch hashes match
 their source files. Full per-case evidence is in
 `validation/ci-7921a7c-psp.json`; the earlier step-only observation is preserved
-in `validation/ci-7921a7c-psp-step.json`. The complete native kernel build remains
-unverified. These fake-hardware observations do not verify PSP firmware behavior.
+in `validation/ci-7921a7c-psp-step.json`. A subsequent complete native build of
+`5a066d0`, including this PSP patch, passed; see `validation/ci-5a066d0-full.json`.
+These host observations do not verify PSP firmware behavior on the target.
 
 ## Remaining hardware requirements
 
@@ -74,8 +75,9 @@ descriptor; see `PSP-LAYOUT.md`. The harness extracts a seventh actual method fo
 configuration and adds sixteen cases (48 total). All 48 passed in run
 `41104430767`, code `005062f`; see `validation/ci-005062f-layout.json`.
 Patch 0010 adds checked TOC-size retrieval and managed initialization sequencing,
-with 69 cases now defined but not yet observed running; see `PSP-TOC.md`. Earlier
-32- and 48-case results do not verify these newer method changes.
+with all 69 cases now passed under ASan/UBSan in run `41145000196`; see
+`PSP-TOC.md` and `validation/ci-a5eab3a-toc.json`. Native kernel compilation of
+those newer methods remains pending; earlier build passes do not establish it.
 
 Stopping writes does not cancel in-flight firmware, roll back prior writes,
 prove memory ownership or establish a safe reboot/unload/reset. The latch is

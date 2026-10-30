@@ -82,8 +82,11 @@ size at offset 16, so confusing firmware addresses with size is detectable.
 
 The actual CLI harness now has 60 cases, adding 14 TOC cases covering failed
 snapshot/transfer/transport/reply prerequisites. Neither harness emulates firmware
-or executes a GPU. These new C/C++ cases await CI execution; 107 Python
-source/runner tests passed locally. Previous revision `005062f` passed its 48
+or executes a GPU. Run `41145000196`, code `a5eab3a`, passed all 69 kernel-method
+cases and all 60 CLI cases under ASan/UBSan. Each method hash, patch/header hash
+and CLI operation count was cross-checked; see `validation/ci-a5eab3a-toc.json`.
+107 Python source/runner tests passed locally. Full native kernel compilation
+for this revision is still pending. Previous revision `005062f` passed its 48
 kernel-method and 46 CLI cases; that evidence is historical and does not prove
 this new sequence. See `validation/ci-005062f-layout.json`.
 

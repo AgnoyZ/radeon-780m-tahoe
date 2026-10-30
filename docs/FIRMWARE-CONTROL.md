@@ -49,7 +49,9 @@ executed by native CI. The tool is not added to deployment artifacts.
 Native preflight compiles the real staged tool against system IOKit and
 CommonCrypto. Four synthetic-file cases check a matching digest, wrong digest,
 malformed digest and changed file using the real CommonCrypto implementation.
-These native checks are wired into CI but have not yet been observed passing.
+All four native cases passed for `5a066d0` and `005062f`; see
+`validation/ci-5a066d0-full.json` and `validation/ci-005062f-native-preflight.json`.
+They executed only `verify-file`, without opening the GPU service.
 
 Separately, 39 ASan/UBSan host cases include the actual patched CLI source and
 fake IOKit/crypto dependencies. They check complete-byte transfer, file mutation
@@ -59,8 +61,8 @@ prerequisite. The fake crypto checks fixture bytes but is **not** a SHA-256
 implementation test; native CommonCrypto results must be reported separately.
 Run `41102630320`, code `5a066d0`, has now passed all 39 cases under ASan/UBSan
 and standalone C11 compilation. The extracted report and patch hashes are in
-`validation/ci-5a066d0-control.json`. Real native CommonCrypto execution remains
-unverified; fake crypto results must not be used as a substitute.
+`validation/ci-5a066d0-control.json`. Real native CommonCrypto results are recorded
+separately in the native evidence above; the fake crypto remains a different test.
 
 Source review found that the newly included shared ABI header uses C11
 `static_assert`, but `phxctl.c` had not included `<assert.h>`. The test harness
@@ -68,8 +70,8 @@ included it first and could hide this standalone compilation defect. Patch 0008
 now includes the header in the tool itself. Host CI first compiles the actual
 tool as its own C11 translation unit with fake IOKit declarations and warnings
 as errors, before building the harness; the native build also explicitly selects
-C11. The POSIX standalone compilation passed the run above; the native compiler
-and CommonCrypto path still need their own observed results.
+C11. Both POSIX standalone compilation and the native compiler/CommonCrypto path
+have now passed for the corrected revision.
 
 The earlier native run `41101826570`, code `b39f6f8`, subsequently finished with
 failure in job `124220444422`. Its compiler errors identify `static_assert` in
@@ -89,7 +91,8 @@ All 46 cases passed ASan/UBSan in run `41104430767`, code `005062f`; see
 Patch 0010 adds `loadtoc`, using the same authenticated snapshot path before
 submitting the staged TOC through selector 115. It requires a positive returned
 TMR size and a fit flag of exactly one, then stops without setting up the TMR.
-Fourteen added cases bring the CLI suite to 60; their C execution is pending.
+All 60 CLI cases passed ASan/UBSan in run `41145000196`, code `a5eab3a`; see
+`validation/ci-a5eab3a-toc.json`.
 107 Python tests pass locally. See `PSP-TOC.md` for the response layout, size
 provenance and initialization sequencing.
 
