@@ -6,7 +6,7 @@
 - Removed legacy no-GPU submission and wait success; unavailable GPU returns NotReady instead of fabricating a fence retirement.
 - Removed cross-engine queue fallback; mixed-engine indirect buffers are refused.
 - Replaced overflowing 64-bit end-address checks in debug doorbell and PSP ring setup with a shared subtraction-based aperture bound check. Target-region ownership and the broader bring-up workflow remain unresolved; see `BRINGUP-AUDIT.md`.
-- Patched every `mesboot.c` IOKit transaction to stop on failed status or mismatched reply length instead of continuing with zero/partial data. Added actual-source fault injection and native compile-only checks; their native execution is pending. Firmware/layout/timeout semantics remain unresolved, and the tool is not deployed.
+- Patched every `mesboot.c` IOKit transaction to stop on failed status or mismatched reply length instead of continuing with zero/partial data. Run `41087992288` / code `b2cadc9` passed 47 actual-source fake-transport cases under ASan/UBSan and compiled/linked the real tool against macOS IOKit without running it. See `validation/ci-b2cadc9-transport.json`. Firmware/layout/timeout semantics remain unresolved, and the tool is not deployed.
 - Isolated source preparation, native macOS builds, binary inspection, regression tests and private CI artifacts.
 - Real Metal compute correctness probe; no CPU or other-GPU fallback.
 - Source-build integration for the actual NVMTLDriver Metal plugin, pinned Vulkan headers, normal symbol resolution, exported Objective-C entrypoint checks, matching bundle metadata and dependency license notices. Native CI verification passed (see evidence below).

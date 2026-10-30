@@ -55,7 +55,11 @@ returns, legitimate zero data, transport errors, both reply-length directions,
 ABI/open failures and failed read/write prerequisites. ASan/UBSan instrument this
 host test; it asserts the exact call count so a later write cannot masquerade as
 an acceptable error. Native preflight separately compiles/links the patched tool
-against real macOS IOKit without executing it. Native results are pending.
+against real macOS IOKit without executing it. Run `41087992288` / code `b2cadc9`
+passed all 47 injected cases and the real-I/O-library compile/link preflight.
+The full native driver build remains in progress; see
+`validation/ci-b2cadc9-transport.json`. Neither check executes the real transport
+or a GPU workload.
 
 Source provenance is retained for the new patch. The staged tool uses the pinned
 upstream MIT option (`LICENSE` and `LICENSES/MIT.txt`); its two unmodified AMD
