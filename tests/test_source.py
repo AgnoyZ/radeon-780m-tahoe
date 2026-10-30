@@ -49,7 +49,16 @@ class SourceTests(unittest.TestCase):
             prepare(self.stage)
     def test_provenance_is_not_hardware_pass(self):
         self.assertFalse(self.provenance["hardware_tested"])
-        self.assertEqual(2, len(self.provenance["patches_sha256"]))
+        self.assertEqual(3, len(self.provenance["patches_sha256"]))
+    def test_bringup_bounds_are_checked_before_aperture_access(self):
+        doorbell = self.bringup.split("IOReturn PhxBringup::doorbellWrite(")[1].split("IOReturn PhxBringup::vramWrite(")[0]
+        self.assertIn("phx780m::rangeWithin(byteOff, 8, doorbellMap->getLength())", doorbell)
+        self.assertNotIn("byteOff + 8 >", doorbell)
+        self.assertLess(doorbell.index("phx780m::rangeWithin"), doorbell.index("getVirtualAddress()"))
+        ring = self.bringup.split("IOReturn PhxBringup::pspRing(")[1].split("IOReturn PhxBringup::pspRunCmd(")[0]
+        self.assertIn("phx780m::rangeWithin(carveOffset, PHX_PSP_FENCE_REL + 0x1000, PHX_VRAM_TMR_OFF)", ring)
+        self.assertIn("phx780m::rangeWithin(carveOffset, PHX_PSP_FENCE_REL + 0x1000, fbAperLen)", ring)
+        self.assertLess(ring.index("phx780m::rangeWithin"), ring.index("getVirtualAddress()"))
     def test_plugin_uses_only_its_own_radv(self):
         text = (self.stage / "src/nmplugin/nvmtl_vk.c").read_text(encoding="utf-8")
         self.assertTrue('phxRuntimeLibraryPath' in text, 'Plugin-relative path helper is not wired')

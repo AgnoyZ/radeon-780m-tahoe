@@ -5,6 +5,26 @@
 #include <iostream>
 #include <vector>
 
+static void aperture_bounds_tests() {
+    using phx780m::rangeWithin;
+    static_assert(rangeWithin(0, 8, 8), "exact-fit access");
+    static_assert(!rangeWithin(UINT64_MAX - 7, 8, 4096), "doorbell end must not wrap");
+    static_assert(!rangeWithin(UINT64_MAX - 0x5fff, 0x6000, 0x1400000), "ring extent must not wrap");
+    static_assert(!rangeWithin(UINT64_MAX, 1, UINT64_MAX), "end beyond addressable bound");
+    assert(rangeWithin(0, 0, 0));
+    assert(rangeWithin(4096, 0, 4096));
+    assert(!rangeWithin(4097, 0, 4096));
+    assert(rangeWithin(4088, 8, 4096));
+    assert(!rangeWithin(4089, 8, 4096));
+    assert(!rangeWithin(0, UINT64_MAX, 4096));
+    assert(rangeWithin(UINT64_MAX - 1, 1, UINT64_MAX));
+    // Exhaustively compare small ranges without invoking MMIO or loading a driver.
+    for (uint64_t limit = 0; limit <= 32; ++limit)
+        for (uint64_t offset = 0; offset <= 40; ++offset)
+            for (uint64_t bytes = 0; bytes <= 40; ++bytes)
+                assert(rangeWithin(offset, bytes, limit) == (offset <= limit && offset + bytes <= limit));
+}
+
 static void runtime_path_tests() {
     char path[128];
     assert(phxRuntimeLibraryPath("/tmp/test bundle/Contents/MacOS/NVMTLDriver", path, sizeof(path)));
@@ -81,5 +101,6 @@ int main() {
     assert(!sameEngine(UINT32_MAX, UINT32_MAX));
     compute_check_tests();
     runtime_path_tests();
-    std::cout << "Hardware policy and compute-check assertions passed (not a GPU execution test).\n";
+    aperture_bounds_tests();
+    std::cout << "Hardware policy, aperture bounds and compute-check assertions passed (not a GPU execution test).\n";
 }

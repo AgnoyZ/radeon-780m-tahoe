@@ -1,0 +1,24 @@
+--- a/src/phxbringup/PhxBringup.cpp
++++ b/src/phxbringup/PhxBringup.cpp
+@@ -840,7 +840,7 @@
+ IOReturn PhxBringup::doorbellWrite(uint64_t byteOff, uint64_t value) {
+     if (!doorbellMap)
+         return kIOReturnNotReady;
+-    if ((byteOff & 7) || byteOff + 8 > doorbellMap->getLength())
++    if ((byteOff & 7) || !phx780m::rangeWithin(byteOff, 8, doorbellMap->getLength()))
+         return kIOReturnBadArgument;
+     *reinterpret_cast<volatile uint64_t *>(doorbellMap->getVirtualAddress() + byteOff) = value;
+     return kIOReturnSuccess;
+@@ -878,8 +878,10 @@
+     if (op == 1) {
+         if (ringMc) {
+             r = kIOReturnExclusiveAccess;   // a ring is already live; destroy it first
+-        } else if ((carveOffset & 0xFFF) || carveOffset + PHX_PSP_FENCE_REL + 0x1000 > PHX_VRAM_TMR_OFF ||
+-                   PHX_VRAM_FWBUF_OFF + PHX_VRAM_FWBUF_SIZE > fbAperLen) {
++        } else if ((carveOffset & 0xFFF) ||
++                   !phx780m::rangeWithin(carveOffset, PHX_PSP_FENCE_REL + 0x1000, PHX_VRAM_TMR_OFF) ||
++                   !phx780m::rangeWithin(carveOffset, PHX_PSP_FENCE_REL + 0x1000, fbAperLen) ||
++                   !phx780m::rangeWithin(PHX_VRAM_FWBUF_OFF, PHX_VRAM_FWBUF_SIZE, fbAperLen)) {
+             r = kIOReturnBadArgument;        // ring+cmd+fence must sit below the TMR; fw_buf must fit the aperture
+         } else {
+             volatile uint32_t *ring = reinterpret_cast<volatile uint32_t *>(fbAper->getVirtualAddress() + carveOffset);

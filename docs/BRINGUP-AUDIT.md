@@ -20,6 +20,23 @@ The existing downstream PCI/Darwin/opt-in gate is necessary but does not resolve
 these layout, firmware, sequencing or recovery problems. A compiled kext and a
 working userspace compiler are not a completed GPU boot sequence.
 
+## Implemented arithmetic correction; target validation pending
+
+`patches/0003-bringup-aperture-bounds.patch` replaces addition-based end checks in
+`PhxBringup::doorbellWrite` and `PhxBringup::pspRing`. Their 64-bit offsets could
+wrap when adding the access extent. The shared `rangeWithin` policy first checks
+the offset against the limit, then compares the extent with the remaining space;
+it never computes a potentially overflowing end address. Existing alignment and
+privilege/opt-in rules are retained. The ring must fit both below TMR and within
+the mapped framebuffer aperture before its first aperture access.
+
+Python tests verify the actual staged patch and ordering before memory access.
+The same helper used by the kext has C++ boundary, wraparound and exhaustive
+small-range assertions in the sanitizer suite. These are source/host arithmetic
+checks, not GPU execution. They do not establish ownership of the selected VRAM
+regions, validate firmware, remove the reference-machine constants, or make the
+original boot scripts safe to deploy.
+
 ## Evidence required before an initialization experiment
 
 1. Confirm the actual target Tahoe build, a tested external-disk/EFI recovery path

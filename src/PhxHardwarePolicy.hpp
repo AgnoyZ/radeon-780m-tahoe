@@ -12,5 +12,8 @@ constexpr int queueIndex(bool graphics, bool computeReady, bool graphicsReady) {
 constexpr bool sameEngine(uint32_t first, uint32_t current) {
     return first <= 1 && current == first;
 }
+constexpr bool rangeWithin(uint64_t offset, uint64_t bytes, uint64_t limit) {
+    return offset <= limit && bytes <= limit - offset;
+}
 }
 #endif
