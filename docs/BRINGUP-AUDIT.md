@@ -161,6 +161,12 @@ see `validation/firmware-08624cd.json`. This removes guesswork from file slicing
 but does not replace fixed device addresses, validate PSP commands or implement
 a checked hardware loader. Firmware selection still requires target IP evidence.
 
+Patch `0008` adds complete-file SHA-256 snapshot binding and checked transfer
+errors to the actual `phxctl` tool; see `FIRMWARE-CONTROL.md`. It removes the
+short-read/partial-load path and stops after failed prerequisites. This is still
+a low-level tool, not a target allocation/command orchestrator. Its original
+shell pipelines and raw-debug parameters are not approved for deployment.
+
 1. Confirm the actual target Tahoe build, a tested external-disk/EFI recovery path
    and the exact driver/firmware revisions. The last verified target environment
    remains Sonoma Recovery, not Tahoe.

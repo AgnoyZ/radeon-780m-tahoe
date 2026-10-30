@@ -48,7 +48,8 @@
     "patches/0004-checked-bringup-transport.patch",
     "patches/0005-checked-gpu-completion.patch",
     "patches/0006-bounded-mes-submission.patch",
-    "patches/0007-checked-psp-completion.patch"
+    "patches/0007-checked-psp-completion.patch",
+    "patches/0008-checked-firmware-control.patch"
   ],
   "target": {
     "darwin_major": 25,

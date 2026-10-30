@@ -49,7 +49,19 @@ class SourceTests(unittest.TestCase):
             prepare(self.stage)
     def test_provenance_is_not_hardware_pass(self):
         self.assertFalse(self.provenance["hardware_tested"])
-        self.assertEqual(7, len(self.provenance["patches_sha256"]))
+        self.assertEqual(8, len(self.provenance["patches_sha256"]))
+    def test_firmware_control_authenticates_snapshot_before_writes(self):
+        text = (self.stage / "tools/phxctl/phxctl.c").read_text(encoding="utf-8")
+        self.assertEqual(1, text.count("IOConnectCallScalarMethod("))
+        self.assertEqual(1, text.count("IOConnectCallMethod("))
+        stage = text.split("static void stage_firmware(")[1].split("static int open_kext")[0]
+        self.assertLess(stage.index("firmware_snapshot("), stage.index("checked_method("))
+        self.assertIn("bytes + offset + staged", stage)
+        self.assertNotIn("fread", stage)
+        main = text.split("int main(int argc, char **argv)")[1]
+        self.assertLess(main.index('"verify-file"'), main.index("open_kext()"))
+        self.assertIn("if (got <= 0)", text)
+        self.assertIn("CC_SHA256(bytes, *file_size, digest)", text)
     def test_psp_failure_is_not_success_or_a_ready_tmr(self):
         body = self.bringup.split("IOReturn PhxBringup::pspRunCmd(")[1].split("// Selector 103:")[0]
         self.assertIn("return observed != fence ? kIOReturnTimeout : kIOReturnError", body)

@@ -65,6 +65,11 @@ vendor signature.
 
 ## Observed validation and remaining integration
 
+`FIRMWARE-CONTROL.md` describes the downstream CLI's whole-file hash/snapshot
+binding and transfer checks. The two tools are not yet a complete orchestrator:
+manifest component selection, target allocation and PSP command sequencing still
+need integration. Do not use the reference scripts to bypass those requirements.
+
 On 2026-10-31, all nine pinned official files passed this local parser. All 17
 explicit `L` file extents in reference `bringup5.sh` and its separate TOC extent
 match the header-derived ranges. For example, MEC has a 267,904-byte common

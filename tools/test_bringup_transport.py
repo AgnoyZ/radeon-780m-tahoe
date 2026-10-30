@@ -8,6 +8,7 @@ import subprocess
 
 from prepare_source import ROOT, prepare
 from verify_artifacts import inspect_macho
+from test_firmware_control import compile_native_control
 
 
 def check_case(result, expected_return, expected_calls):
@@ -159,7 +160,8 @@ def compile_native(out):
                     str(stage / "tools/phxctl/mesboot.c"), "-framework", "IOKit", "-framework", "CoreFoundation",
                     "-o", str(binary)], check=True, timeout=60)
     return {"source_provenance": provenance, "binary": inspect_macho(binary, 2),
-            "native_iokit_linked": True, "tool_executed": False, "hardware_executed": False,
+            "native_iokit_linked": True, "mesboot_executed": False, "hardware_executed": False,
+            "firmware_control_offline_check": compile_native_control(stage, out / "control"),
             "deployable": False, "limitation": "Reference memory layout remains unsafe for target use; compile only"}
 
 

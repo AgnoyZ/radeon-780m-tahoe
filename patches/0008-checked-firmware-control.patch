@@ -1,0 +1,324 @@
+diff --git a/tools/phxctl/phxctl.c b/tools/phxctl/phxctl.c
+--- a/tools/phxctl/phxctl.c
++++ b/tools/phxctl/phxctl.c
+@@ -11,6 +11,12 @@
+  * GC segment 0 = 0x1260, segment 1 = 0xA000.
+  */
+ #include <IOKit/IOKitLib.h>
++#include <CommonCrypto/CommonDigest.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <sys/stat.h>
++#include <unistd.h>
++#include "../../src/phxbringup/PhxNativeABI.h"
+ #include <stdint.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -31,6 +37,113 @@
+ #define SEL_DBG_VRAM_WRITE 109
+ 
+ static io_connect_t conn;
++static uint8_t *staging_snapshot;
++
++static _Noreturn void control_failure(int status, const char *what)
++{
++   free(staging_snapshot);
++   staging_snapshot = NULL;
++   fprintf(stderr, "phxctl checked failure: %s; stopping (no rollback)\n", what);
++   exit(status);
++}
++
++static kern_return_t checked_scalar(io_connect_t connection, uint32_t selector,
++    const uint64_t *input, uint32_t input_count, uint64_t *output, uint32_t *output_count)
++{
++   const uint32_t expected = output_count ? *output_count : 0;
++   kern_return_t kr = IOConnectCallScalarMethod(connection, selector, input, input_count, output, output_count);
++   if (kr != KERN_SUCCESS || (output_count && *output_count != expected))
++      control_failure(74, "IOKit scalar status or reply length");
++   if (selector == SEL_HELLO && output[0] != input[0])
++      control_failure(75, "incompatible kernel ABI");
++   if ((selector == SEL_DBG_PSP_SUBMIT || selector == SEL_DBG_PSP_CTL ||
++        selector == SEL_DBG_PSP_LOADIPFW || selector == SEL_DBG_PSP_RAW) && output[0] != 0)
++      control_failure(75, "PSP completion/status not confirmed");
++   if (selector == SEL_DBG_SMU && output[0] != 1)
++      control_failure(75, "SMU response not successful");
++   return kr;
++}
++
++static kern_return_t checked_method(io_connect_t connection, uint32_t selector,
++    const uint64_t *input, uint32_t input_count, const void *input_data, size_t input_size,
++    uint64_t *output, uint32_t *output_count, void *output_data, size_t *output_size)
++{
++   const uint32_t expected_count = output_count ? *output_count : 0;
++   const size_t expected_size = output_size ? *output_size : 0;
++   kern_return_t kr = IOConnectCallMethod(connection, selector, input, input_count, input_data, input_size,
++                                         output, output_count, output_data, output_size);
++   if (kr != KERN_SUCCESS || (output_count && *output_count != expected_count) ||
++       (output_size && *output_size != expected_size))
++      control_failure(74, "IOKit method status or reply length");
++   return kr;
++}
++
++static uint32_t checked_u32(const char *text)
++{
++   char *end = NULL;
++   if (!text || text[0] < '0' || text[0] > '9') control_failure(64, "invalid unsigned argument");
++   errno = 0;
++   unsigned long long value = strtoull(text, &end, 0);
++   if (errno || end == text || *end || value > UINT32_MAX) control_failure(64, "invalid unsigned argument");
++   return (uint32_t)value;
++}
++
++static uint8_t *firmware_snapshot(const char *path, const char *expected_hash, uint32_t *file_size)
++{
++   if (!expected_hash || strlen(expected_hash) != CC_SHA256_DIGEST_LENGTH * 2)
++      control_failure(64, "a reviewed lowercase SHA-256 is required");
++   for (unsigned i = 0; i < CC_SHA256_DIGEST_LENGTH * 2; ++i)
++      if (!((expected_hash[i] >= '0' && expected_hash[i] <= '9') || (expected_hash[i] >= 'a' && expected_hash[i] <= 'f')))
++         control_failure(64, "invalid lowercase SHA-256");
++   int fd = open(path, O_RDONLY | O_NONBLOCK);
++   struct stat st;
++   if (fd < 0) control_failure(65, "firmware file unavailable");
++   if (fstat(fd, &st) || !S_ISREG(st.st_mode) || st.st_size <= 0 || (uint64_t)st.st_size > PHX_VRAM_FWBUF_SIZE) {
++      close(fd); control_failure(65, "firmware must be a bounded regular file");
++   }
++   *file_size = (uint32_t)st.st_size;
++   uint8_t *bytes = malloc(*file_size);
++   if (!bytes) { close(fd); control_failure(65, "firmware snapshot allocation failed"); }
++   size_t read_bytes = 0;
++   while (read_bytes < *file_size) {
++      ssize_t got = read(fd, bytes + read_bytes, *file_size - read_bytes);
++      if (got < 0 && errno == EINTR) continue;
++      if (got <= 0) { free(bytes); close(fd); control_failure(65, "firmware snapshot short read or I/O error"); }
++      read_bytes += (size_t)got;
++   }
++   if (close(fd)) { free(bytes); control_failure(65, "firmware file close failed"); }
++   unsigned char digest[CC_SHA256_DIGEST_LENGTH];
++   if (!CC_SHA256(bytes, *file_size, digest)) { free(bytes); control_failure(65, "firmware digest failed"); }
++   const char hex[] = "0123456789abcdef";
++   for (unsigned i = 0; i < CC_SHA256_DIGEST_LENGTH; ++i) {
++      if (expected_hash[2*i] != hex[digest[i] >> 4] || expected_hash[2*i+1] != hex[digest[i] & 15]) {
++         free(bytes); control_failure(65, "firmware SHA-256 mismatch");
++      }
++   }
++   return bytes;
++}
++
++static void stage_firmware(const char *path, uint32_t offset, uint32_t size, uint32_t destination, const char *hash)
++{
++   const uint64_t padded = ((uint64_t)size + 3) & ~3ull;
++   if (!size || (destination & 3) || destination > PHX_VRAM_FWBUF_SIZE ||
++       padded > PHX_VRAM_FWBUF_SIZE - destination)
++      control_failure(64, "invalid firmware staging extent");
++   uint32_t file_size = 0;
++   uint8_t *bytes = firmware_snapshot(path, hash, &file_size);
++   if (offset > file_size || size > file_size - offset) {
++      free(bytes); control_failure(65, "firmware slice exceeds the authenticated snapshot");
++   }
++   staging_snapshot = bytes;
++   for (uint32_t staged = 0; staged < size;) {
++      uint32_t chunk = size - staged > 4096 ? 4096 : size - staged;
++      uint64_t input[] = {destination + staged};
++      checked_method(conn, SEL_DBG_FW_STAGE, input, 1, bytes + offset + staged, chunk, NULL, NULL, NULL, NULL);
++      staged += chunk;
++   }
++   free(bytes);
++   staging_snapshot = NULL;
++}
+ 
+ static int open_kext(void)
+ {
+@@ -47,7 +160,7 @@
+    }
+    uint64_t in[2] = {1, 0}, out[4];
+    uint32_t n = 4;
+-   kr = IOConnectCallScalarMethod(conn, SEL_HELLO, in, 2, out, &n);
++   kr = checked_scalar(conn, SEL_HELLO, in, 2, out, &n);
+    if (kr) {
+       fprintf(stderr, "Hello: 0x%08x\n", kr);
+       return -1;
+@@ -59,7 +172,7 @@
+ {
+    uint64_t in[3] = {reg, 1, 0xFFFFFFFFull};
+    size_t sz = 4;
+-   kern_return_t kr = IOConnectCallMethod(conn, SEL_READREGS, in, 3, NULL, 0, NULL, NULL, val, &sz);
++   kern_return_t kr = checked_method(conn, SEL_READREGS, in, 3, NULL, 0, NULL, NULL, val, &sz);
+    return kr ? (int)kr : 0;
+ }
+ 
+@@ -67,7 +180,7 @@
+ {
+    uint64_t in[2] = {msg, arg}, out[2] = {0, 0};
+    uint32_t n = 2;
+-   kern_return_t kr = IOConnectCallScalarMethod(conn, SEL_DBG_SMU, in, 2, out, &n);
++   kern_return_t kr = checked_scalar(conn, SEL_DBG_SMU, in, 2, out, &n);
+    *resp = (uint32_t)out[0];
+    *after = (uint32_t)out[1];
+    return (int)kr;
+@@ -121,6 +234,16 @@
+ 
+ int main(int argc, char **argv)
+ {
++   if (argc >= 2 && !strcmp(argv[1], "verify-file")) {
++      if (argc != 4) control_failure(64, "verify-file requires a file and reviewed SHA-256");
++      uint32_t size = 0;
++      uint8_t *bytes = firmware_snapshot(argv[2], argv[3], &size);
++      free(bytes);
++      printf("verified firmware snapshot (%u bytes); no IOKit connection\n", size);
++      return 0;
++   }
++   if (argc >= 2 && ((!strcmp(argv[1], "loadfw") && argc != 8) || (!strcmp(argv[1], "stage") && argc != 7)))
++      control_failure(64, "firmware commands require the reviewed whole-file SHA-256 as their final argument");
+    if (argc < 2) {
+       fprintf(stderr, "usage: phxctl regs <dword>... | gc | smu <msg> [arg] | smuinfo | "
+                       "psp status|create <off>|destroy | vram <off> [count]\n");
+@@ -151,7 +274,7 @@
+       uint64_t op = !strcmp(argv[2], "create") ? 1 : !strcmp(argv[2], "destroy") ? 2 : 3;
+       uint64_t in[2] = {op, argc >= 4 ? strtoull(argv[3], NULL, 0) : 0}, out[4] = {0, 0, 0, 0};
+       uint32_t n = 4;
+-      kern_return_t kr = IOConnectCallScalarMethod(conn, SEL_DBG_PSP_RING, in, 2, out, &n);
++      kern_return_t kr = checked_scalar(conn, SEL_DBG_PSP_RING, in, 2, out, &n);
+       printf("psp %s -> kr 0x%08x  C2PMSG_64 0x%08x  ring MC 0x%llx  region-zero %llu  wptr 0x%llx\n", argv[2], kr,
+              (uint32_t)out[0], (unsigned long long)out[1], (unsigned long long)out[2], (unsigned long long)out[3]);
+    } else if (!strcmp(argv[1], "vram") && argc >= 3) {
+@@ -162,7 +285,7 @@
+       uint64_t in[2] = {off, count};
+       uint32_t buf[256];
+       size_t sz = count * 4;
+-      kern_return_t kr = IOConnectCallMethod(conn, SEL_DBG_VRAM_READ, in, 2, NULL, 0, NULL, NULL, buf, &sz);
++      kern_return_t kr = checked_method(conn, SEL_DBG_VRAM_READ, in, 2, NULL, 0, NULL, NULL, buf, &sz);
+       if (kr) {
+          printf("vram read error 0x%08x\n", kr);
+       } else {
+@@ -176,94 +299,46 @@
+    } else if (!strcmp(argv[1], "submit") && argc >= 3) {
+       uint64_t in[1] = {strtoull(argv[2], NULL, 0)}, out[4] = {0, 0, 0, 0};
+       uint32_t n = 4;
+-      kern_return_t kr = IOConnectCallScalarMethod(conn, SEL_DBG_PSP_SUBMIT, in, 1, out, &n);
++      kern_return_t kr = checked_scalar(conn, SEL_DBG_PSP_SUBMIT, in, 1, out, &n);
+       printf("submit cmd 0x%llx -> kr 0x%08x  resp.status 0x%08x  fence %llu us  uresp 0x%08x 0x%08x\n",
+              (unsigned long long)in[0], kr, (uint32_t)out[0], (unsigned long long)out[1], (uint32_t)out[2],
+              (uint32_t)out[3]);
+    } else if (!strcmp(argv[1], "tmr")) {
+       uint64_t in[2] = {1, argc >= 3 ? strtoull(argv[2], NULL, 0) : 0}, out[4] = {0, 0, 0, 0};
+       uint32_t n = 4;
+-      kern_return_t kr = IOConnectCallScalarMethod(conn, SEL_DBG_PSP_CTL, in, 2, out, &n);
++      kern_return_t kr = checked_scalar(conn, SEL_DBG_PSP_CTL, in, 2, out, &n);
+       printf("tmr (size 0x%llx) -> kr 0x%08x  status 0x%08x  %llu us\n", (unsigned long long)in[1], kr,
+              (uint32_t)out[0], (unsigned long long)out[1]);
+    } else if (!strcmp(argv[1], "autoload")) {
+       uint64_t in[2] = {2, 0}, out[4] = {0, 0, 0, 0};
+       uint32_t n = 4;
+-      kern_return_t kr = IOConnectCallScalarMethod(conn, SEL_DBG_PSP_CTL, in, 2, out, &n);
++      kern_return_t kr = checked_scalar(conn, SEL_DBG_PSP_CTL, in, 2, out, &n);
+       printf("autoload -> kr 0x%08x  status 0x%08x  %llu us\n", kr, (uint32_t)out[0], (unsigned long long)out[1]);
+-   } else if (!strcmp(argv[1], "loadfw") && argc >= 7) {
++   } else if (!strcmp(argv[1], "loadfw") && argc == 8) {
+       const char *path = argv[2];
+-      uint32_t foff = (uint32_t)strtoul(argv[3], NULL, 0), size = (uint32_t)strtoul(argv[4], NULL, 0),
+-               fwtype = (uint32_t)strtoul(argv[5], NULL, 0), bufoff = (uint32_t)strtoul(argv[6], NULL, 0);
+-      FILE *f = fopen(path, "rb");
+-      if (!f) {
+-         perror("open");
+-         return 1;
+-      }
+-      if (fseek(f, foff, SEEK_SET) != 0) {
+-         perror("seek");
+-         fclose(f);
+-         return 1;
+-      }
+-      uint8_t buf[4096];
+-      uint32_t staged = 0;
+-      while (staged < size) {
+-         uint32_t chunk = size - staged > 4096 ? 4096 : size - staged;
+-         size_t got = fread(buf, 1, chunk, f);
+-         if (got == 0)
+-            break;
+-         uint64_t in[1] = {bufoff + staged};
+-         kern_return_t kr = IOConnectCallMethod(conn, SEL_DBG_FW_STAGE, in, 1, buf, got, NULL, NULL, NULL, NULL);
+-         if (kr) {
+-            printf("stage @0x%x err 0x%08x\n", bufoff + staged, kr);
+-            fclose(f);
+-            return 1;
+-         }
+-         staged += (uint32_t)got;
+-      }
+-      fclose(f);
+-      uint64_t lin[3] = {fwtype, bufoff, staged}, out[4] = {0, 0, 0, 0};
+-      uint32_t n = 4;
+-      kern_return_t kr = IOConnectCallScalarMethod(conn, SEL_DBG_PSP_LOADIPFW, lin, 3, out, &n);
++      uint32_t foff = checked_u32(argv[3]), size = checked_u32(argv[4]),
++               fwtype = checked_u32(argv[5]), bufoff = checked_u32(argv[6]);
++      stage_firmware(path, foff, size, bufoff, argv[7]);
++      uint64_t lin[3] = {fwtype, bufoff, size}, out[4] = {0, 0, 0, 0};
++      uint32_t n = 4;
++      kern_return_t kr = checked_scalar(conn, SEL_DBG_PSP_LOADIPFW, lin, 3, out, &n);
+       printf("loadfw %s[0x%x:+%u] fwtype %u @fwbuf+0x%x -> kr 0x%08x  status 0x%08x  %llu us  fw_addr 0x%08x%08x\n",
+-             path, foff, staged, fwtype, bufoff, kr, (uint32_t)out[0], (unsigned long long)out[1], (uint32_t)out[3],
++             path, foff, size, fwtype, bufoff, kr, (uint32_t)out[0], (unsigned long long)out[1], (uint32_t)out[3],
+              (uint32_t)out[2]);
+-   } else if (!strcmp(argv[1], "stage") && argc >= 6) {
++   } else if (!strcmp(argv[1], "stage") && argc == 7) {
+       const char *path = argv[2];
+-      uint32_t foff = (uint32_t)strtoul(argv[3], NULL, 0), size = (uint32_t)strtoul(argv[4], NULL, 0),
+-               bufoff = (uint32_t)strtoul(argv[5], NULL, 0);
+-      FILE *f = fopen(path, "rb");
+-      if (!f || fseek(f, foff, SEEK_SET) != 0) {
+-         perror("open/seek");
+-         return 1;
+-      }
+-      uint8_t buf[4096];
+-      uint32_t staged = 0;
+-      while (staged < size) {
+-         uint32_t chunk = size - staged > 4096 ? 4096 : size - staged;
+-         size_t got = fread(buf, 1, chunk, f);
+-         if (got == 0)
+-            break;
+-         uint64_t in[1] = {bufoff + staged};
+-         kern_return_t kr = IOConnectCallMethod(conn, SEL_DBG_FW_STAGE, in, 1, buf, got, NULL, NULL, NULL, NULL);
+-         if (kr) {
+-            printf("stage @0x%x err 0x%08x\n", bufoff + staged, kr);
+-            fclose(f);
+-            return 1;
+-         }
+-         staged += (uint32_t)got;
+-      }
+-      fclose(f);
+-      printf("staged %s[0x%x:+%u] @fwbuf+0x%x\n", path, foff, staged, bufoff);
++      uint32_t foff = checked_u32(argv[3]), size = checked_u32(argv[4]), bufoff = checked_u32(argv[5]);
++      stage_firmware(path, foff, size, bufoff, argv[6]);
++      printf("staged %s[0x%x:+%u] @fwbuf+0x%x\n", path, foff, size, bufoff);
+    } else if (!strcmp(argv[1], "wreg") && argc >= 4) {
+       uint64_t in[2] = {strtoull(argv[2], NULL, 0), strtoull(argv[3], NULL, 0)}, out[1] = {0};
+       uint32_t n = 1;
+-      kern_return_t kr = IOConnectCallScalarMethod(conn, SEL_DBG_WRITE_REG, in, 2, out, &n);
++      kern_return_t kr = checked_scalar(conn, SEL_DBG_WRITE_REG, in, 2, out, &n);
+       printf("wreg 0x%llx = 0x%llx -> kr 0x%08x  readback 0x%08x\n", (unsigned long long)in[0],
+              (unsigned long long)in[1], kr, (uint32_t)out[0]);
+    } else if (!strcmp(argv[1], "vramw") && argc >= 4) {
+       uint64_t in[2] = {strtoull(argv[2], NULL, 0), strtoull(argv[3], NULL, 0)};
+-      kern_return_t kr = IOConnectCallScalarMethod(conn, SEL_DBG_VRAM_WRITE, in, 2, NULL, NULL);
++      kern_return_t kr = checked_scalar(conn, SEL_DBG_VRAM_WRITE, in, 2, NULL, NULL);
+       printf("vramw +0x%llx = 0x%llx -> kr 0x%08x\n", (unsigned long long)in[0], (unsigned long long)in[1], kr);
+    } else if (!strcmp(argv[1], "pte") && argc >= 6) {
+       // pte <tableoff> <n> <pa> <flags>: flat PTE array, pte[i] = (pa + i*4096) | flags
+@@ -273,8 +348,8 @@
+       for (uint64_t i = 0; i < cnt && !kr; i++) {
+          uint64_t v = (pa + i * 4096) | fl;
+          uint64_t lo[2] = {toff + i * 8, v & 0xffffffffu}, hi[2] = {toff + i * 8 + 4, v >> 32};
+-         kr = IOConnectCallScalarMethod(conn, SEL_DBG_VRAM_WRITE, lo, 2, NULL, NULL);
+-         if (!kr) kr = IOConnectCallScalarMethod(conn, SEL_DBG_VRAM_WRITE, hi, 2, NULL, NULL);
++         kr = checked_scalar(conn, SEL_DBG_VRAM_WRITE, lo, 2, NULL, NULL);
++         if (!kr) kr = checked_scalar(conn, SEL_DBG_VRAM_WRITE, hi, 2, NULL, NULL);
+       }
+       printf("pte table+0x%llx n=%llu pa=0x%llx flags=0x%llx -> kr 0x%08x\n", (unsigned long long)toff,
+              (unsigned long long)cnt, (unsigned long long)pa, (unsigned long long)fl, kr);
+@@ -284,7 +359,7 @@
+       for (int i = 3; i < argc && i < 9; i++)
+          in[i - 2] = strtoull(argv[i], NULL, 0);
+       uint32_t n = 4;
+-      kern_return_t kr = IOConnectCallScalarMethod(conn, SEL_DBG_PSP_RAW, in, 7, out, &n);
++      kern_return_t kr = checked_scalar(conn, SEL_DBG_PSP_RAW, in, 7, out, &n);
+       printf("raw cmd 0x%llx -> kr 0x%08x  status 0x%08x  %llu us  resp 0x%08x 0x%08x\n",
+              (unsigned long long)in[0], kr, (uint32_t)out[0], (unsigned long long)out[1], (uint32_t)out[2],
+              (uint32_t)out[3]);

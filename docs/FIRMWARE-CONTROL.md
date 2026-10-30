@@ -1,0 +1,74 @@
+# Checked firmware control: not a deployment workflow
+
+Patch `0008-checked-firmware-control.patch` updates the actual reference
+`tools/phxctl/phxctl.c`. Previously a file short read ended the transfer loop,
+then `loadfw` submitted the smaller byte count and could exit successfully after
+an IOKit or PSP error. Staging also read the file incrementally while writing
+device memory, so later chunks could come from a changed file.
+
+## Corrected input and transfer contract
+
+The research `stage` and `loadfw` commands now require the reviewed **whole-file**
+lowercase SHA-256 as their final argument. Existing reference scripts omit it
+and intentionally fail before opening the service; do not adapt/run those
+scripts as an installation shortcut. The expected digest must come from the
+reviewed `firmware.lock.json`, not be invented from an untrusted replacement.
+
+Before staging any bytes, the tool:
+
+1. Validates unsigned firmware arguments without truncating overflow/negative
+   values, and checks the padded destination extent against the reference buffer
+   capacity. This is a bound, not proof of target memory ownership.
+2. Opens a bounded regular file and reads the complete file into a private memory
+   snapshot. Short reads and read/close failures stop before any staging request;
+   interrupted reads retry. The file is closed before transfer starts.
+3. Uses Apple's CommonCrypto SHA-256 on the whole snapshot and requires the
+   supplied digest to match. File-slice bounds are checked against that snapshot.
+4. Transfers the selected slice in at most 4 KiB chunks. The load command is
+   issued only after every chunk succeeds, using exactly the requested length.
+   A file changed after snapshot verification cannot alter subsequent chunks.
+
+Every scalar/structured IOKit call in this tool now checks its return code and
+exact reply length. HELLO verifies ABI version. PSP nonzero response status and
+SMU non-success responses stop the process rather than printing a success and
+continuing. The PSP status policy is conservative and needs target-specific
+interpretation, as explained in `PSP-COMPLETION.md`.
+
+Exit codes are 64 for invalid firmware arguments, 65 for file/hash/slice errors,
+74 for IOKit transport/reply errors and 75 for unconfirmed ABI/PSP/SMU semantics.
+Failed transfers free the snapshot and do not issue later chunks or a load
+request. Previously accepted chunks are **not** rolled back or erased.
+
+## Offline native verification
+
+`phxctl verify-file <file> <reviewed-sha256>` is an offline mode that returns
+before service lookup/opening. It reads/hashes a file, prints the verified byte
+count and exits; it does not stage firmware or access a GPU. Only this mode is
+executed by native CI. The tool is not added to deployment artifacts.
+
+Native preflight compiles the real staged tool against system IOKit and
+CommonCrypto. Four synthetic-file cases check a matching digest, wrong digest,
+malformed digest and changed file using the real CommonCrypto implementation.
+These native checks are wired into CI but have not yet been observed passing.
+
+Separately, 39 ASan/UBSan host cases include the actual patched CLI source and
+fake IOKit/crypto dependencies. They check complete-byte transfer, file mutation
+after the first chunk, read failures/interruptions, hash refusals, argument bounds,
+short/long replies, stage/load failures and no later operations after a failed
+prerequisite. The fake crypto checks fixture bytes but is **not** a SHA-256
+implementation test; native CommonCrypto results must be reported separately.
+Host execution of these new C cases is pending; 104 Python tests passed locally.
+
+## Remaining integration
+
+This binds transferred bytes to a supplied digest, not to a vendor signature or
+an automatically authenticated trust source. It does not automatically validate
+component selection, PSP firmware type, destination allocation or target IP
+compatibility. The header-derived manifest is a separate input; a controlled
+orchestrator still needs to connect it to a verified target memory layout and
+command sequence. Other raw-debug argument paths are not a reviewed deployment
+interface. Shell pipelines still need explicit error propagation.
+
+No real firmware, kext or target machine is executed/modified by these tests.
+Source staging retains the upstream license notices. Public binary publication
+remains blocked, and existing EFI is unchanged.
