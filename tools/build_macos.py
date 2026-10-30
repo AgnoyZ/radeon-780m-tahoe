@@ -8,8 +8,9 @@ import shutil
 import subprocess
 
 from prepare_source import ROOT, git, prepare, verify_checkout
-from verify_artifacts import inspect_kext, inspect_macho
-from build_userspace import build_plugin
+from verify_artifacts import inspect_kext, inspect_macho, inspect_plugin
+from build_userspace import build_plugin, PLUGIN_IDENTIFIER
+from build_translator import build_translator
 
 def run(*args):
     print("RUN", " ".join(map(str, args)), flush=True)
@@ -19,6 +20,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sdk", type=Path, required=True)
     parser.add_argument("--vulkan-headers", type=Path, required=True)
+    parser.add_argument("--translator-source", type=Path, required=True)
     parser.add_argument("--out", type=Path, default=ROOT / "build/experimental")
     args = parser.parse_args()
     if platform.system() != "Darwin":
@@ -75,6 +77,14 @@ def main():
         run("codesign", "--verify", "--strict", bundle)
         report[component] = inspect_kext(bundle, identifier)
     report["NVMTLDriver"] = build_plugin(stage, headers, artifacts, run)
+    report["nvmtl-translator"] = build_translator(args.translator_source.resolve(), lock["nvmtl-translator"],
+                                                 out, artifacts, stage, run)
+    plugin = artifacts / "NVMTLDriver.bundle"
+    run("codesign", "--force", "--sign", "-", plugin)
+    run("codesign", "--verify", "--strict", plugin)
+    # Adding the dylib changes the enclosing resource seal; report the final signed binary.
+    report["NVMTLDriver"].update(inspect_plugin(plugin, PLUGIN_IDENTIFIER))
+    report["NVMTLDriver"]["missing_runtime_dependencies"].remove("AIR-to-SPIR-V translator")
     smoke = artifacts / "metal-smoke"
     run("xcrun", "clang", "-arch", "x86_64", "-mmacosx-version-min=13.0", "-fobjc-arc", "-fblocks",
         "-Wall", "-Wextra", "-Werror", "-framework", "Foundation", "-framework", "Metal",
@@ -90,6 +100,7 @@ def main():
     shutil.copy2(ROOT / "docs/EXPERIMENTAL.md", artifacts / "READ-BEFORE-USE.md")
     provenance.update({"sdk_commit": lock["MacKernelSDK"]["commit"],
                        "vulkan_headers_commit": lock["Vulkan-Headers"]["commit"],
+                       "translator_source_sha256": lock["nvmtl-translator"]["sha256"],
                        "project_commit": git(ROOT, "rev-parse", "HEAD").decode().strip(),
                        "project_dirty": bool(git(ROOT, "status", "--porcelain").strip()),
                        "compiler": subprocess.check_output(["xcrun", "clang", "--version"]).decode(),

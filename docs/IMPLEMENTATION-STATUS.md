@@ -7,18 +7,20 @@
 - Removed cross-engine queue fallback; mixed-engine indirect buffers are refused.
 - Isolated source preparation, native macOS builds, binary inspection, regression tests and private CI artifacts.
 - Real Metal compute correctness probe; no CPU or other-GPU fallback.
-- Source-build integration for the actual NVMTLDriver Metal plugin, pinned Vulkan headers, normal symbol resolution, exported Objective-C entrypoint checks, matching bundle metadata and dependency license notices. Native build verification of this addition is pending CI.
+- Source-build integration for the actual NVMTLDriver Metal plugin, pinned Vulkan headers, normal symbol resolution, exported Objective-C entrypoint checks, matching bundle metadata and dependency license notices. Native CI verification passed (see evidence below).
+- Hash-locked LGPL translator source, locked Rust build, all 16 plugin FFI export checks and a real-dylib AIR-to-SPIR-V validation test have been implemented; native verification of this addition is pending CI.
 
 ## Not implemented / not verified
 - Machine-specific firmware carve-out safety, all kernel memory/concurrency paths, panel/power differences and full ABI compatibility audit.
-- Complete builds/integration of RADV, shader translator, GPU firmware and boot orchestration; runtime integration of the source-built Metal plugin.
+- Complete builds/integration of RADV, the AIR bitcode-reader runtime, GPU firmware and boot orchestration; native validation of the source-built translator and runtime integration of the full Metal stack.
 - Tahoe installation on the target laptop and actual GPU command completion, Metal rendering, WindowServer integration and long-run stability.
 - Resolved ABI provenance discrepancy noted in EXPERIMENTAL.md; no external redistribution authorization is inferred.
 
 The goal remains a working 780M Tahoe graphics stack. This milestone is a code/build foundation, not completion. Current working EFI and Windows disks are untouched.
 
 ## Verified locally
-- Windows Python regression suite: 16 tests passed, including applying the patch to the pinned source and validating the plugin build/entrypoint contract. The new tests were first observed failing before the userspace builder existed.
+- Windows Python regression suite: 23 tests passed, including applying the patch to the pinned source, validating the plugin build/entrypoint contract, source-integrity rejection and SPIR-V envelope rejection. New module tests were first observed failing before their implementations existed.
+- Actual translator release archive hash and layout verified locally; 321 Rust source files are present. This is not a successful Rust compilation claim.
 - Python syntax compilation passed. Native C++/kext/Metal builds are delegated to CI, not claimed as local passes.
 
 ## Native CI evidence
@@ -27,3 +29,8 @@ The goal remains a working 780M Tahoe graphics stack. This milestone is a code/b
 - Sanitized compiler/provenance/hash report: `validation/ci-87109fc.json`. This is a build result, NOT a target hardware result.
 - Overall run failed only at artifact upload: account Actions storage quota exhausted, zero artifacts retained. No old artifacts were deleted and no billing setting was changed.
 - Follow-up CI defaults to explicitly labelled compile/test-only runs. Artifact retention is opt-in via workflow_dispatch; a requested upload failure still fails the job.
+
+## Metal plugin native build evidence
+- Code commit `4c00a755b5747119acf2716b6015b4a0d892afbe`, run `41058029421`: both jobs passed.
+- The real NVMTLDriver translation unit compiled/linked into an x86_64 MH_BUNDLE (1,535,136 bytes); both Objective-C entrypoint exports and ad-hoc signing verification passed. No undefined-symbol bypass was used.
+- Sanitized evidence: `validation/ci-4c00a75.json`. Runtime plugin loading and GPU execution remain false; no binary artifacts were retained/published.

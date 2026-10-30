@@ -28,3 +28,10 @@
 - 参考入口：https://github.com/nullmoth/nvidia-macos-driver/blob/f95f4d24a42f88f9bc71fba12c90bcfe8e060225/build/build_plugin_release.sh
 - Vulkan-Headers：https://github.com/KhronosGroup/Vulkan-Headers ，固定提交 `6802bb4733b63ed5efd3adb308a6c885ef180ea1`（v1.4.363），许可证按仓库 LICENSE.md 及 LICENSES 中 Apache-2.0/MIT 文本保留。
 - 该步骤不提供 RADV、AIR 翻译器或 firmware，不能据此声称完整加速栈已完成。
+
+## AIR 翻译器接入
+- 使用 nullarc v0.3.0-alpha 附带的 `nvmtl-translator-source.tar.gz`，不是可变的上游 main，也不是已编译 dylib。
+- 固定 SHA-256：`1252d982578b19e18144266aab994bb354a757c7491dcb33c15518b6791c3f3c`；源 URL、根目录与 Rust 工具链记在 upstream.lock.json。
+- 已核查归档 NOTICE、translator/LICENSE、translator/COPYING 和 wrapper/Cargo.lock。NOTICE 声明 metal2vulkan 及 NullMoth 修改为 LGPL-3.0-or-later。
+- 源码未修改；单独动态链接，构建保留相应源归档和许可证。API 按固定插件实际 dlsym 的 16 个符号逐一检查。
+- 这不提供 RADV、LLVM AIR 读取库、硬件 firmware 或自动启动服务，也不等于实机 Metal 加速。

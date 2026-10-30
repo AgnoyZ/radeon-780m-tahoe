@@ -30,7 +30,7 @@ jobs:
           build/test-policy
   macos-kexts:
     runs-on: macos-15-intel
-    timeout-minutes: 15
+    timeout-minutes: 20
     needs: source-tests
     steps:
       - name: Refuse public binary publishing before license audit
@@ -50,8 +50,18 @@ jobs:
         run: |
           git clone --depth 1 --branch v1.4.363 https://github.com/KhronosGroup/Vulkan-Headers.git build-vulkan-headers
           test "$(git -C build-vulkan-headers rev-parse HEAD)" = '6802bb4733b63ed5efd3adb308a6c885ef180ea1'
-      - name: Compile, link, sign and inspect kexts and Metal plugin; compile probe
-        run: python3 tools/build_macos.py --sdk build-sdk --vulkan-headers build-vulkan-headers --out build/ci
+      - name: Prepare pinned translator source and Rust toolchain
+        run: |
+          python3 tools/translator_source.py build/inputs/nvmtl-translator-source.tar.gz
+          rustup toolchain install 1.90.0 --profile minimal --target x86_64-apple-darwin
+      - name: Compile, link, sign and inspect kexts, Metal plugin and translator
+        run: python3 tools/build_macos.py --sdk build-sdk --vulkan-headers build-vulkan-headers --translator-source build/inputs/nvmtl-translator-source.tar.gz --out build/ci
+      - name: Validate real translator ABI and generated SPIR-V without a GPU
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+        run: |
+          command -v spirv-val >/dev/null || brew install spirv-tools
+          python3 tools/test_translator_runtime.py --library build/ci/artifacts/NVMTLDriver.bundle/Contents/MacOS/libnvmtl_translate.dylib --plugin-source build/ci/stage/src/nmplugin/NVMTLLibraryLoad.m --fixture tests/fixtures/compute_increment.ll --validator "$(command -v spirv-val)" --out build/ci/artifacts/translator-tests
       - name: Verify the Metal probe refuses this non-780M build host
         shell: bash
         run: |

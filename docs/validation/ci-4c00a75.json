@@ -1,0 +1,58 @@
+{
+  "nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+  "patches_sha256": {
+    "patches/0001-strict-hardware-execution.patch": "53af4e33ac223b8ea2ccdb49721e99507ef718f21a4198c9082df140244273ec"
+  },
+  "policy_sha256": "71da108bda0a71face8523b71df760d9af0a1c94de8b060032d2dd7faa673e88",
+  "hardware_tested": false,
+  "sdk_commit": "3f750085caa17ec3a7880f11c11bf4f48cd6a164",
+  "vulkan_headers_commit": "6802bb4733b63ed5efd3adb308a6c885ef180ea1",
+  "project_commit": "4c00a755b5747119acf2716b6015b4a0d892afbe",
+  "project_dirty": false,
+  "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)\nTarget: x86_64-apple-darwin24.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+  "host": "macOS-15.7.9-x86_64-i386-64bit-Mach-O",
+  "artifacts": {
+    "PhxBringup": {
+      "architecture": "x86_64",
+      "macho_type": 11,
+      "sha256": "b52f1e74b3846cfd9196ff668ee419430b8e54b956b9a009d2da34fbc1efcd69",
+      "bytes": 99776,
+      "bundle_identifier": "org.drip.PhxBringup"
+    },
+    "PhxAccel": {
+      "architecture": "x86_64",
+      "macho_type": 11,
+      "sha256": "21aab7eaced7fe995e52231cc861035e593723e34caca8760871992b232cee30",
+      "bytes": 336416,
+      "bundle_identifier": "com.luuumi.PhxAccel"
+    },
+    "NVMTLDriver": {
+      "architecture": "x86_64",
+      "macho_type": 8,
+      "sha256": "faa1773e01811577fea185031b4fb6955272e4dd532445a6de2d0086d0910823",
+      "bytes": 1535136,
+      "bundle_identifier": "org.agnoyz.radeon780m.NVMTLDriver",
+      "info_plist_sha256": "cfbcaed846d3fb58764bc484a8766e2b3b1fe14c74d0d75f227a92757a84e883",
+      "entrypoint_exports_verified": true,
+      "source_entrypoint": "src/nmplugin/NVMTLDevice.m",
+      "runtime_loaded": false,
+      "missing_runtime_dependencies": [
+        "Mesa RADV Darwin ICD",
+        "AIR-to-SPIR-V translator",
+        "translator runtime dependencies",
+        "GPU firmware and bring-up"
+      ]
+    },
+    "metal-smoke": {
+      "architecture": "x86_64",
+      "macho_type": 2,
+      "sha256": "055732c27ba505b64ac14512d7962323a4586eb8b4d07a54ac30a9c10aa9c56f",
+      "bytes": 18376
+    }
+  },
+  "deployment_performed": false,
+  "metal_stack_complete": false,
+  "ci_run_id": 41058029421,
+  "ci_overall_conclusion": "success",
+  "retained_binary_artifacts": false
+}

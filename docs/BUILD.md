@@ -20,20 +20,34 @@ build/test-policy
 ```
 
 ## Native macOS: actual kernel binaries
-Requires Xcode Command Line Tools, pinned MacKernelSDK and pinned Vulkan-Headers. This is a build host; it need not contain a 780M. Building on a hosted Mac does not test the target laptop.
+Requires Xcode Command Line Tools, pinned MacKernelSDK, pinned Vulkan-Headers, Rust 1.90.0 and the hash-locked translator source archive. This is a build host; it need not contain a 780M. Building on a hosted Mac does not test the target laptop.
 
 ```sh
 git clone https://github.com/acidanthera/MacKernelSDK.git build-sdk
 git -C build-sdk checkout --detach 3f750085caa17ec3a7880f11c11bf4f48cd6a164
 git clone --depth 1 --branch v1.4.363 https://github.com/KhronosGroup/Vulkan-Headers.git build-vulkan-headers
-python3 tools/build_macos.py --sdk build-sdk --vulkan-headers build-vulkan-headers --out build/experimental
+python3 tools/translator_source.py build/inputs/nvmtl-translator-source.tar.gz
+rustup toolchain install 1.90.0 --profile minimal --target x86_64-apple-darwin
+python3 tools/build_macos.py --sdk build-sdk --vulkan-headers build-vulkan-headers --translator-source build/inputs/nvmtl-translator-source.tar.gz --out build/experimental
 ```
 
-Outputs under build/experimental/artifacts: PhxBringup.kext, PhxAccel.kext, NVMTLDriver.bundle, metal-smoke, provenance and license notices. The build targets x86_64, preserves the upstream kernel ABI/identifiers for integration, applies the downstream gate, signs ad hoc, and checks Mach-O architecture/type. Never load the upstream and downstream variants together. This is not a complete Metal runtime: RADV, the translator and firmware/bring-up are still missing.
+Outputs under build/experimental/artifacts: PhxBringup.kext, PhxAccel.kext, NVMTLDriver.bundle with libnvmtl_translate.dylib, metal-smoke, provenance and license notices. The build targets x86_64, preserves the upstream kernel ABI/identifiers for integration, applies the downstream gate, signs ad hoc, and checks Mach-O architecture/type. Never load the upstream and downstream variants together. This is not a complete Metal runtime: RADV, the AIR bitcode-reader runtime and firmware/bring-up are still missing.
 
 The Metal plugin is compiled from the pinned `src/nmplugin/NVMTLDevice.m` translation unit (which includes the other plugin sources), not copied from an installed system or a release archive. It uses the upstream release-mode ARC/bundle recipe and normal linker symbol resolution; undefined-symbol escape flags and mock device stubs are not used. Its exported NVMTLDevice class/metaclass and x86_64 MH_BUNDLE structure are checked. The project-authored bundle metadata matches the kernel's plugin name/class, declares Tahoe as its supported deployment target, and has a distinct downstream bundle identifier. Runtime plugin discovery/loading remains untested.
 
 Vulkan-Headers is verified against commit `6802bb4733b63ed5efd3adb308a6c885ef180ea1`, not merely a movable tag. Headers are not a Vulkan loader or a RADV implementation. Their license notices accompany the build output.
+
+## Real AIR translator build and host tests
+
+The translator is built from the LGPL source attached to nullarc v0.3.0-alpha, SHA-256 `1252d982578b19e18144266aab994bb354a757c7491dcb33c15518b6791c3f3c`. The fetcher verifies bytes before extraction and will not replace a different existing cache. The build uses the unmodified source and its Cargo.lock with `cargo +1.90.0 build --locked`, checks every translator symbol requested by the pinned plugin, and bundles the dylib next to the plugin executable. The source archive, original NOTICE, LGPL and GPL text accompany local artifacts; they are not automatically published.
+
+To exercise the actual C ABI without a GPU, install SPIRV-Tools on the build host and run:
+
+```sh
+python3 tools/test_translator_runtime.py --library build/experimental/artifacts/NVMTLDriver.bundle/Contents/MacOS/libnvmtl_translate.dylib --plugin-source build/experimental/stage/src/nmplugin/NVMTLLibraryLoad.m --fixture tests/fixtures/compute_increment.ll --validator spirv-val --out build/experimental/translator-tests
+```
+
+This loads the real dylib, verifies all 16 dynamic interfaces, requires malformed input/invalid stages to fail, translates two different AIR arithmetic kernels, checks their compute/store/add instructions, and runs `spirv-val --target-env vulkan1.2`. Test output records the validator version. Successful validation is not GPU execution or Metal pipeline integration; the test explicitly reports hardware_executed=false.
 
 The deployment minimum compiler setting follows upstream for kext SDK compatibility; the runtime gate permits Darwin 25 only. macOS 15 Intel CI is only a compilation host, not a Tahoe runtime validation.
 

@@ -13,6 +13,14 @@
     "commit": "6802bb4733b63ed5efd3adb308a6c885ef180ea1",
     "tag": "v1.4.363"
   },
+  "nvmtl-translator": {
+    "url": "https://github.com/luuumi-dev/nullarc/releases/download/v0.3.0-alpha/nvmtl-translator-source.tar.gz",
+    "sha256": "1252d982578b19e18144266aab994bb354a757c7491dcb33c15518b6791c3f3c",
+    "archive_root": "nvmtl-translator-2.4.1",
+    "rust_toolchain": "1.90.0",
+    "target": "x86_64-apple-darwin",
+    "license": "LGPL-3.0-or-later"
+  },
   "patches": [
     "patches/0001-strict-hardware-execution.patch"
   ],
