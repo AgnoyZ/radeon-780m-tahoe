@@ -20,7 +20,7 @@ build/test-policy
 ```
 
 ## Native macOS: actual kernel binaries
-Requires Xcode Command Line Tools, pinned MacKernelSDK, pinned Vulkan-Headers, Rust 1.90.0 and the hash-locked translator source archive. This is a build host; it need not contain a 780M. Building on a hosted Mac does not test the target laptop.
+Requires an Intel Mac with Xcode Command Line Tools, pinned MacKernelSDK, Vulkan-Headers, Mesa/Cobalt sources, Rust 1.90.0, glslangValidator >= 12.2, pkg-config and the hash-locked translator source archive. This is a build host; it need not contain a 780M. Building on a hosted Mac does not test the target laptop.
 
 ```sh
 git clone https://github.com/acidanthera/MacKernelSDK.git build-sdk
@@ -28,10 +28,15 @@ git -C build-sdk checkout --detach 3f750085caa17ec3a7880f11c11bf4f48cd6a164
 git clone --depth 1 --branch v1.4.363 https://github.com/KhronosGroup/Vulkan-Headers.git build-vulkan-headers
 python3 tools/translator_source.py build/inputs/nvmtl-translator-source.tar.gz
 rustup toolchain install 1.90.0 --profile minimal --target x86_64-apple-darwin
-python3 tools/build_macos.py --sdk build-sdk --vulkan-headers build-vulkan-headers --translator-source build/inputs/nvmtl-translator-source.tar.gz --out build/experimental
+python3 tools/fetch_radv.py build/inputs/radv
+python3 -m venv build/radv-venv
+. build/radv-venv/bin/activate
+python -m pip install -r tools/radv-build-requirements.txt
+# Install glslangValidator and pkg-config through your chosen build-host package manager.
+python3 tools/build_macos.py --sdk build-sdk --vulkan-headers build-vulkan-headers --translator-source build/inputs/nvmtl-translator-source.tar.gz --mesa build/inputs/radv/mesa --cobalt build/inputs/radv/cobalt --out build/experimental
 ```
 
-Outputs under build/experimental/artifacts: PhxBringup.kext, PhxAccel.kext, NVMTLDriver.bundle with libnvmtl_translate.dylib, metal-smoke, provenance and license notices. The build targets x86_64, preserves the upstream kernel ABI/identifiers for integration, applies the downstream gate, signs ad hoc, and checks Mach-O architecture/type. Never load the upstream and downstream variants together. This is not a complete Metal runtime: RADV, the AIR bitcode-reader runtime and firmware/bring-up are still missing.
+Outputs under build/experimental/artifacts: PhxBringup.kext, PhxAccel.kext, NVMTLDriver.bundle with libnvmtl_translate.dylib, nvmtl/libvulkan_radeon.dylib and its ICD manifest, metal-smoke, provenance and license notices. The build targets x86_64, preserves the upstream kernel ABI/identifiers for integration, applies the downstream gate, signs ad hoc, and checks Mach-O architecture/type. Never load the upstream and downstream variants together. This is not a complete Metal runtime: the AIR bitcode-reader runtime, firmware/bring-up and target-machine runtime integration are still missing. The RADV build path is implemented; consult IMPLEMENTATION-STATUS.md for actual native CI evidence.
 
 The Metal plugin is compiled from the pinned `src/nmplugin/NVMTLDevice.m` translation unit (which includes the other plugin sources), not copied from an installed system or a release archive. It uses the upstream release-mode ARC/bundle recipe and normal linker symbol resolution; undefined-symbol escape flags and mock device stubs are not used. Its exported NVMTLDevice class/metaclass and x86_64 MH_BUNDLE structure are checked. The project-authored bundle metadata matches the kernel's plugin name/class, declares Tahoe as its supported deployment target, and has a distinct downstream bundle identifier. Runtime plugin discovery/loading remains untested.
 
@@ -64,3 +69,21 @@ The first native build succeeded but GitHub rejected artifact upload because Act
 
 ## Public repository policy (2026-10-30)
 The owner authorized public source visibility. Public runs remain compile/test-only. Requesting binary artifact retention on a public repository fails explicitly until the outstanding upstream license/provenance audit and publication approval are resolved. Existing run 41056667927 passed both source-tests and macos-kexts (including the no-device refusal test); it retained no binary artifacts.
+
+## RADV source build and negative runtime tests
+
+`tools/prepare_radv.py` verifies clean exact Mesa/Cobalt/nullarc revisions, creates a fresh detached Mesa worktree and applies nine Cobalt, six Phoenix and one downstream patch in order. Upstream patch bytes are read from Git objects (not platform-dependent CRLF checkouts); provenance records their SHA-256 hashes. Existing outputs are never replaced. Git worktree bookkeeping is added to the ignored source cache; original source files are not changed.
+
+The downstream patch removes the mock source from the library, rejects MOCK/HOST_BO device modes, disallows non-Phoenix profiles and restricts the selected IOKit service to PhxBringup. The normal NMXAccel proxy path is preserved. These gates avoid treating host memory or fake fences as GPU acceleration.
+
+Standalone native build, using the same dependencies as the full build:
+
+```sh
+python3 tools/build_radv.py --mesa build/inputs/radv/mesa --cobalt build/inputs/radv/cobalt --vulkan-headers build-vulkan-headers --out build/radv-only --artifacts build/radv-artifacts
+```
+
+The build checks six shared native-transport structs (every field offset/size), ABI constants and core selectors against both real pinned headers. This is not a complete ABI/semantics audit; scanout, proxy behavior and hardware execution remain untested. Mesa uses its upstream Darwin weak-entrypoint `dynamic_lookup` linker recipe; the produced dylib must also pass a real `dlopen(RTLD_NOW)` and Vulkan instance/enumeration test, so linker output alone is insufficient.
+
+The no-device probe first checks that all four relevant IOKit services are absent, and refuses to run otherwise. It never creates a VkDevice or submits GPU commands. Four fresh processes test native empty enumeration and explicit rejection of mock, host-only and non-Phoenix modes. A timeout, target-service detection, missing exports, loader error, unexpected diagnostics or any enumerated device fails CI. Python mocks only test the runner logic and are not runtime-driver evidence.
+
+Mesa license texts and Cobalt notices accompany local build output. Mesa includes per-file licenses; root MIT wording is not a complete provenance clearance. glslang/pkg-config are build-host packages rather than pinned source inputs; their/tool versions and dylib dependencies are recorded where applicable. No public binaries are uploaded. The staged nvmtl directory mirrors the plugin's expected runtime filenames but is not installed anywhere.

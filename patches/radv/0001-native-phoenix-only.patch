@@ -1,0 +1,81 @@
+From: Radeon 780M Tahoe downstream
+Subject: [PATCH] Require native Phoenix transport, not mock or host-only devices
+
+diff --git a/src/amd/common/darwin/ac_darwin_kext.c b/src/amd/common/darwin/ac_darwin_kext.c
+--- a/src/amd/common/darwin/ac_darwin_kext.c
++++ b/src/amd/common/darwin/ac_darwin_kext.c
+@@ -80,16 +80,9 @@
+ int
+ acd_kext_set_service_class(const char *cls)
+ {
+-   if (!cls)
++   if (!cls || strcmp(cls, ACD_SERVICE_PHOENIX))
+       return -EINVAL;
+-   if (!strcmp(cls, ACD_SERVICE_BRINGUP))
+-      acd_service_class = ACD_SERVICE_BRINGUP;
+-   else if (!strcmp(cls, ACD_SERVICE_ACCELERATOR))
+-      acd_service_class = ACD_SERVICE_ACCELERATOR;
+-   else if (!strcmp(cls, ACD_SERVICE_PHOENIX))
+-      acd_service_class = ACD_SERVICE_PHOENIX;
+-   else
+-      return -EINVAL;
++   acd_service_class = ACD_SERVICE_PHOENIX;
+    return 0;
+ }
+ 
+@@ -127,8 +120,10 @@
+ acd_kext_open(struct acd_kext **out)
+ {
+    const char *mock = getenv("RADV_DARWIN_MOCK");
+-   if (mock && mock[0] == '1')
+-      return acd_mock_open(out);
++   if (mock && mock[0] == '1') {
++      *out = NULL;
++      return -ENOTSUP;
++   }
+    return acd_kext_open_iokit(out);
+ }
+ 
+diff --git a/src/amd/common/meson.build b/src/amd/common/meson.build
+--- a/src/amd/common/meson.build
++++ b/src/amd/common/meson.build
+@@ -234,7 +234,6 @@
+     'darwin/ac_darwin_iokit.c',
+     'darwin/ac_darwin_kext.c',
+     'darwin/ac_darwin_kext.h',
+-    'darwin/ac_darwin_mock.c',
+     'darwin/ac_darwin_sync.c',
+     'darwin/amdgpu_vamgr.c',
+     'darwin/amdgpu_vamgr_internal.h',
+diff --git a/src/amd/common/darwin/ac_darwin_drm.c b/src/amd/common/darwin/ac_darwin_drm.c
+--- a/src/amd/common/darwin/ac_darwin_drm.c
++++ b/src/amd/common/darwin/ac_darwin_drm.c
+@@ -95,7 +95,11 @@
+ acd_canned_device(void)
+ {
+    const char *name = getenv("RADV_DARWIN_CANNED");
+-   return find_canned(name && *name ? name : "phoenix");
++   if (name && *name && strcmp(name, "phoenix")) {
++      fprintf(stderr, "radv-780m: only the Phoenix device profile is supported\n");
++      return NULL;
++   }
++   return find_canned("phoenix");
+ }
+ 
+ uint32_t
+@@ -295,8 +299,13 @@
+       return -ENODEV;
+    }
+ 
+-   const bool mock = env_is_1("RADV_DARWIN_MOCK");
+-   dev->host_bo = env_is_1("RADV_DARWIN_HOST_BO") && !mock;
++   /* This driver must never expose an emulated device as a physical 780M. */
++   if (env_is_1("RADV_DARWIN_MOCK") || env_is_1("RADV_DARWIN_HOST_BO")) {
++      fprintf(stderr, "radv-780m: mock and host-only backends are disabled\n");
++      free(dev);
++      return -ENOTSUP;
++   }
++   dev->host_bo = false;
+ 
+    int r = 0;
+    if (dev->host_bo) {

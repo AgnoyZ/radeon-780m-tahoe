@@ -11,6 +11,7 @@ from prepare_source import ROOT, git, prepare, verify_checkout
 from verify_artifacts import inspect_kext, inspect_macho, inspect_plugin
 from build_userspace import build_plugin, PLUGIN_IDENTIFIER
 from build_translator import build_translator
+from build_radv import build_radv
 
 def run(*args):
     print("RUN", " ".join(map(str, args)), flush=True)
@@ -21,6 +22,8 @@ def main():
     parser.add_argument("--sdk", type=Path, required=True)
     parser.add_argument("--vulkan-headers", type=Path, required=True)
     parser.add_argument("--translator-source", type=Path, required=True)
+    parser.add_argument("--mesa", type=Path, required=True)
+    parser.add_argument("--cobalt", type=Path, required=True)
     parser.add_argument("--out", type=Path, default=ROOT / "build/experimental")
     args = parser.parse_args()
     if platform.system() != "Darwin":
@@ -85,6 +88,8 @@ def main():
     # Adding the dylib changes the enclosing resource seal; report the final signed binary.
     report["NVMTLDriver"].update(inspect_plugin(plugin, PLUGIN_IDENTIFIER))
     report["NVMTLDriver"]["missing_runtime_dependencies"].remove("AIR-to-SPIR-V translator")
+    report["Mesa-RADV"] = build_radv(args.mesa, args.cobalt, headers, out / "radv", artifacts)
+    report["NVMTLDriver"]["missing_runtime_dependencies"].remove("Mesa RADV Darwin ICD")
     smoke = artifacts / "metal-smoke"
     run("xcrun", "clang", "-arch", "x86_64", "-mmacosx-version-min=13.0", "-fobjc-arc", "-fblocks",
         "-Wall", "-Wextra", "-Werror", "-framework", "Foundation", "-framework", "Metal",

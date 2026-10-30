@@ -30,7 +30,7 @@ jobs:
           build/test-policy
   macos-kexts:
     runs-on: macos-15-intel
-    timeout-minutes: 20
+    timeout-minutes: 45
     needs: source-tests
     steps:
       - name: Refuse public binary publishing before license audit
@@ -54,8 +54,18 @@ jobs:
         run: |
           python3 tools/translator_source.py build/inputs/nvmtl-translator-source.tar.gz
           rustup toolchain install 1.90.0 --profile minimal --target x86_64-apple-darwin
-      - name: Compile, link, sign and inspect kexts, Metal plugin and translator
-        run: python3 tools/build_macos.py --sdk build-sdk --vulkan-headers build-vulkan-headers --translator-source build/inputs/nvmtl-translator-source.tar.gz --out build/ci
+      - name: Prepare pinned Mesa RADV sources and build dependencies
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+        run: |
+          python3 tools/fetch_radv.py build/inputs/radv
+          python3 -m venv build/radv-venv
+          build/radv-venv/bin/python -m pip install -r tools/radv-build-requirements.txt
+          command -v glslangValidator >/dev/null || brew install glslang
+          command -v pkg-config >/dev/null || brew install pkgconf
+          echo "$PWD/build/radv-venv/bin" >> "$GITHUB_PATH"
+      - name: Compile, link, sign and test kernel, Metal, translator and RADV
+        run: python3 tools/build_macos.py --sdk build-sdk --vulkan-headers build-vulkan-headers --translator-source build/inputs/nvmtl-translator-source.tar.gz --mesa build/inputs/radv/mesa --cobalt build/inputs/radv/cobalt --out build/ci
       - name: Validate real translator ABI and generated SPIR-V without a GPU
         env:
           HOMEBREW_NO_AUTO_UPDATE: '1'
