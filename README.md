@@ -5,6 +5,10 @@
 > 当前阶段：已接入固定版上游源码和下游内核补丁，建立构建与回归测试。尚无完整安装包或本机 GPU 加速成功的结论。
 > 本仓库不是 NootedRed 或 nullarc 官方项目，也不代表与其存在合作关系。
 
+已通过原生 CI 的源码构建：PhxBringup.kext、PhxAccel.kext、NVMTLDriver.bundle、libnvmtl_translate.dylib 和 Metal 计算探针。
+翻译器已实际将两个 AIR 内核转换为通过 SPIR-V 校验的输出；这不是 780M 实机执行结果。
+仍缺 RADV、AIR 读取运行库、固件/启动流程的完整集成与本机验证。详见 `docs/IMPLEMENTATION-STATUS.md`。
+
 ## 目标与当前环境
 - 首个目标设备：Lenovo ThinkBook 16 G6+ AHP，Ryzen 7 8845H / Radeon 780M（此前采集 PCI ID：1002:1900）。
 - 目标系统：macOS Tahoe；具体版本和 build 在切换后实测登记，不预设已经安装。

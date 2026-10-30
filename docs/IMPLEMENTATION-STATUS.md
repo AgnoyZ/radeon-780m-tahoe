@@ -8,11 +8,11 @@
 - Isolated source preparation, native macOS builds, binary inspection, regression tests and private CI artifacts.
 - Real Metal compute correctness probe; no CPU or other-GPU fallback.
 - Source-build integration for the actual NVMTLDriver Metal plugin, pinned Vulkan headers, normal symbol resolution, exported Objective-C entrypoint checks, matching bundle metadata and dependency license notices. Native CI verification passed (see evidence below).
-- Hash-locked LGPL translator source, locked Rust build, all 16 plugin FFI export checks and a real-dylib AIR-to-SPIR-V validation test have been implemented; native verification of this addition is pending CI.
+- Hash-locked LGPL translator source, locked Rust build, all 16 plugin FFI export checks and real-dylib AIR-to-SPIR-V tests passed native CI. Only the translate/free calls and negative-input behavior were exercised; symbol presence does not test the behavior of all 16 exports.
 
 ## Not implemented / not verified
 - Machine-specific firmware carve-out safety, all kernel memory/concurrency paths, panel/power differences and full ABI compatibility audit.
-- Complete builds/integration of RADV, the AIR bitcode-reader runtime, GPU firmware and boot orchestration; native validation of the source-built translator and runtime integration of the full Metal stack.
+- Complete builds/integration of RADV, the AIR bitcode-reader runtime, GPU firmware and boot orchestration; runtime integration of the full Metal stack on the target GPU.
 - Tahoe installation on the target laptop and actual GPU command completion, Metal rendering, WindowServer integration and long-run stability.
 - Resolved ABI provenance discrepancy noted in EXPERIMENTAL.md; no external redistribution authorization is inferred.
 
@@ -20,7 +20,7 @@ The goal remains a working 780M Tahoe graphics stack. This milestone is a code/b
 
 ## Verified locally
 - Windows Python regression suite: 23 tests passed, including applying the patch to the pinned source, validating the plugin build/entrypoint contract, source-integrity rejection and SPIR-V envelope rejection. New module tests were first observed failing before their implementations existed.
-- Actual translator release archive hash and layout verified locally; 321 Rust source files are present. This is not a successful Rust compilation claim.
+- Actual translator release archive hash and layout verified locally; 321 Rust source files are present. Rust compilation itself was performed on macOS CI, not this Windows host.
 - Python syntax compilation passed. Native C++/kext/Metal builds are delegated to CI, not claimed as local passes.
 
 ## Native CI evidence
@@ -34,3 +34,9 @@ The goal remains a working 780M Tahoe graphics stack. This milestone is a code/b
 - Code commit `4c00a755b5747119acf2716b6015b4a0d892afbe`, run `41058029421`: both jobs passed.
 - The real NVMTLDriver translation unit compiled/linked into an x86_64 MH_BUNDLE (1,535,136 bytes); both Objective-C entrypoint exports and ad-hoc signing verification passed. No undefined-symbol bypass was used.
 - Sanitized evidence: `validation/ci-4c00a75.json`. Runtime plugin loading and GPU execution remain false; no binary artifacts were retained/published.
+
+## Translator native build and functional evidence
+- Code commit `21642eb77355f9ca00cb194c5f1f330d6bc3e7a5`, run `41059257964`: both jobs passed, including real-dylib translation and external SPIR-V validation.
+- Rust 1.90.0 compiled the locked source into an x86_64 MH_DYLIB (14,659,472 bytes); the unchanged Cargo.lock hash and all 16 plugin-requested exports were verified. The bundle was re-signed after adding the dylib.
+- Two distinct AIR kernels produced distinct 1,128-byte SPIR-V modules. Both retained compute entrypoint/store/integer-add operations and passed SPIRV-Tools v2026.3 validation for Vulkan 1.2. Invalid-stage and malformed-IR requests failed as required.
+- Sanitized build and functional reports: `validation/ci-21642eb.json`. These are host-side compiler tests; no GPU workload, display takeover or WindowServer acceleration has run on the target laptop. No binary artifacts were retained/published.

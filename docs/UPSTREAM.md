@@ -35,3 +35,10 @@
 - 已核查归档 NOTICE、translator/LICENSE、translator/COPYING 和 wrapper/Cargo.lock。NOTICE 声明 metal2vulkan 及 NullMoth 修改为 LGPL-3.0-or-later。
 - 源码未修改；单独动态链接，构建保留相应源归档和许可证。API 按固定插件实际 dlsym 的 16 个符号逐一检查。
 - 这不提供 RADV、LLVM AIR 读取库、硬件 firmware 或自动启动服务，也不等于实机 Metal 加速。
+
+## 下一步 RADV 的已核查源码入口（尚未接入构建）
+- nullarc 的 `docs/architecture-research.md` 明确指向 `Almosst-DEV/Cobalt64`；已解析固定参考提交 `d6c9aedf8e6526a39e349b5886cbc8c7ddf77f65`。
+- 该提交的 `mesa-patches/README.txt` 指定 Mesa 基线 `f5cb8ee032adabef599ae892ec4e42d796b84da9`，依次应用九个 Darwin 后端补丁；然后才是 nullarc 的六个 Phoenix 补丁。
+- 已核查该 README 和根 LICENSE，补丁声明与 Mesa 同为 MIT。仍需审核具体文件、用户态 ABI 和依赖，不把根许可证视为消除所有来源问题的证明。
+- 参考入口：https://github.com/Almosst-DEV/Cobalt64/tree/d6c9aedf8e6526a39e349b5886cbc8c7ddf77f65/mesa-patches
+- Mesa 源入口：https://gitlab.freedesktop.org/mesa/mesa.git

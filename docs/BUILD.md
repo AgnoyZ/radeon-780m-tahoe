@@ -47,7 +47,7 @@ To exercise the actual C ABI without a GPU, install SPIRV-Tools on the build hos
 python3 tools/test_translator_runtime.py --library build/experimental/artifacts/NVMTLDriver.bundle/Contents/MacOS/libnvmtl_translate.dylib --plugin-source build/experimental/stage/src/nmplugin/NVMTLLibraryLoad.m --fixture tests/fixtures/compute_increment.ll --validator spirv-val --out build/experimental/translator-tests
 ```
 
-This loads the real dylib, verifies all 16 dynamic interfaces, requires malformed input/invalid stages to fail, translates two different AIR arithmetic kernels, checks their compute/store/add instructions, and runs `spirv-val --target-env vulkan1.2`. Test output records the validator version. Successful validation is not GPU execution or Metal pipeline integration; the test explicitly reports hardware_executed=false.
+This loads the real dylib, resolves all 16 dynamic symbols (not a behavioral test of every export), requires malformed input/invalid stages to fail, translates two different AIR arithmetic kernels, checks their compute/store/add instructions, and runs `spirv-val --target-env vulkan1.2`. Test output records the validator version. Successful validation is not GPU execution or Metal pipeline integration; the test explicitly reports hardware_executed=false.
 
 The deployment minimum compiler setting follows upstream for kext SDK compatibility; the runtime gate permits Darwin 25 only. macOS 15 Intel CI is only a compilation host, not a Tahoe runtime validation.
 
