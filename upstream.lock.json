@@ -50,7 +50,8 @@
     "patches/0006-bounded-mes-submission.patch",
     "patches/0007-checked-psp-completion.patch",
     "patches/0008-checked-firmware-control.patch",
-    "patches/0009-explicit-psp-layout.patch"
+    "patches/0009-explicit-psp-layout.patch",
+    "patches/0010-checked-toc-initialization.patch"
   ],
   "target": {
     "darwin_major": 25,

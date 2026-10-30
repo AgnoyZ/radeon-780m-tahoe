@@ -13,12 +13,12 @@ static ssize_t injected_read(int, void *, size_t);
 #include <assert.h>
 
 static const char *fault, *path, *reference_hash;
-static unsigned hellos, stages, accepted_bytes, loads, opens, hashes, reads, smus, reg_reads, layouts;
+static unsigned hellos, stages, accepted_bytes, loads, opens, hashes, reads, smus, reg_reads, layouts, tocs;
 
 static void summary(void) {
     fprintf(stderr, "fake-control-summary {\"hellos\":%u,\"stages\":%u,\"accepted_bytes\":%u,"
-                    "\"loads\":%u,\"opens\":%u,\"hashes\":%u,\"reads\":%u,\"smus\":%u,\"reg_reads\":%u,\"layouts\":%u}\n",
-            hellos, stages, accepted_bytes, loads, opens, hashes, reads, smus, reg_reads, layouts);
+                    "\"loads\":%u,\"opens\":%u,\"hashes\":%u,\"reads\":%u,\"smus\":%u,\"reg_reads\":%u,\"layouts\":%u,\"tocs\":%u}\n",
+            hellos, stages, accepted_bytes, loads, opens, hashes, reads, smus, reg_reads, layouts, tocs);
 }
 
 static ssize_t injected_read(int fd, void *buffer, size_t length) {
@@ -65,6 +65,17 @@ kern_return_t IOConnectCallScalarMethod(io_connect_t connection, uint32_t select
         assert(input_count == 2 && *output_count == 2); ++smus;
         output[0] = !strcmp(fault, "smu-status") ? 0 : 1; output[1] = 0;
         return !strcmp(fault, "smu-transport") ? 5 : 0;
+    }
+    if (selector == PHX_PSP_LOAD_TOC_SELECTOR) {
+        assert(input_count == 2 && *output_count == 4 && accepted_bytes == 8209 && loads == 0);
+        assert(input[0] == 4096 && input[1] == 8209); ++tocs;
+        memset(output, 0, 4 * sizeof(*output));
+        output[0] = !strcmp(fault, "psp-status") ? 0x100 : 0;
+        output[2] = !strcmp(fault, "toc-zero") ? 0 : !strcmp(fault, "toc-too-large") ? 1ull << 32 : 0x400000;
+        output[3] = !strcmp(fault, "toc-no-fit") ? 0 : !strcmp(fault, "toc-fit-unknown") ? 2 : 1;
+        if (!strcmp(fault, "load-short")) --*output_count;
+        if (!strcmp(fault, "load-long")) ++*output_count;
+        return !strcmp(fault, "load-status") ? 5 : 0;
     }
     assert(selector == SEL_DBG_PSP_LOADIPFW);
     assert(input_count == 3 && *output_count == 4 && accepted_bytes == 8209);
@@ -132,6 +143,11 @@ int main(int argc, char **argv) {
     if (!strcmp(fault, "slice-overflow")) offset = "4294967295";
     if (!strcmp(fault, "destination-overflow")) destination = "16777212";
     if (!strcmp(fault, "destination-alignment")) destination = "4097";
+    if (!strcmp(mode, "toc")) {
+        if (!strcmp(fault, "toc-destination-alignment")) destination = "4100";
+        char *args[] = {"phxctl", "loadtoc", (char *)path, offset, size, destination, hash, NULL};
+        return phxctl_reference_main(!strcmp(fault, "missing-toc") ? 6 : 7, args);
+    }
     if (!strcmp(mode, "layout")) {
         char *ring = !strcmp(fault, "arg-overflow") ? "18446744073709551616" :
                      !strcmp(fault, "arg-negative") ? "-1" : "0x1000";

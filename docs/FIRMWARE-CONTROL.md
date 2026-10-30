@@ -82,8 +82,16 @@ Patch 0009 adds `psp-layout` to send an explicit 64-byte descriptor to the new
 privileged/debug kernel selector. It supplies metadata without staging bytes or
 creating a ring. Seven additional CLI cases check descriptor fields, argument
 refusal and terminal transport/reply errors, bringing the host suite to 46 cases.
-These additions await C execution in CI; 106 Python tests pass locally. See
+All 46 cases passed ASan/UBSan in run `41104430767`, code `005062f`; see
+`validation/ci-005062f-layout.json`. See
 `PSP-LAYOUT.md` for the wire contract and the still-missing ownership requirements.
+
+Patch 0010 adds `loadtoc`, using the same authenticated snapshot path before
+submitting the staged TOC through selector 115. It requires a positive returned
+TMR size and a fit flag of exactly one, then stops without setting up the TMR.
+Fourteen added cases bring the CLI suite to 60; their C execution is pending.
+107 Python tests pass locally. See `PSP-TOC.md` for the response layout, size
+provenance and initialization sequencing.
 
 ## Remaining integration
 

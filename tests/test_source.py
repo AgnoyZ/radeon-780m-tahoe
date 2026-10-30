@@ -49,7 +49,7 @@ class SourceTests(unittest.TestCase):
             prepare(self.stage)
     def test_provenance_is_not_hardware_pass(self):
         self.assertFalse(self.provenance["hardware_tested"])
-        self.assertEqual(9, len(self.provenance["patches_sha256"]))
+        self.assertEqual(10, len(self.provenance["patches_sha256"]))
     def test_firmware_control_authenticates_snapshot_before_writes(self):
         text = (self.stage / "tools/phxctl/phxctl.c").read_text(encoding="utf-8")
         self.assertEqual(1, text.count("IOConnectCallScalarMethod("))
@@ -131,6 +131,22 @@ class SourceTests(unittest.TestCase):
         self.assertIn("shape(a, 0, 4, sizeof(PhxPspLayout), 0)", handler)
         self.assertEqual((ROOT / "src/PhxPspLayout.h").read_bytes(),
                          (self.stage / "src/phxbringup/PhxPspLayout.h").read_bytes())
+
+    def test_toc_size_is_checked_before_tmr_and_engine_loading(self):
+        toc = self.bringup.split("IOReturn PhxBringup::loadToc(")[1].split("IOReturn PhxBringup::loadIpFw(")[0]
+        self.assertLess(toc.index("pspRunCmd("), toc.index("PHX_PSP_TOC_SIZE_RESPONSE_REL"))
+        self.assertIn("if (r == kIOReturnSuccess)", toc)
+        self.assertIn("phxPspTmrFits(&pspLayout", toc)
+        tmr = self.bringup.split("IOReturn PhxBringup::pspCtl(")[1].split("IOReturn PhxBringup::pspRaw(")[0]
+        self.assertIn("size != tocTmrSize", tmr)
+        self.assertIn("if (!tocTmrSize)", tmr)
+        self.assertIn("if (tmrSetUp)", tmr)
+        load = self.bringup.split("IOReturn PhxBringup::loadIpFw(")[1].split("IOReturn PhxBringup::pspCtl(")[0]
+        self.assertIn("!ringMc || pspSubmissionFaulted || !tmrSetUp", load)
+        handler = self.bringup.split("IOReturn IOAccelPhxNativeClient::doDbgLoadToc(")[1].split("IOReturn IOAccelPhxNativeClient::doDbgPspLayout(")[0]
+        self.assertIn("!privileged", handler)
+        self.assertIn("!owner->debugEnabled()", handler)
+        self.assertIn("a->scalarInput[1] > UINT32_MAX", handler)
     def test_plugin_uses_only_its_own_radv(self):
         text = (self.stage / "src/nmplugin/nvmtl_vk.c").read_text(encoding="utf-8")
         self.assertTrue('phxRuntimeLibraryPath' in text, 'Plugin-relative path helper is not wired')

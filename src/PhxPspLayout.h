@@ -7,6 +7,11 @@
 #define PHX_PSP_LAYOUT_RING_BYTES 0x9000ull
 #define PHX_PSP_STAGING_MAX_BYTES 0x1000000ull
 #define PHX_PSP_LAYOUT_SELECTOR 114u
+#define PHX_PSP_LOAD_TOC_SELECTOR 115u
+/* Linux 7d0a66e4: psp_gfx_if.h response.tmr_size and amdgpu_psp.h alignment. */
+#define PHX_PSP_LOAD_TOC_COMMAND 0x20u
+#define PHX_PSP_TOC_SIZE_RESPONSE_REL 16u
+#define PHX_PSP_TMR_ALIGNMENT 0x100000ull
 
 struct PhxPspLayout {
     uint64_t version;
@@ -46,5 +51,14 @@ static inline int phxPspLayoutValid(const struct PhxPspLayout *layout, uint64_t 
     return phxPspDisjoint(layout->ringOffset, PHX_PSP_LAYOUT_RING_BYTES, layout->tmrOffset, layout->tmrCapacity) &&
            phxPspDisjoint(layout->ringOffset, PHX_PSP_LAYOUT_RING_BYTES, layout->stagingOffset, layout->stagingCapacity) &&
            phxPspDisjoint(layout->tmrOffset, layout->tmrCapacity, layout->stagingOffset, layout->stagingCapacity);
+}
+
+static inline int phxPspTmrFits(const struct PhxPspLayout *layout, uint64_t mcBase,
+                              uint64_t physicalBase, uint32_t requiredBytes) {
+    if (!layout || !requiredBytes || requiredBytes > layout->tmrCapacity ||
+        layout->tmrOffset > UINT64_MAX - mcBase || layout->tmrOffset > UINT64_MAX - physicalBase)
+        return 0;
+    return ((mcBase + layout->tmrOffset) & (PHX_PSP_TMR_ALIGNMENT - 1)) == 0 &&
+           ((physicalBase + layout->tmrOffset) & (PHX_PSP_TMR_ALIGNMENT - 1)) == 0;
 }
 #endif

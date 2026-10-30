@@ -23,14 +23,17 @@ def cases():
     for mode, faults in (("stage", ("ok", "stage-second")), ("verify", ("ok", "hash-mismatch", "hash-format")),
                          ("smu", ("ok", "smu-status", "smu-transport")),
                          ("reg", ("ok", "reg-short", "reg-long", "reg-status")),
-                         ("layout", ("ok", "layout-status", "layout-short", "layout-long", "arg-overflow", "arg-negative", "missing-layout"))):
+                         ("layout", ("ok", "layout-status", "layout-short", "layout-long", "arg-overflow", "arg-negative", "missing-layout")),
+                         ("toc", ("ok", "read-short", "hash-mismatch", "stage-second", "load-status", "load-short", "load-long",
+                                  "psp-status", "toc-zero", "toc-too-large", "toc-no-fit", "toc-fit-unknown",
+                                  "toc-destination-alignment", "missing-toc"))):
         for fault in faults:
             yield mode, fault
 
 
 def expected_result(mode, fault):
-    data = dict.fromkeys(("hellos", "stages", "accepted_bytes", "loads", "opens", "hashes", "reads", "smus", "reg_reads", "layouts"), 0)
-    if fault in ("missing-hash", "missing-layout"): return 64, data
+    data = dict.fromkeys(("hellos", "stages", "accepted_bytes", "loads", "opens", "hashes", "reads", "smus", "reg_reads", "layouts", "tocs"), 0)
+    if fault in ("missing-hash", "missing-layout", "missing-toc"): return 64, data
     if mode != "verify": data.update(hellos=1, opens=1)
     if fault.startswith("hello-"): return (75 if fault == "hello-abi" else 74), data
     if mode == "layout":
@@ -43,7 +46,7 @@ def expected_result(mode, fault):
     if mode == "reg":
         data["reg_reads"] = 2 if fault == "ok" else 1
         return (0 if fault == "ok" else 74), data
-    if fault.startswith("arg-") or fault in ("hash-format", "zero-size", "destination-overflow", "destination-alignment"):
+    if fault.startswith("arg-") or fault in ("hash-format", "zero-size", "destination-overflow", "destination-alignment", "toc-destination-alignment"):
         return 64, data
     if fault in ("read-error", "read-short"):
         data["reads"] = 2
@@ -54,9 +57,10 @@ def expected_result(mode, fault):
     if fault in ("stage-first", "stage-second"):
         data.update(stages=1 if fault == "stage-first" else 2, accepted_bytes=0 if fault == "stage-first" else 4096)
         return 74, data
-    data.update(stages=3, accepted_bytes=8209, loads=1 if mode == "load" else 0)
+    data.update(stages=3, accepted_bytes=8209, loads=1 if mode == "load" else 0, tocs=1 if mode == "toc" else 0)
     if fault.startswith("load-"): return 74, data
     if fault.startswith("psp-"): return 75, data
+    if fault.startswith("toc-"): return 75, data
     return 0, data
 
 
@@ -71,10 +75,10 @@ def check_result(result, mode, fault):
     if observed != expected or any(type(v) is not int for v in observed.values()):
         raise RuntimeError("Firmware control continued incorrectly after a failed prerequisite")
     if expected_status and ("phxctl checked failure:" not in result.stderr or any(
-            word in result.stdout for word in ("loadfw ", "staged ", "verified firmware snapshot", "psp layout configured"))):
+            word in result.stdout for word in ("loadfw ", "loadtoc ", "staged ", "verified firmware snapshot", "psp layout configured"))):
         raise RuntimeError("Failure was not reported or a success message escaped")
     marker = {"load": "loadfw ", "stage": "staged ", "verify": "verified firmware snapshot", "smu": "smu ",
-              "reg": "0x00123", "layout": "psp layout configured"}[mode]
+              "reg": "0x00123", "layout": "psp layout configured", "toc": "loadtoc complete"}[mode]
     if not expected_status and marker not in result.stdout:
         raise RuntimeError("Successful control path did not report its result")
     return observed

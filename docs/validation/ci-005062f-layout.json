@@ -1,0 +1,911 @@
+{
+  "ci_run_id": 41104430767,
+  "source_job_id": 124230027410,
+  "source_job_conclusion": "success",
+  "project_commit": "005062fc25822309c438a66c76bd7524e24737de",
+  "sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "psp_method_report": {
+    "source_provenance": {
+      "nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+      "patches_sha256": {
+        "patches/0001-strict-hardware-execution.patch": "53af4e33ac223b8ea2ccdb49721e99507ef718f21a4198c9082df140244273ec",
+        "patches/0002-plugin-relative-radv.patch": "67235b00d8e420353cd7f4351a1ff5ade88fe72b6a1a506ed84ba19b88808a7a",
+        "patches/0003-bringup-aperture-bounds.patch": "4942a952b7da1bd37af728e9d5e7d921dc3996c8fd024a1126615da9e29a6898",
+        "patches/0004-checked-bringup-transport.patch": "c1a04745a43c9defc39fdfa0e85465398f78912f5ecb63d246e5a34644e99887",
+        "patches/0005-checked-gpu-completion.patch": "0d5220a1321fdd3b56a0139cb7f5e308fa47a192cec360f517f4a8afe0f1b1bf",
+        "patches/0006-bounded-mes-submission.patch": "e77c3bd279241a4c19eb597329e4f71823ef79ec436a2b577feff09f9b575d30",
+        "patches/0007-checked-psp-completion.patch": "64b8ede45d56618de4846dc7fc68f2966cfc660b752e8359ecd65ab1c324cdea",
+        "patches/0008-checked-firmware-control.patch": "4fc48ed11563223f1afabe31e5dc4a96aefdb1c2606279caa6dcd96f8cb9e37b",
+        "patches/0009-explicit-psp-layout.patch": "a760606bb9ea30225348fb0dba23dd3883ec0630e5bc147abc531899adc8ab59"
+      },
+      "policy_sha256": "2cde00d8647958d0151f98332f33f935cb10ad27c987dea9ac5acfff85340ebe",
+      "psp_layout_sha256": "183a931fec90396a1d7b3d58a41bfdf91dabc259b195d103a0bd5fd7875e023b",
+      "runtime_path_sha256": "c0413b83f37eeece90543905914628624ceee7c6998e0b886229d09713d554ad",
+      "hardware_tested": false
+    },
+    "actual_method_sha256": {
+      "clearRing": "4a67f29500d72ca405417b6cfa5ee949c90757d2d0230efb7241f4969f7d2235",
+      "configurePspLayout": "714f76a8d78f4831b4a90a01d4248688e8c906236697567db834c75fe05bffff",
+      "pspRing": "40ebe9d0289e8e3f01bc2894b19c0325f51019c23ef60ace39a144b6af41952e",
+      "pspRunCmd": "419c730f64f6a4883862d1a034f8f0919950b42cefcca6649d0ab88fbde4f032",
+      "fwStage": "cafeb4a92699f6eb328953f4bb865b5efb10a44ef3bb69e9ba424a09a58c264c",
+      "loadIpFw": "dd558196879dcba2c32b305efebbdd47a308170d8556c96b76e7aab992e5395e",
+      "pspCtl": "6126c27b19899d77d4e8062a46674dba2b89a3622fa743a9cf19c645e995e75c"
+    },
+    "cases": [
+      {
+        "case": "success",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "timeout",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "wrong-fence",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "psp-error",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "last-fence",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "fence-exhausted",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "bad-wptr",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "high-wptr",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "last-slot",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "wrap-sentinel",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "max-words",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "too-many-words",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "null-words",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "null-output",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "cmd-overflow",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "fence-overflow",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "ring-overflow",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "unaligned-cmd",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "tmr-success",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "tmr-timeout",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "tmr-error",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "tmr-too-large",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "stage-tail",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "stage-overrun",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "stage-null",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "stage-empty",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "stage-aperture-overflow",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "load-success",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "load-error",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "load-address-overflow",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "create-timeout",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "destroy-timeout",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-configure",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-overlap",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-outside-vram",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-outside-aperture",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-mc-overflow",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-physical-overflow",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-active-ring",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-active-gpu",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-faulted",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-create-missing",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-create-mismatch",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-create-revalidate",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-create-success",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "tmr-zero",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-reconfigure",
+        "passed": true,
+        "hardware_executed": false
+      },
+      {
+        "case": "layout-null-output",
+        "passed": true,
+        "hardware_executed": false
+      }
+    ],
+    "hardware_executed": false,
+    "kernel_loaded": false,
+    "limitation": "Actual kernel method bodies with fake memory, registers, locks and firmware observations; not PSP emulation or target proof"
+  },
+  "firmware_control_report": {
+    "source_provenance": {
+      "nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+      "patches_sha256": {
+        "patches/0001-strict-hardware-execution.patch": "53af4e33ac223b8ea2ccdb49721e99507ef718f21a4198c9082df140244273ec",
+        "patches/0002-plugin-relative-radv.patch": "67235b00d8e420353cd7f4351a1ff5ade88fe72b6a1a506ed84ba19b88808a7a",
+        "patches/0003-bringup-aperture-bounds.patch": "4942a952b7da1bd37af728e9d5e7d921dc3996c8fd024a1126615da9e29a6898",
+        "patches/0004-checked-bringup-transport.patch": "c1a04745a43c9defc39fdfa0e85465398f78912f5ecb63d246e5a34644e99887",
+        "patches/0005-checked-gpu-completion.patch": "0d5220a1321fdd3b56a0139cb7f5e308fa47a192cec360f517f4a8afe0f1b1bf",
+        "patches/0006-bounded-mes-submission.patch": "e77c3bd279241a4c19eb597329e4f71823ef79ec436a2b577feff09f9b575d30",
+        "patches/0007-checked-psp-completion.patch": "64b8ede45d56618de4846dc7fc68f2966cfc660b752e8359ecd65ab1c324cdea",
+        "patches/0008-checked-firmware-control.patch": "4fc48ed11563223f1afabe31e5dc4a96aefdb1c2606279caa6dcd96f8cb9e37b",
+        "patches/0009-explicit-psp-layout.patch": "a760606bb9ea30225348fb0dba23dd3883ec0630e5bc147abc531899adc8ab59"
+      },
+      "policy_sha256": "2cde00d8647958d0151f98332f33f935cb10ad27c987dea9ac5acfff85340ebe",
+      "psp_layout_sha256": "183a931fec90396a1d7b3d58a41bfdf91dabc259b195d103a0bd5fd7875e023b",
+      "runtime_path_sha256": "c0413b83f37eeece90543905914628624ceee7c6998e0b886229d09713d554ad",
+      "hardware_tested": false
+    },
+    "cases": [
+      {
+        "case": "load:ok",
+        "hellos": 1,
+        "stages": 3,
+        "accepted_bytes": 8209,
+        "loads": 1,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:mutate-file",
+        "hellos": 1,
+        "stages": 3,
+        "accepted_bytes": 8209,
+        "loads": 1,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:read-eintr",
+        "hellos": 1,
+        "stages": 3,
+        "accepted_bytes": 8209,
+        "loads": 1,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 4,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:read-short",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 2,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:read-error",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 2,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:hash-mismatch",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:hash-format",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:hash-api",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:missing-hash",
+        "hellos": 0,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 0,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:arg-negative",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:arg-overflow",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:arg-junk",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:zero-size",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:slice-overflow",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:destination-overflow",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:destination-alignment",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:hello-status",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:hello-short",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:hello-long",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:hello-abi",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:stage-first",
+        "hellos": 1,
+        "stages": 1,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:stage-second",
+        "hellos": 1,
+        "stages": 2,
+        "accepted_bytes": 4096,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:load-status",
+        "hellos": 1,
+        "stages": 3,
+        "accepted_bytes": 8209,
+        "loads": 1,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:load-short",
+        "hellos": 1,
+        "stages": 3,
+        "accepted_bytes": 8209,
+        "loads": 1,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:load-long",
+        "hellos": 1,
+        "stages": 3,
+        "accepted_bytes": 8209,
+        "loads": 1,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:psp-status",
+        "hellos": 1,
+        "stages": 3,
+        "accepted_bytes": 8209,
+        "loads": 1,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "load:psp-timeout",
+        "hellos": 1,
+        "stages": 3,
+        "accepted_bytes": 8209,
+        "loads": 1,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "stage:ok",
+        "hellos": 1,
+        "stages": 3,
+        "accepted_bytes": 8209,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "stage:stage-second",
+        "hellos": 1,
+        "stages": 2,
+        "accepted_bytes": 4096,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "verify:ok",
+        "hellos": 0,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 0,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "verify:hash-mismatch",
+        "hellos": 0,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 0,
+        "hashes": 1,
+        "reads": 3,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "verify:hash-format",
+        "hellos": 0,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 0,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "smu:ok",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 5,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "smu:smu-status",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 1,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "smu:smu-transport",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 1,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "reg:ok",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 2,
+        "layouts": 0
+      },
+      {
+        "case": "reg:reg-short",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 1,
+        "layouts": 0
+      },
+      {
+        "case": "reg:reg-long",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 1,
+        "layouts": 0
+      },
+      {
+        "case": "reg:reg-status",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 1,
+        "layouts": 0
+      },
+      {
+        "case": "layout:ok",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 1
+      },
+      {
+        "case": "layout:layout-status",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 1
+      },
+      {
+        "case": "layout:layout-short",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 1
+      },
+      {
+        "case": "layout:layout-long",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 1
+      },
+      {
+        "case": "layout:arg-overflow",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "layout:arg-negative",
+        "hellos": 1,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 1,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      },
+      {
+        "case": "layout:missing-layout",
+        "hellos": 0,
+        "stages": 0,
+        "accepted_bytes": 0,
+        "loads": 0,
+        "opens": 0,
+        "hashes": 0,
+        "reads": 0,
+        "smus": 0,
+        "reg_reads": 0,
+        "layouts": 0
+      }
+    ],
+    "hardware_executed": false,
+    "standalone_source_compiled": true,
+    "crypto_backend": "explicit fake verifying fixture bytes; real CommonCrypto tested separately on macOS",
+    "limitation": "Actual CLI control flow with fake IOKit; not firmware execution or proof of target address ownership"
+  },
+  "native_kernel_build_verified": false,
+  "native_commoncrypto_verified": false,
+  "hardware_executed": false
+}

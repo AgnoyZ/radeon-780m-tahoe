@@ -71,9 +71,11 @@ unverified. These fake-hardware observations do not verify PSP firmware behavior
 
 Patch 0009 now replaces implicit managed PSP offsets with a shared explicit
 descriptor; see `PSP-LAYOUT.md`. The harness extracts a seventh actual method for
-configuration and adds sixteen cases (48 total). Those new C++ cases are pending
-CI execution. The previously recorded 32-case result is historical evidence for
-code `7921a7c`, not verification of the changed methods.
+configuration and adds sixteen cases (48 total). All 48 passed in run
+`41104430767`, code `005062f`; see `validation/ci-005062f-layout.json`.
+Patch 0010 adds checked TOC-size retrieval and managed initialization sequencing,
+with 69 cases now defined but not yet observed running; see `PSP-TOC.md`. Earlier
+32- and 48-case results do not verify these newer method changes.
 
 Stopping writes does not cancel in-flight firmware, roll back prior writes,
 prove memory ownership or establish a safe reboot/unload/reset. The latch is

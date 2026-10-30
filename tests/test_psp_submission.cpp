@@ -43,13 +43,21 @@ public:
     uint64_t tmrOff{0x9000}, tmrMc{0x100009000ull}, tmrSize{0};
     uint64_t fwBufOff{0xC000}, fwBufMc{0x10000C000ull}, fwBufSize{0x1000};
     bool tmrSetUp{false};
+    uint32_t tocTmrSize{4096};
     unsigned writes{0}, reads{0}, sleeps{0}, flushes{0};
     mutable unsigned waits{0};
     uint32_t wptr{0};
     bool armed{false};
 
     explicit PhxBringup(const char *test) : mode(test),
-        memory(mode == "create-timeout" ? 0x6000000 : 0x10000), fbAperLen(memory.words.size() * 4) {}
+        memory(mode == "create-timeout" ? 0x6000000 :
+               mode.rfind("toc-", 0) == 0 || mode.rfind("tmr-", 0) == 0 || mode == "boot-sequence" ? 0x200000 : 0x10000),
+        fbAperLen(memory.words.size() * 4) {
+        if (memory.words.size() * 4 == 0x200000) {
+            fbSize = fbAperLen; tmrOff = 0x100000; tmrMc = fbMcBase + tmrOff;
+            pspLayout.tmrOffset = tmrOff;
+        }
+    }
     uint32_t rreg(uint32_t reg) { assert(lock); ++reads; return reg == PHX_PSP_C2PMSG_67 ? wptr : 0; }
     void wreg(uint32_t reg, uint32_t value) {
         assert(lock); ++writes;
@@ -63,12 +71,14 @@ public:
     void step() {
         assert(lock); ++sleeps;
         if (!armed) return;
-        if (mode == "timeout" || mode == "tmr-timeout") return;
+        if (mode == "timeout" || mode == "tmr-timeout" || mode == "toc-timeout") return;
         memory.words[fenceOff / 4] = mode == "wrong-fence" ? fenceCounter - 1 : fenceCounter;
         memory.words[(cmdOff + PHX_PSP_GFX_RESP_OFFSET) / 4] =
-            mode == "psp-error" || mode == "tmr-error" || mode == "load-error" ? 0x100 : 0;
+            mode == "psp-error" || mode == "tmr-error" || mode == "load-error" || mode == "toc-error" ? 0x100 : 0;
         memory.words[(cmdOff + PHX_PSP_GFX_RESP_OFFSET + 8) / 4] = 0x12345678;
         memory.words[(cmdOff + PHX_PSP_GFX_RESP_OFFSET + 12) / 4] = 0xABCDEF01;
+        memory.words[(cmdOff + PHX_PSP_GFX_RESP_OFFSET + 16) / 4] =
+            mode == "toc-zero-size" ? 0 : mode == "toc-capacity" ? 0x4000 : mode == "toc-nonpage-size" ? 4097 : 4096;
     }
     void clearRing();
     bool gpuReady() const { assert(gpuMutex == 1); return gpuActive; }
@@ -77,6 +87,7 @@ public:
     IOReturn pspRunCmd(uint32_t, const uint32_t *, uint32_t, uint64_t[4]);
     IOReturn fwStage(uint32_t, const void *, uint32_t);
     IOReturn loadIpFw(uint32_t, uint32_t, uint32_t, uint64_t[4]);
+    IOReturn loadToc(uint32_t, uint32_t, uint64_t[4]);
     IOReturn pspCtl(uint32_t, uint32_t, uint64_t[4]);
 };
 static PhxBringup *active;
@@ -91,7 +102,7 @@ static IOReturn submit(PhxBringup &p, const uint32_t *words, uint32_t count, uin
 }
 
 static void assert_fault_stays_terminal(PhxBringup &p) {
-    assert(p.pspSubmissionFaulted && !p.tmrSetUp);
+    assert(p.pspSubmissionFaulted && !p.tmrSetUp && !p.tocTmrSize);
     const auto before = p.memory.words;
     const auto writes = p.writes;
     uint64_t out[4]{};
@@ -100,6 +111,7 @@ static void assert_fault_stays_terminal(PhxBringup &p) {
     assert(p.pspCtl(1, 4096, out) == kIOReturnNotReady);
     assert(p.pspCtl(2, 0, out) == kIOReturnNotReady);
     assert(p.loadIpFw(4, 0, 4, out) == kIOReturnNotReady);
+    assert(p.loadToc(0, 4, out) == kIOReturnNotReady);
     assert(p.fwStage(0, &word, 4) == kIOReturnNotReady);
     assert(p.pspRing(1, 0, out) == kIOReturnNotReady);
     assert(p.pspRing(2, 0, out) == kIOReturnNotReady);
@@ -116,7 +128,70 @@ int main(int argc, char **argv) {
     uint64_t out[4] = {99, 99, 99, 99};
     uint32_t words[15] = {0x10203040, 2, 3, 4};
     IOReturn result;
-    if (test.rfind("layout-", 0) == 0) {
+    if (test == "boot-sequence") {
+        p.tocTmrSize = 0;
+        assert(p.pspCtl(1, 4096, out) == kIOReturnNotReady);
+        assert(p.loadIpFw(4, 0, 4, out) == kIOReturnNotReady);
+        assert(p.fwStage(0, words, sizeof(words)) == kIOReturnSuccess);
+        assert(p.loadToc(0, sizeof(words), out) == kIOReturnSuccess);
+        assert(out[2] == 4096 && out[3] == 1 && !p.tmrSetUp);
+        assert(p.pspCtl(1, static_cast<uint32_t>(out[2]), out) == kIOReturnSuccess);
+        assert(p.tmrSetUp && p.tmrSize == 4096);
+        assert(p.fwStage(0, words, 4) == kIOReturnSuccess);
+        assert(p.loadIpFw(4, 0, 4, out) == kIOReturnSuccess);
+        assert(p.fenceCounter == 3 && p.writes == 3);
+        p.clearRing(); assert(p.tocTmrSize == 0 && !p.tmrSetUp);
+    } else if (test.rfind("autoload-", 0) == 0) {
+        p.tmrSetUp = test == "autoload-success";
+        result = p.pspCtl(2, 0, out);
+        assert(result == (p.tmrSetUp ? kIOReturnSuccess : kIOReturnNotReady));
+        assert(p.writes == (p.tmrSetUp ? 1u : 0u));
+    } else if (test.rfind("toc-", 0) == 0) {
+        p.tocTmrSize = 0;
+        uint32_t offset = 0, size = 4;
+        if (test == "toc-unaligned-source") offset = 4;
+        if (test == "toc-empty") size = 0;
+        if (test == "toc-source-overrun") size = p.fwBufSize + 1;
+        if (test == "toc-address-overflow") {
+            offset = 4096; p.fwBufSize = 8192; p.fwBufMc = UINT64_MAX - 4095;
+        }
+        if (test == "toc-no-ring") p.ringMc = 0;
+        if (test == "toc-after-tmr") p.tmrSetUp = true;
+        if (test == "toc-unaligned-tmr") p.pspLayout.tmrOffset += 4096;
+        const auto before = p.memory.words;
+        result = p.loadToc(offset, size, out);
+        bool success = test == "toc-success" || test == "toc-capacity" || test == "toc-unaligned-tmr" ||
+                       test == "toc-stale-reset" || test == "toc-nonpage-size";
+        bool failedCommand = test == "toc-timeout" || test == "toc-error" || test == "toc-zero-size";
+        if (success) {
+            const auto required = test == "toc-capacity" ? 0x4000u : test == "toc-nonpage-size" ? 4097u : 4096u;
+            const bool fits = test != "toc-capacity" && test != "toc-unaligned-tmr";
+            assert(result == kIOReturnSuccess && p.tocTmrSize == required && out[2] == required && out[3] == fits);
+            assert(!p.tmrSetUp && p.fenceCounter == 1 && p.writes == 1);
+            assert(p.memory.words[(p.cmdOff + PHX_PSP_CMD_HDR_CMD_ID_OFFSET) / 4] == 0x20);
+            assert(p.memory.words[(p.cmdOff + PHX_PSP_GFX_CMD_UNION_OFFSET) / 4] == uint32_t(p.fwBufMc));
+            assert(p.memory.words[(p.cmdOff + PHX_PSP_GFX_CMD_UNION_OFFSET) / 4 + 1] == uint32_t(p.fwBufMc >> 32));
+            assert(p.memory.words[(p.cmdOff + PHX_PSP_GFX_CMD_UNION_OFFSET) / 4 + 2] == size);
+            if (!fits) {
+                assert(p.pspCtl(1, required, out) == kIOReturnBadArgument);
+                assert(!p.tmrSetUp && p.writes == 1);
+            } else if (test == "toc-nonpage-size") {
+                assert(p.pspCtl(1, required, out) == kIOReturnSuccess && p.tmrSize == required);
+            } else if (test == "toc-stale-reset") {
+                p.mode = "toc-timeout";
+                assert(p.loadToc(0, 4, out) == kIOReturnTimeout);
+                assert_fault_stays_terminal(p);
+            }
+        } else if (failedCommand) {
+            assert(result == (test == "toc-timeout" ? kIOReturnTimeout : kIOReturnError));
+            assert(out[2] == 0 && out[3] == 0);
+            assert_fault_stays_terminal(p);
+        } else {
+            assert(result == (test == "toc-no-ring" ? kIOReturnNotReady :
+                              test == "toc-after-tmr" ? kIOReturnExclusiveAccess : kIOReturnBadArgument));
+            assert(!p.writes && !p.reads && p.memory.words == before && !p.tocTmrSize);
+        }
+    } else if (test.rfind("layout-", 0) == 0) {
         p.clearRing(); p.pspLayoutConfigured = false; p.pspLayout = {};
         PhxPspLayout candidate{PHX_PSP_LAYOUT_VERSION, 0x1000, 0xA000, 0x2000, 0xD000, 0x2000, {0, 0}};
         const auto before = p.memory.words;
@@ -178,12 +253,18 @@ int main(int argc, char **argv) {
         if (test != "layout-create-success")
             assert(!p.writes && !p.reads && !p.waits && p.memory.words == before);
     } else if (test.rfind("tmr-", 0) == 0) {
-        if (test == "tmr-error" || test == "tmr-timeout") { p.tmrSetUp = true; p.tmrSize = 8192; }
+        if (test == "tmr-error" || test == "tmr-timeout") p.tmrSize = 8192;
+        if (test == "tmr-repeat") { p.tmrSetUp = true; p.tmrSize = 4096; }
+        if (test == "tmr-without-toc") p.tocTmrSize = 0;
         const auto before = p.memory.words;
-        result = p.pspCtl(1, test == "tmr-zero" ? 0 : test == "tmr-too-large" ? p.pspLayout.tmrCapacity + 1 : 4096, out);
+        result = p.pspCtl(1, test == "tmr-zero" ? 0 : test == "tmr-size-mismatch" ? 2048 :
+                            test == "tmr-too-large" ? p.pspLayout.tmrCapacity + 1 : 4096, out);
         if (test == "tmr-success") {
             assert(result == kIOReturnSuccess && p.tmrSetUp && p.tmrSize == 4096);
-        } else if (test == "tmr-too-large" || test == "tmr-zero") {
+        } else if (test == "tmr-repeat" || test == "tmr-without-toc") {
+            assert(result == (test == "tmr-repeat" ? kIOReturnExclusiveAccess : kIOReturnNotReady));
+            assert(p.memory.words == before && !p.writes && !p.reads);
+        } else if (test == "tmr-too-large" || test == "tmr-zero" || test == "tmr-size-mismatch") {
             assert(result == kIOReturnBadArgument && !p.tmrSetUp && p.tmrSize == 0);
             assert(p.memory.words == before && !p.writes && !p.reads);
         } else {
@@ -203,14 +284,16 @@ int main(int argc, char **argv) {
         } else assert(result == kIOReturnBadArgument && p.memory.words == before);
         assert(!p.writes && !p.reads);
     } else if (test.rfind("load-", 0) == 0) {
+        p.tmrSetUp = test != "load-without-tmr";
         if (test == "load-address-overflow") p.fwBufMc = UINT64_MAX - 3;
         const auto before = p.memory.words;
         result = p.loadIpFw(4, 4, 4, out);
         if (test == "load-success") {
             assert(result == kIOReturnSuccess);
             assert(p.memory.words[(p.cmdOff + PHX_PSP_GFX_CMD_UNION_OFFSET) / 4] == 0xC004);
-        } else if (test == "load-address-overflow") {
-            assert(result == kIOReturnBadArgument && !p.writes && !p.reads && p.memory.words == before);
+        } else if (test == "load-address-overflow" || test == "load-without-tmr") {
+            assert(result == (test == "load-without-tmr" ? kIOReturnNotReady : kIOReturnBadArgument));
+            assert(!p.writes && !p.reads && p.memory.words == before);
         } else {
             assert(result == kIOReturnError);
             assert_fault_stays_terminal(p);

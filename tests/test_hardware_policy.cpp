@@ -48,6 +48,16 @@ static void psp_layout_tests() {
                     assert(phxPspDisjoint(a, an, b, bn) == (a + an <= b || b + bn <= a));
     assert(!phxPspSpanFits(UINT64_MAX - 3, 8, UINT64_MAX));
     assert(!phxPspDisjoint(UINT64_MAX - 3, 8, UINT64_MAX - 1, 4));
+    auto tmr = valid;
+    tmr.tmrOffset = 0x100000; tmr.tmrCapacity = 0x200000;
+    assert(phxPspTmrFits(&tmr, 0x100000000ull, 0x200000000ull, 0x200000));
+    assert(phxPspTmrFits(&tmr, 0x100000000ull, 0x200000000ull, 4097));
+    assert(!phxPspTmrFits(&tmr, 0x100000000ull, 0x200000000ull, 0));
+    assert(!phxPspTmrFits(&tmr, 0x100000000ull, 0x200000000ull, 0x200001));
+    assert(!phxPspTmrFits(&tmr, UINT64_MAX - 0xFFFFF, 0x200000000ull, 4096));
+    assert(!phxPspTmrFits(&tmr, 0x100000000ull, UINT64_MAX - 0xFFFFF, 4096));
+    tmr.tmrOffset += 4096;
+    assert(!phxPspTmrFits(&tmr, 0x100000000ull, 0x200000000ull, 4096));
 }
 
 static void aperture_bounds_tests() {

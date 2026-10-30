@@ -1,0 +1,223 @@
+diff --git a/src/phxbringup/PhxBringup.cpp b/src/phxbringup/PhxBringup.cpp
+--- a/src/phxbringup/PhxBringup.cpp
++++ b/src/phxbringup/PhxBringup.cpp
+@@ -24,6 +24,8 @@
+ #include "PhxPspLayout.h"
+ static_assert(sizeof(PhxPspLayout) == 64, "PSP layout wire size");
+ static_assert(PHX_PSP_LAYOUT_RING_BYTES == PHX_PSP_FENCE_REL + 0x1000, "PSP layout ring span");
++static_assert(PHX_PSP_GFX_RESP_OFFSET + PHX_PSP_TOC_SIZE_RESPONSE_REL + 4 <= PHX_PSP_CMD_BUF_SIZE,
++              "TOC size response stays within command storage");
+ #include <libkern/version.h>
+ #include "PhxHardwarePolicy.hpp"
+ 
+@@ -92,6 +94,7 @@
+     IOReturn pspSubmit(uint32_t cmdId, uint64_t out[4]);
+     IOReturn fwStage(uint32_t dstOffset, const void *bytes, uint32_t len);
+     IOReturn loadIpFw(uint32_t fwType, uint32_t fwBufOffset, uint32_t size, uint64_t out[4]);
++    IOReturn loadToc(uint32_t fwBufOffset, uint32_t size, uint64_t out[4]);
+     IOReturn pspCtl(uint32_t op, uint32_t arg, uint64_t out[4]);
+     IOReturn pspRaw(uint32_t cmdId, const uint32_t words[6], uint64_t out[4]);
+     bool debugEnabled() const { return debug; }
+@@ -145,6 +148,7 @@
+     uint64_t tmrOff{0}, tmrMc{0}, tmrSize{0};
+     uint64_t fwBufOff{0}, fwBufMc{0}, fwBufSize{0};
+     bool tmrSetUp{false};
++    uint32_t tocTmrSize{0};
+     // E8 state: the adopted queues (ring/wb/fence are VRAM byte offsets reached through BAR0) and the VMID 8
+     // page-table pool (physically contiguous system memory; page 0 is the root). Sequence numbers are global across
+     // the queues; each queue's fence holds the last sequence it finished, and fseq/fend keep its outstanding
+@@ -238,6 +242,7 @@
+     IOReturn doDbgSmu(IOExternalMethodArguments *a);
+     IOReturn doDbgPspRing(IOExternalMethodArguments *a);
+     IOReturn doDbgPspLayout(IOExternalMethodArguments *a);
++    IOReturn doDbgLoadToc(IOExternalMethodArguments *a);
+     IOReturn doDbgVramRead(IOExternalMethodArguments *a);
+     IOReturn doDbgPspSubmit(IOExternalMethodArguments *a);
+     IOReturn doDbgFwStage(IOExternalMethodArguments *a);
+@@ -412,6 +417,7 @@
+ }
+ 
+ void PhxBringup::clearRing() {
++    tocTmrSize = 0;
+     ringMc = ringOff = 0;
+     cmdOff = cmdMc = fenceOff = fenceMc = 0;
+     fenceCounter = 0;
+@@ -955,6 +961,7 @@
+                     r = kIOReturnTimeout;    // raw C2PMSG_64 (with PSP status in bits 15:0) returned in out[0]
+                     ringMc = 0;
+                     pspSubmissionFaulted = true; // acknowledgement is uncertain; do not retry writes
++                    tocTmrSize = 0;
+                 } else {
+                     // Ring is live. Lay the GPCOM command + fence buffers just above it and zero them,
+                     // then reset the doorbell so wptr agrees with our slot 0 (Linux psp_v13_0_ring_create).
+@@ -987,6 +994,7 @@
+         if (!pspWaitTos(2000)) {
+             r = kIOReturnTimeout;
+             pspSubmissionFaulted = true;
++            tocTmrSize = 0;
+             tmrSetUp = false;
+             tmrSize = 0;
+         } else {
+@@ -1074,6 +1082,7 @@
+     out[1] = us;
+     if (observed != fence || status != 0) {
+         pspSubmissionFaulted = true;
++        tocTmrSize = 0;
+         tmrSetUp = false;
+         tmrSize = 0;
+         // IOKit need not return output scalars on error; the non-success return is authoritative.
+@@ -1128,13 +1137,53 @@
+     return kIOReturnSuccess;
+ }
+ 
+-// Selector 105: submit GFX_CMD_ID_LOAD_IP_FW for the firmware already staged in fw_buf at fwBufOffset.
++// Selector 115: load a staged TOC and observe its required TMR size, without setting up the TMR.
++IOReturn PhxBringup::loadToc(uint32_t fwBufOffset, uint32_t size, uint64_t out[4]) {
++    if (!out) return kIOReturnBadArgument;
++    for (unsigned i = 0; i < 4; ++i) out[i] = 0;
++    if (!mmio || !fbAper || !smuLock) return kIOReturnNotReady;
++    IOLockLock(smuLock);
++    IOReturn r;
++    if (!ringMc || !pspLayoutConfigured || pspSubmissionFaulted) {
++        r = kIOReturnNotReady;
++    } else if (tmrSetUp) {
++        r = kIOReturnExclusiveAccess;
++    } else if (!size || (fwBufOffset & 0xfff) ||
++               !phxPspLayoutValid(&pspLayout, fbMcBase, fbPhys, fbSize, fbAperLen) ||
++               !phx780m::rangeWithin(fwBufOffset, size, fwBufSize) ||
++               !phx780m::rangeWithin(fwBufOff, fwBufSize, fbAperLen) ||
++               fwBufMc > UINT64_MAX - fwBufOffset || ((fwBufMc + fwBufOffset) & 0xfff)) {
++        r = kIOReturnBadArgument;
++    } else {
++        tocTmrSize = 0;
++        tmrSize = 0;
++        const uint64_t mc = fwBufMc + fwBufOffset;
++        uint32_t words[3] = {static_cast<uint32_t>(mc), static_cast<uint32_t>(mc >> 32), size};
++        r = pspRunCmd(PHX_PSP_LOAD_TOC_COMMAND, words, 3, out);
++        out[2] = out[3] = 0;
++        if (r == kIOReturnSuccess) {
++            volatile uint32_t *cmd = reinterpret_cast<volatile uint32_t *>(fbAper->getVirtualAddress() + cmdOff);
++            tocTmrSize = cmd[(PHX_PSP_GFX_RESP_OFFSET + PHX_PSP_TOC_SIZE_RESPONSE_REL) / 4];
++            if (!tocTmrSize) {
++                pspSubmissionFaulted = true;
++                r = kIOReturnError;
++            } else {
++                out[2] = tocTmrSize;
++                out[3] = phxPspTmrFits(&pspLayout, fbMcBase, fbPhys, tocTmrSize) ? 1 : 0;
++            }
++        }
++    }
++    IOLockUnlock(smuLock);
++    return r;
++}
++
++// Selector 105: load engine firmware only after the managed TMR setup completed.
+ IOReturn PhxBringup::loadIpFw(uint32_t fwType, uint32_t fwBufOffset, uint32_t size, uint64_t out[4]) {
+     if (!mmio || !fbAper)
+         return kIOReturnNotReady;
+     IOLockLock(smuLock);
+     IOReturn r;
+-    if (!ringMc || pspSubmissionFaulted) {
++    if (!ringMc || pspSubmissionFaulted || !tmrSetUp) {
+         r = kIOReturnNotReady;
+     } else if ((fwBufOffset & 3) || !size ||
+                !phx780m::rangeWithin(fwBufOffset, size, fwBufSize) ||
+@@ -1159,8 +1208,17 @@
+     if (!ringMc || pspSubmissionFaulted) {
+         r = kIOReturnNotReady;
+     } else if (op == 1) {
++        if (tmrSetUp) {
++            IOLockUnlock(smuLock);
++            return kIOReturnExclusiveAccess;
++        }
+         uint32_t size = arg;
+-        if (!pspLayoutConfigured || !size || size > pspLayout.tmrCapacity) {
++        if (!tocTmrSize) {
++            IOLockUnlock(smuLock);
++            return kIOReturnNotReady;
++        }
++        if (!pspLayoutConfigured || size != tocTmrSize ||
++            !phxPspTmrFits(&pspLayout, fbMcBase, fbPhys, size)) {
+             IOLockUnlock(smuLock);
+             return kIOReturnBadArgument;
+         }
+@@ -1174,7 +1232,7 @@
+         tmrSetUp = r == kIOReturnSuccess;
+         tmrSize = tmrSetUp ? size : 0;
+     } else if (op == 2) {
+-        r = pspRunCmd(PHX_PSP_GFX_CMD_AUTOLOAD_RLC, nullptr, 0, out);
++        r = tmrSetUp ? pspRunCmd(PHX_PSP_GFX_CMD_AUTOLOAD_RLC, nullptr, 0, out) : kIOReturnNotReady;
+     } else {
+         r = kIOReturnBadArgument;
+     }
+@@ -1381,6 +1439,7 @@
+         case PHXN_SEL_DBG_SMU:   r = doDbgSmu(a); break;
+         case PHXN_SEL_DBG_PSP_RING: r = doDbgPspRing(a); break;
+         case PHX_PSP_LAYOUT_SELECTOR: r = doDbgPspLayout(a); break;
++        case PHX_PSP_LOAD_TOC_SELECTOR: r = doDbgLoadToc(a); break;
+         case PHXN_SEL_DBG_VRAM_READ: r = doDbgVramRead(a); break;
+         case PHXN_SEL_DBG_PSP_SUBMIT: r = doDbgPspSubmit(a); break;
+         case PHXN_SEL_DBG_FW_STAGE: r = doDbgFwStage(a); break;
+@@ -1832,6 +1891,18 @@
+     return r;
+ }
+ 
++IOReturn IOAccelPhxNativeClient::doDbgLoadToc(IOExternalMethodArguments *a) {
++    if (!owner->debugEnabled()) return kIOReturnUnsupported;
++    if (!privileged) return kIOReturnNotPrivileged;
++    if (!shape(a, 2, 4, 0, 0) || a->scalarInput[0] > UINT32_MAX || a->scalarInput[1] > UINT32_MAX)
++        return kIOReturnBadArgument;
++    uint64_t out[4]{};
++    IOReturn r = owner->loadToc(static_cast<uint32_t>(a->scalarInput[0]), static_cast<uint32_t>(a->scalarInput[1]), out);
++    if (r == kIOReturnSuccess)
++        for (unsigned i = 0; i < 4; ++i) a->scalarOutput[i] = out[i];
++    return r;
++}
++
+ IOReturn IOAccelPhxNativeClient::doDbgPspLayout(IOExternalMethodArguments *a) {
+     if (!owner->debugEnabled()) return kIOReturnUnsupported;
+     if (!privileged) return kIOReturnNotPrivileged;
+diff --git a/tools/phxctl/phxctl.c b/tools/phxctl/phxctl.c
+--- a/tools/phxctl/phxctl.c
++++ b/tools/phxctl/phxctl.c
+@@ -60,7 +60,8 @@
+    if (selector == SEL_HELLO && output[0] != input[0])
+       control_failure(75, "incompatible kernel ABI");
+    if ((selector == SEL_DBG_PSP_SUBMIT || selector == SEL_DBG_PSP_CTL ||
+-        selector == SEL_DBG_PSP_LOADIPFW || selector == SEL_DBG_PSP_RAW) && output[0] != 0)
++        selector == SEL_DBG_PSP_LOADIPFW || selector == SEL_DBG_PSP_RAW ||
++        selector == PHX_PSP_LOAD_TOC_SELECTOR) && output[0] != 0)
+       control_failure(75, "PSP completion/status not confirmed");
+    if (selector == SEL_DBG_SMU && output[0] != 1)
+       control_failure(75, "SMU response not successful");
+@@ -244,6 +245,8 @@
+ 
+ int main(int argc, char **argv)
+ {
++   if (argc >= 2 && !strcmp(argv[1], "loadtoc") && argc != 7)
++      control_failure(64, "loadtoc requires file, offset, size, staging offset and reviewed SHA-256");
+    if (argc >= 2 && !strcmp(argv[1], "psp-layout") && argc != 7)
+       control_failure(64, "psp-layout requires ring offset, TMR offset/capacity and staging offset/capacity");
+    if (argc >= 2 && !strcmp(argv[1], "verify-file")) {
+@@ -264,7 +267,20 @@
+    if (open_kext())
+       return 1;
+ 
+-   if (!strcmp(argv[1], "psp-layout")) {
++   if (!strcmp(argv[1], "loadtoc")) {
++      uint32_t offset = checked_u32(argv[3]), size = checked_u32(argv[4]), destination = checked_u32(argv[5]);
++      if (destination & 0xfff) control_failure(64, "TOC staging destination must be page aligned");
++      stage_firmware(argv[2], offset, size, destination, argv[6]);
++      uint64_t input[2] = {destination, size}, out[4] = {0};
++      uint32_t n = 4;
++      checked_scalar(conn, PHX_PSP_LOAD_TOC_SELECTOR, input, 2, out, &n);
++      if (!out[2] || out[2] > UINT32_MAX || out[3] != 1) {
++         fprintf(stderr, "TOC reported %llu TMR bytes; configured region fit=%llu\n",
++                 (unsigned long long)out[2], (unsigned long long)out[3]);
++         control_failure(75, "TOC size or configured TMR capacity/alignment not usable");
++      }
++      printf("loadtoc complete; required TMR bytes %llu; TMR not set up\n", (unsigned long long)out[2]);
++   } else if (!strcmp(argv[1], "psp-layout")) {
+       struct PhxPspLayout layout = {PHX_PSP_LAYOUT_VERSION, checked_u64(argv[2]), checked_u64(argv[3]),
+          checked_u64(argv[4]), checked_u64(argv[5]), checked_u64(argv[6]), {0, 0}};
+       uint64_t out[4] = {0};

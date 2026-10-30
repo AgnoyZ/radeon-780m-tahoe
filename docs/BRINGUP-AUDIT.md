@@ -174,8 +174,15 @@ software metadata. Ring creation rechecks all three regions against reported
 VRAM and mapped aperture bounds, verifies MC/physical address arithmetic and
 requires pairwise disjoint ranges before aperture writes. This removes the
 managed PSP fixed-offset dependency, but does not grant reserved-region ownership
-or change the separate `mesboot.c` reference layout. Tests for the new paths are
-pending C/C++ CI execution; see `PSP-LAYOUT.md`.
+or change the separate `mesboot.c` reference layout. Its 48 kernel-method and 46
+CLI cases passed ASan/UBSan in run `41104430767`; see `PSP-LAYOUT.md`.
+
+Patch `0010` connects the TOC response's actual TMR-size field to exact-size,
+aligned TMR setup and prevents managed engine loading before TMR completion.
+The staged TOC uses the checked snapshot transport. This implements part of the
+initialization sequence, but component selection, owned memory and the broader
+GART/queue/power workflow remain unresolved. Its new C/C++ cases are pending;
+see `PSP-TOC.md`.
 
 1. Confirm the actual target Tahoe build, a tested external-disk/EFI recovery path
    and the exact driver/firmware revisions. The last verified target environment

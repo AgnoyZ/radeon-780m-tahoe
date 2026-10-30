@@ -10,7 +10,7 @@ import subprocess
 
 from prepare_source import ROOT, prepare
 
-METHODS = ("clearRing", "configurePspLayout", "pspRing", "pspRunCmd", "fwStage", "loadIpFw", "pspCtl")
+METHODS = ("clearRing", "configurePspLayout", "pspRing", "pspRunCmd", "fwStage", "loadToc", "loadIpFw", "pspCtl")
 CASES = ("success", "timeout", "wrong-fence", "psp-error", "last-fence", "fence-exhausted",
          "bad-wptr", "high-wptr", "last-slot", "wrap-sentinel", "max-words", "too-many-words", "null-words",
          "null-output", "cmd-overflow", "fence-overflow", "ring-overflow", "unaligned-cmd",
@@ -20,7 +20,11 @@ CASES = ("success", "timeout", "wrong-fence", "psp-error", "last-fence", "fence-
          "layout-configure", "layout-overlap", "layout-outside-vram", "layout-outside-aperture",
          "layout-mc-overflow", "layout-physical-overflow", "layout-active-ring", "layout-active-gpu",
          "layout-faulted", "layout-create-missing", "layout-create-mismatch", "layout-create-revalidate",
-         "layout-create-success", "tmr-zero", "layout-reconfigure", "layout-null-output")
+         "layout-create-success", "tmr-zero", "layout-reconfigure", "layout-null-output",
+         "toc-success", "toc-timeout", "toc-error", "toc-zero-size", "toc-capacity", "toc-unaligned-tmr",
+         "toc-unaligned-source", "toc-empty", "toc-source-overrun", "toc-address-overflow", "toc-no-ring",
+         "toc-after-tmr", "toc-stale-reset", "toc-nonpage-size", "tmr-without-toc", "tmr-size-mismatch",
+         "load-without-tmr", "autoload-without-tmr", "autoload-success", "boot-sequence", "tmr-repeat")
 
 
 def extract_methods(source):

@@ -88,10 +88,18 @@ checks in the C++ policy suite.
 
 The actual CLI harness now has 46 cases, including seven layout transport and
 argument cases. It verifies the 64-byte descriptor and zero firmware-stage/load
-calls during configuration. All native C/C++ execution for this new revision is
-pending CI; 106 Python source/runner tests passed locally. A fake-memory ring
+calls during configuration. Run `41104430767`, source job `124230027410`, passed
+all 48 kernel-method cases and all 46 actual-CLI cases under ASan/UBSan, including
+standalone control compilation. Patch/header hashes and all seven extracted
+method hashes were cross-checked; see `validation/ci-005062f-layout.json`.
+Native kernel compilation and real CommonCrypto execution remain unverified.
+A fake-memory ring
 creation is not hardware execution, and a successful source build will not prove
 target firmware compatibility.
+
+Patch 0010 subsequently connects TOC-reported size to TMR initialization and adds
+further cases; see `PSP-TOC.md`. The result above covers `005062f`, not those newer
+method changes.
 
 Target Tahoe inventory and reserved-region ownership are still missing. The
 broader `mesboot.c` GART/queue/default-page addresses remain reference constants.
