@@ -144,8 +144,10 @@ The kernel PSP false-success path is now corrected by patch `0007`; see
 `PSP-COMPLETION.md`. PSP completion errors/timeouts return failure, invalidate TMR
 readiness and latch subsequent PSP/firmware write refusal. Command preconditions
 and padded firmware-staging extents are checked before their respective writes.
-Actual-method host fault tests are wired into CI, with native execution pending.
-This does not establish target memory ownership or provide hardware rollback.
+Run `41099945379` reports the 32-case actual-method sanitizer step successful;
+source-job cleanup is still live and its per-case log is not yet available. See
+`validation/ci-7921a7c-psp-step.json`. Full native kernel build verification is
+pending. This does not establish target memory ownership or hardware rollback.
 
 Start with `TARGET-INVENTORY.md` for the new metadata-only collector. It records
 the actual OS build and whitelisted registry PCI identities/assigned apertures,

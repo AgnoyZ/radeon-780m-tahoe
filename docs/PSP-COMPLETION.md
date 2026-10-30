@@ -34,6 +34,15 @@ PSP success. The wire layout/selector numbers are unchanged. The original debug
 CLI and shell scripts still need checked orchestration; this patch does not turn
 their printed diagnostics or shell exit codes into a safe deployment workflow.
 
+Nonzero-status rejection is a deliberate conservative policy, not a claim that
+every AMD firmware version uses nonzero exclusively for fatal errors. Linux
+v6.18 `amdgpu_psp.c` at commit `7d0a66e4bb9081d75c82ec4957c50034cb0ea449`
+documents firmware versions with nonzero statuses on otherwise valid submissions
+and tolerates some of them. This project has no target/version/command-specific
+evidence supporting those exceptions yet. Any necessary exception must be
+validated explicitly; the strict policy may currently reject a usable firmware
+path. Fence timeout remains unequivocally unconfirmed completion.
+
 ## Host verification
 
 `tools/test_psp_submission.py` stages the actual patched source and extracts six
@@ -48,8 +57,12 @@ mapped-range overflow, a partial staging word and ring lifecycle failures. The
 negative lifecycle cases attempt follow-up operations and require unchanged fake
 memory/register-write counts, including after software ring clearing. Positive
 cases check actual frame/command fields and returned addresses. The Linux CI job
-runs them under ASan/UBSan before native driver builds. Native execution of these
-new cases is pending; 98 Python source/runner tests passed locally.
+runs them under ASan/UBSan before native driver builds. Run `41099945379`, code
+`7921a7c`, reports this test step completed successfully at `2026-10-30T17:34:18Z`.
+The source job is still in checkout cleanup at the recorded observation, so its
+per-case JSON log is not yet available. The step evidence explicitly preserves
+that limit in `validation/ci-7921a7c-psp-step.json`. All 98 Python source/runner
+tests passed locally; the complete native kernel build remains unverified.
 
 ## Remaining hardware requirements
 
