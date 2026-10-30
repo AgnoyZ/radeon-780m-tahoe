@@ -22,6 +22,7 @@ class AirRuntimeBuildTests(unittest.TestCase):
         self.assertIn("-DLLVM_DYLIB_COMPONENTS=core;bitreader;bitwriter;irreader;passes", command)
         self.assertIn("-DCMAKE_OSX_ARCHITECTURES=x86_64", command)
         self.assertIn("-DLLVM_ENABLE_ZSTD=OFF", command)
+        self.assertIn("-DLLVM_INCLUDE_DOCS=OFF", command)
         self.assertNotIn("install", command)
         self.assertNotIn("-DLLVM_INCLUDE_TOOLS=OFF", command)
 

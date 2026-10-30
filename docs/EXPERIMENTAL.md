@@ -5,10 +5,17 @@ These artifacts are research builds for noncommercial development, NOT a complet
 - PhxBringup and PhxAccel are patched builds of the pinned nullarc source, not a new from-scratch implementation.
 - The kernel and framebuffer paths require Darwin 25, PCI 1002:1900, and explicit `phx780m=1` opt-in. Existing kill switches are retained. This flag alone does NOT initialize the GPU or enable Metal.
 - Do not load/install them yet: the firmware layout, panel, runtime ABI and full userspace stack still require machine-specific review.
-- The build now compiles the upstream Metal plugin and LGPL AIR translator from source; it is NOT a complete runtime. Firmware, RADV, the LLVM AIR bitcode reader/runtime and boot-time orchestration are NOT included. Dropping these kexts into EFI cannot produce a complete working graphics stack.
+- The build includes source-build paths for the upstream Metal plugin, LGPL AIR translator, native-only Mesa RADV and pinned LLVM AIR bitcode reader/runtime; this is NOT a complete or target-validated runtime. Firmware and boot-time orchestration remain missing. Dropping these kexts into EFI cannot produce a complete working graphics stack.
 - No boot config, NVRAM, OS security setting or disk is changed by the build scripts. No installer is supplied.
 - `metal-smoke --list` lists Metal devices without submitting work. Running `metal-smoke` submits real compute work and can hang an experimental GPU; use only after independently establishing the runtime stack and recovery path.
 - A compute pass does not verify WindowServer, external display, backlight, codec acceleration, sleep or sustained stability.
+
+## Native validation status
+
+- Run `41063982777` (`a296873`) built and loaded native RADV, checked the shared kernel/userspace ABI and enumerated zero devices on a non-target host. It did not create a Vulkan device or execute GPU work. Its absolute Homebrew SPIRV-Tools dependency prevents treating that build as deployable; see `docs/validation/ci-a296873.json`.
+- Commit `034d0c2` disables RADV's optional SPIRV-Tools debugging dependency and rejects non-system dylib dependencies. This does not disable the shader compiler or the separate generated-SPIR-V validation tests. Native results for that revision must be checked independently.
+- Run `41065701927` (`c1fb030`) failed during LLVM CMake configuration: the sparse checkout excludes `llvm/docs`, but documentation was enabled. The recipe now explicitly sets `LLVM_INCLUDE_DOCS=OFF`; the regression test first reproduced that omission. Core, bitreader, bitwriter, irreader and passes remain enabled. LLVM compilation, loading and actual Metal-to-AIR-to-SPIR-V validation are not yet proven by this fix.
+- Hosted CI is not Radeon 780M hardware evidence. No Tahoe target run, deployment or working acceleration is claimed. Public binary uploads remain disabled.
 
 ## Licenses and provenance
 
