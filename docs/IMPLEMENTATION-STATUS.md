@@ -1,4 +1,4 @@
-# Implementation status (2026-10-30)
+# Implementation status (2026-10-31)
 
 ## Implemented; target hardware verification pending
 - Pinned nullarc source submodule and MacKernelSDK dependency.
@@ -20,9 +20,11 @@
 ## LLVM AIR build verified; compiler-chain validation in progress
 - Selected and fetched LLVM 21.1.8 at `2078da43e25a4623cab2d0d60decddf709aaea28`; audited the source license and the plugin's 38 mandatory/optional C API references. This does not establish equivalence with nullarc's unversioned packaged LLVM.
 - Run `41069365794` (`dadac3f`) built the actual LLVM runtime, verified all 38 plugin exports and system-only dependencies, and passed signing checks. The 48,405,008-byte x86_64 dylib has SHA-256 `615e6eab713a5d08f578d1b645a12b5d35ee9f7b6297831e850875370d48fa2b`.
-- The overall run then failed when Apple's compiler rejected `-std=macos-metal3.1`, before completing the real Metal/AIR/SPIR-V tests. The recipe now uses the diagnostic's supported `-std=metal3.1` spelling, shared by both compiler tests. An early native toolchain/probe preflight now detects such failures before the expensive dependency builds. Native validation of this correction is pending.
+- The overall run then failed when Apple's compiler rejected `-std=macos-metal3.1`, before completing the real Metal/AIR/SPIR-V tests. The recipe now uses the diagnostic's supported `-std=metal3.1` spelling, shared by both compiler tests. An early native toolchain/probe preflight now detects such failures before the expensive dependency builds. The corrected Apple compiler recipe passed the native preflight below; the later AIR/plugin chain remains unverified.
 - Curated build evidence: `validation/ci-dadac3f.json`. The failed overall result and absence of target execution are retained; GitHub confirms zero binary artifacts.
-- Corrected code `011d604`, run `41077457040`, passed source tests and the early native preflight: both real Metal variants compiled/linked and both native probes compiled. The full dependency/runtime job is still running; preflight does not prove the later AIR or plugin tests.
+- Corrected code `011d604`, run `41077457040`, passed source tests and the early native preflight: both real Metal variants compiled/linked and both native probes compiled. The run then failed after all 1,569 LLVM build actions and LLVM signing, when signing the enclosing plugin rejected unsigned `Contents/MacOS/radv-build-report.json`. The later AIR/plugin runtime tests were not reached; this is an overall failure, not a full build pass.
+- Both RADV JSON files now stage under `Contents/Resources`, while the dylib stays beside the plugin executable. The ICD points to `../MacOS/libvulkan_radeon.dylib`. The real bundle is signed/strictly verified immediately after RADV staging, before LLVM compilation. No signing bypass is used.
+- Early preflight now also builds explicitly synthetic Mach-O fixtures in the same nested-code/resource layout, signs/verifies the bundle and checks that modifying either JSON breaks its signature. This is a packaging-only test, not evidence that the actual plugin or GPU works. Native execution of the new packaging checks is pending.
 
 ## Not implemented / not verified
 - Machine-specific firmware carve-out safety, all kernel memory/concurrency paths, panel/power differences and full ABI compatibility audit.
@@ -34,7 +36,7 @@
 The goal remains a working 780M Tahoe graphics stack. This milestone is a code/build foundation, not completion. Current working EFI and Windows disks are untouched.
 
 ## Verified locally
-- Current suite: 51 Python tests passed, including real Git/worktree patch-order tests, aperture-check wiring, plugin-relative RADV staging, shared compiler recipes, preflight guards and compiler-runner rejection checks. The real 16-patch Mesa source stage also applied successfully; no native RADV binary has been built locally.
+- Current suite: 56 Python tests passed, including real Git/worktree patch-order tests, aperture-check wiring, plugin-relative RADV staging, resource metadata paths/overwrite refusal, shared compiler recipes, preflight guards and compiler-runner rejection checks. The real 16-patch Mesa source stage also applied successfully; no native RADV binary has been built locally.
 - Previous Windows Python regression suite: 23 tests passed, including applying the patch to the pinned source, validating the plugin build/entrypoint contract, source-integrity rejection and SPIR-V envelope rejection. New module tests were first observed failing before their implementations existed.
 - Actual translator release archive hash and layout verified locally; 321 Rust source files are present. Rust compilation itself was performed on macOS CI, not this Windows host.
 - Python syntax compilation passed. Native C++/kext/Metal builds are delegated to CI, not claimed as local passes.
@@ -81,4 +83,4 @@ The goal remains a working 780M Tahoe graphics stack. This milestone is a code/b
 - The real-plugin host test now additionally attempts initialization only after confirming target services are absent. It requires the expected bundled RADV image, its no-service diagnostic and zero GPU command counters; an unexplained failure is not success. Missing RADV is a separate negative case, using a newly copied/re-signed bundle.
 - Actual plugin/LLVM/RADV interoperability on macOS and on the target GPU remains unproven until the respective native and hardware tests succeed.
 - The RADV phase of run `41073491733` (`84fad0d`) verified plugin-relative staging, signing, system-only dependencies and all four direct-load/no-device cases; binary hash `bf386fee7ab64d49618c5daf753b74eed28e002bc70aa8e72a638aa26401e915` matches the previous RADV build. This is not proof that the Metal plugin itself has loaded it. See `validation/ci-84fad0d.json`.
-- Runs `41069685354`, `41071134458` and `41073491733` were intentionally cancelled after checking that each revision still contained the compiler flag proven invalid in `41069365794`. GitHub confirms all three are terminal/cancelled. The corrected run `41077457040` continues; none of the cancelled runs is counted as a full pass.
+- Runs `41069685354`, `41071134458` and `41073491733` were intentionally cancelled after checking that each revision still contained the compiler flag proven invalid in `41069365794`. GitHub confirms all three are terminal/cancelled. The corrected run `41077457040` later failed at the bundle resource layout described above; none of these runs is counted as a full pass.

@@ -107,6 +107,28 @@ The shared Metal compiler recipe uses `-std=metal3.1`. Native run `41069365794` 
 
 CI now runs `python3 tools/macos_toolchain.py --out build/toolchain-preflight` before the large dependency fetch/build steps. It actually compiles and links both project Metal variants and compiles both native probes with the same recipes used later. It does not execute the probes, load drivers or substitute for subsequent LLVM/plugin/runtime tests. Compiler/tool errors stop the run early; existing output directories are not overwritten.
 
+### Bundle resource sealing
+
+RADV's dylib remains in `NVMTLDriver.bundle/Contents/MacOS`, alongside the real
+plugin executable and translator. Its `radeon_icd.json` and
+`radv-build-report.json` belong in `Contents/Resources`, not the code directory.
+The bundled ICD uses `../MacOS/libvulkan_radeon.dylib`; standalone RADV output
+retains `nvmtl/radeon_icd.json` with `./libvulkan_radeon.dylib`. Existing metadata
+in either the legacy code location or the resource directory is not overwritten.
+
+Run `41077457040` exposed the original layout error during enclosing-bundle
+signing, after the expensive LLVM build. The full build now signs and strictly
+verifies the bundle immediately after writing RADV metadata. LLVM staging and
+final verification still re-sign/verify afterward; no `--deep` bypass is used.
+
+The early preflight also compiles a project-owned **synthetic packaging fixture**:
+a minimal bundle and three stub dylibs, including the nested `air-runtime` path.
+It uses production metadata/layout helpers, verifies signing, and requires each
+JSON mutation to fail verification before restoring the original bytes and
+verifying again. These stubs are never loaded, installed, or presented as driver,
+Vulkan, LLVM, translator, or GPU evidence. A packaging pass does not replace the
+later checks against actual built components. No binaries are published by CI.
+
 ### RADV runtime dependency gate
 The first successful native RADV build also exposed a deployment defect: Mesa auto-detected the CI host's optional SPIRV-Tools library and linked an absolute Homebrew path. The recipe now explicitly sets `-Dspirv-tools=disabled` for Mesa's optional debugging helpers (not the real compiler or the separate mandatory spirv-val tests). Before signing/loading the ICD, `otool -L` must show its expected install name and only `/usr/lib/` or `/System/Library/` dependencies. Other Homebrew, build-directory or unresolved `@rpath` dependencies fail the build instead of being hidden by the CI host's environment. The native result for this correction is tracked separately from the earlier successful-but-host-dependent run.
 

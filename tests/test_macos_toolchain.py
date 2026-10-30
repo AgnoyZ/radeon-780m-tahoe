@@ -6,7 +6,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from macos_toolchain import metal_command, probe_command, preflight
+from macos_toolchain import metal_command, probe_command, preflight, packaging_preflight
 
 
 class MacOSToolchainTests(unittest.TestCase):
@@ -48,6 +48,22 @@ class MacOSToolchainTests(unittest.TestCase):
     def test_preflight_precedes_expensive_dependency_builds(self):
         workflow = (ROOT / ".github/workflows/build.yml").read_text()
         self.assertLess(workflow.index("tools/macos_toolchain.py"), workflow.index("Checkout pinned MacKernelSDK"))
+
+    def test_packaging_fixture_refuses_non_native_host(self):
+        with tempfile.TemporaryDirectory() as directory, mock.patch("macos_toolchain.platform.system", return_value="Windows"):
+            output = Path(directory) / "new"
+            with self.assertRaises(RuntimeError):
+                packaging_preflight(output)
+            self.assertFalse(output.exists())
+
+    def test_packaging_fixture_refuses_existing_output(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch("macos_toolchain.platform.system", return_value="Darwin"), \
+             mock.patch("macos_toolchain.platform.machine", return_value="x86_64"), \
+             mock.patch("macos_toolchain.subprocess.run") as run:
+            with self.assertRaises(RuntimeError):
+                packaging_preflight(Path(directory))
+            run.assert_not_called()
 
 
 if __name__ == "__main__":
