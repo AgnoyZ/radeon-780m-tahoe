@@ -75,6 +75,38 @@ def check_completion_case(result, operation, fault):
     return summary
 
 
+def submission_cases():
+    return ("first-frame", "last-frame", "last-sequence", "unaligned", "null", "short-frame",
+            "long-frame", "huge-frame", "offset-past-end", "offset-truncated", "offset-unaligned",
+            "ring-one-over", "ring-full", "ring-high-word", "ring-max", "sequence-exhausted")
+
+
+def check_submission_case(result, fault):
+    success = fault in ("first-frame", "last-frame", "last-sequence", "unaligned")
+    if result.returncode != (0 if success else 76):
+        raise RuntimeError(f"Unexpected submission exit ({fault}): {result.returncode}: {result.stderr}")
+    if ("submission-returned" in result.stdout) != success:
+        raise RuntimeError("Submission rejection was swallowed or valid boundary did not return")
+    if not success and "mesboot submission:" not in result.stderr:
+        raise RuntimeError("Negative result was not a submission precondition rejection")
+    prefix = "fake-submission-summary "
+    summaries = [line[len(prefix):] for line in result.stderr.splitlines() if line.startswith(prefix)]
+    if len(summaries) != 1:
+        raise RuntimeError("Missing or repeated submission accounting")
+    summary = json.loads(summaries[0])
+    if set(summary) != {"calls", "ring_writes", "wptr", "seq"} or any(type(v) is not int for v in summary.values()):
+        raise RuntimeError("Invalid submission accounting types")
+    initial_wptr = {"last-frame": 896, "ring-one-over": 897, "ring-full": 1024,
+                    "ring-high-word": 1 << 32, "ring-max": (1 << 64) - 1}.get(fault, 0)
+    initial_seq = {"last-sequence": (1 << 64) - 2, "sequence-exhausted": (1 << 64) - 1}.get(fault, 0)
+    if summary["wptr"] != initial_wptr + (128 if success else 0) or summary["seq"] != initial_seq + int(success):
+        raise RuntimeError("Submission pointer or sequence changed incorrectly")
+    invalid_calls = summary["calls"] <= 0 if success else summary["calls"] != 0
+    if summary["ring_writes"] != (128 if success else 0) or invalid_calls:
+        raise RuntimeError("Submission performed unexpected transport or ring writes")
+    return summary
+
+
 def exercise(out):
     compiler = shutil.which("clang")
     if platform.system() not in ("Linux", "Darwin") or not compiler:
@@ -99,8 +131,13 @@ def exercise(out):
         result = subprocess.run([str(binary), operation, fault], capture_output=True, text=True, timeout=10)
         observed = check_completion_case(result, operation, fault)
         completions.append({"case": operation + ":" + fault, **observed})
+    submissions = []
+    for fault in submission_cases():
+        result = subprocess.run([str(binary), "submission", fault], capture_output=True, text=True, timeout=10)
+        submissions.append({"case": fault, **check_submission_case(result, fault)})
     report = {"source_provenance": provenance, "fault_injection_cases_passed": passed,
               "completion_path_cases_passed": completions,
+              "submission_boundary_cases_passed": submissions,
               "transport_backend": "fake IOKit; actual patched mesboot source",
               "hardware_executed": False, "driver_runtime_tested": False,
               "limitation": "Injected transport/completion observations test actual userspace control flow, not GPU execution or packet correctness"}

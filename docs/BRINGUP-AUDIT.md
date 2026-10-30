@@ -102,10 +102,35 @@ cases under ASan/UBSan. Its macOS preflight also compiled/linked the real tool
 without executing it. The full native driver build remains in progress; see
 `validation/ci-61c5c0e-completion.json`.
 
-No hardware rollback is attempted. KIQ/SDMA experiments, ring capacity/ownership,
-sequence exhaustion, firmware responses, target mappings and safe recovery still
+No hardware rollback is attempted. KIQ/SDMA experiments, ring reuse/ownership,
+firmware responses, target mappings and safe recovery still
 need separate validation before deployment. Process exit is not proof that the
 GPU is idle or its earlier writes have been undone.
+
+## Bounded MES submission; no ring reuse
+
+Patch `0006` rejects invalid frame sizes/status offsets, an exhausted scheduler
+ring and a maximum 64-bit sequence before the submission function modifies the
+caller packet, writes status memory or makes any IOKit call (exit 76). The two
+64-dword frames must fit within the existing 1,024-dword scheduler allocation.
+Subtraction checks avoid arithmetic wrap. Resuming the reference tool reads both
+write-pointer words, so a nonzero high word cannot be silently truncated into an
+apparently valid low offset. Packet words are copied without alignment-dependent
+loads. Existing scheduler initialization and other earlier operations remain
+outside this per-submission guarantee.
+
+This finite bring-up path deliberately does not wrap/reuse ring storage. A full
+ring is a terminal condition, not permission to clear a running queue or reset
+the device. A production scheduler still needs validated consumer synchronization,
+exclusive ownership, submission serialization and recovery. Fixed reference
+addresses and other initialization experiments remain unresolved.
+
+Sixteen new actual-source host cases cover first/last valid submissions, the last
+valid sequence, unaligned packet storage, invalid sizes/offsets, one-word overflow,
+full/high-word/max pointers and sequence exhaustion. Negative cases require zero
+transport calls and unchanged packet/pointer/sequence; positive cases check all
+128 ring writes in order. These fake-transport cases require native sanitizer CI;
+they are not GPU execution or permission to initialize hardware.
 
 ## Evidence required before an initialization experiment
 

@@ -15,6 +15,20 @@ static int gpu_failed;
 static uint64_t completion_fence, completion_token;
 static uint32_t scratch0, scratch1;
 static uint32_t compute_word = 0xFEEDF00D, graphics_word = 0x6F7A6F7A;
+static unsigned submission_ring_writes;
+_Alignas(8) static unsigned char submission_packet[API_FRAME_SIZE_IN_DWORDS * 4 + 1];
+static unsigned char submission_original[sizeof(submission_packet)];
+static uint64_t submission_initial_wptr, submission_initial_seq;
+static int submission_success;
+
+static void submission_summary(void) {
+    if (!submission_success) {
+        assert(calls == 0 && sch_wptr == submission_initial_wptr && sch_seq == submission_initial_seq);
+        assert(!memcmp(submission_packet, submission_original, sizeof(submission_packet)));
+    }
+    fprintf(stderr, "fake-submission-summary {\"calls\":%u,\"ring_writes\":%u,\"wptr\":%llu,\"seq\":%llu}\n",
+            calls, submission_ring_writes, (unsigned long long)sch_wptr, (unsigned long long)sch_seq);
+}
 
 int fake_usleep(useconds_t usec) { (void)usec; ++sleeps; return 0; }
 
@@ -32,6 +46,16 @@ static void gpu_scalar(uint32_t selector, const uint64_t *input, uint64_t *outpu
         exit(91);
     }
     if (selector == SEL_DBG_VRAM_WRITE) {
+        if (!strcmp(gpu_operation, "submission")) {
+            uint64_t start = SCH_RING + submission_initial_wptr * 4;
+            if (input[0] >= SCH_RING && input[0] < SCH_RING + SCH_RING_DWORDS * 4) {
+                assert(input[0] == start + submission_ring_writes * 4);
+                ++submission_ring_writes;
+            } else {
+                assert(input[0] == SCH_WB + 16 || input[0] == SCH_WB + 20 ||
+                       (input[0] >= SCH_WB + 64 && input[0] < SCH_WB + 80));
+            }
+        }
         if (input[0] == TESTBUF) compute_word = (uint32_t)input[1];
         if (input[0] == TESTBUF + 0x40) graphics_word = (uint32_t)input[1];
         if (input[0] == SCH_WB + 32) completion_fence = (uint32_t)input[1];
@@ -155,6 +179,43 @@ int main(int argc, char **argv) {
     const char *operation = argv[1];
     fault = argv[2];
     conn = 7;
+    if (!strcmp(operation, "submission")) {
+        gpu_operation = operation;
+        void *packet = submission_packet;
+        size_t size = API_FRAME_SIZE_IN_DWORDS * 4;
+        size_t offset = offsetof(union MESAPI__QUERY_MES_STATUS, api_status);
+        memset(submission_packet, 0xA5, sizeof(submission_packet));
+        if (!strcmp(fault, "last-frame")) sch_wptr = SCH_RING_DWORDS - 2 * API_FRAME_SIZE_IN_DWORDS;
+        else if (!strcmp(fault, "last-sequence")) sch_seq = UINT64_MAX - 1;
+        else if (!strcmp(fault, "unaligned")) {
+            packet = submission_packet + 1;
+            assert((uintptr_t)packet % 4 == 1);
+        }
+        else if (!strcmp(fault, "null")) packet = NULL;
+        else if (!strcmp(fault, "short-frame")) --size;
+        else if (!strcmp(fault, "long-frame")) ++size;
+        else if (!strcmp(fault, "huge-frame")) size = SIZE_MAX;
+        else if (!strcmp(fault, "offset-past-end")) offset = SIZE_MAX;
+        else if (!strcmp(fault, "offset-truncated")) offset = size - 4;
+        else if (!strcmp(fault, "offset-unaligned")) ++offset;
+        else if (!strcmp(fault, "ring-one-over")) sch_wptr = SCH_RING_DWORDS - 2 * API_FRAME_SIZE_IN_DWORDS + 1;
+        else if (!strcmp(fault, "ring-full")) sch_wptr = SCH_RING_DWORDS;
+        else if (!strcmp(fault, "ring-high-word")) sch_wptr = 1ull << 32;
+        else if (!strcmp(fault, "ring-max")) sch_wptr = UINT64_MAX;
+        else if (!strcmp(fault, "sequence-exhausted")) sch_seq = UINT64_MAX;
+        else assert(!strcmp(fault, "first-frame"));
+        submission_success = !strcmp(fault, "first-frame") || !strcmp(fault, "last-frame") ||
+                             !strcmp(fault, "last-sequence") || !strcmp(fault, "unaligned");
+        submission_initial_wptr = sch_wptr; submission_initial_seq = sch_seq;
+        memcpy(submission_original, submission_packet, sizeof(submission_packet));
+        assert(atexit(submission_summary) == 0);
+        assert(mes_submit(packet, size, offset, "bounds fixture") == 0);
+        assert(submission_success && submission_ring_writes == 2 * API_FRAME_SIZE_IN_DWORDS);
+        assert(sch_wptr == submission_initial_wptr + 2 * API_FRAME_SIZE_IN_DWORDS);
+        assert(sch_seq == submission_initial_seq + 1);
+        puts("submission-returned");
+        return 0;
+    }
     if (!strcmp(operation, "mes") || !strcmp(operation, "sched") || !strcmp(operation, "compute") || !strcmp(operation, "gfx")) {
         gpu_operation = operation;
         assert(atexit(gpu_summary) == 0);

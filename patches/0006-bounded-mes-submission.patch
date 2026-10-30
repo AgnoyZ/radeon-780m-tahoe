@@ -1,0 +1,64 @@
+diff --git a/tools/phxctl/mesboot.c b/tools/phxctl/mesboot.c
+--- a/tools/phxctl/mesboot.c
++++ b/tools/phxctl/mesboot.c
+@@ -318,14 +318,15 @@
+ }
+ 
+ // ---- MES scheduler pipe (pipe0) driven by direct HQD programming + API ring ----
+-static uint32_t sch_wptr;      // in dwords
++#define SCH_RING_DWORDS 1024u
++static uint64_t sch_wptr;      // monotonic dwords; this bring-up tool never reuses ring storage
+ static uint64_t sch_seq;
+ 
+ static int skip_hqd;
+ static void sched_init(void)
+ {
+    if (!skip_hqd) mqd_build(SCH_MQD, SCH_RING, SCH_WB, SCH_EOP, 1, 0x16);
+-   for (int i = 0; i < 1024; i++) vw(SCH_RING + i * 4, 0);
++   for (unsigned i = 0; i < SCH_RING_DWORDS; i++) vw(SCH_RING + i * 4, 0);
+    for (int i = 0; i < 32; i++) vw(SCH_WB + i * 4, 0);
+    uint32_t pq = 0x00308509; pq = (pq & ~0xffu) | 9u; pq = (pq & ~(0x3fu << 8)) | (9u << 8);
+    pq |= (1u << 28) | (1u << 30) | (1u << 31) | (1u << 27); pq &= ~(1u << 29);
+@@ -342,7 +343,17 @@
+ }
+ static int mes_submit(void *pkt, size_t size, size_t api_status_off, const char *what)
+ {
+-   uint32_t *dw = pkt;
++   _Static_assert(sizeof(union MESAPI__QUERY_MES_STATUS) == API_FRAME_SIZE_IN_DWORDS * sizeof(uint32_t), "MES query frame size");
++   const size_t frame_bytes = API_FRAME_SIZE_IN_DWORDS * sizeof(uint32_t);
++   const size_t submission_dwords = 2 * API_FRAME_SIZE_IN_DWORDS;
++   /* No wrap/reuse until consumer synchronization and exclusive ownership are established. */
++   if (!pkt || size != frame_bytes || api_status_off > size ||
++       sizeof(uint64_t) * 2 > size - api_status_off || api_status_off % sizeof(uint32_t) ||
++       submission_dwords > SCH_RING_DWORDS || sch_wptr > SCH_RING_DWORDS - submission_dwords ||
++       sch_seq == UINT64_MAX) {
++      fprintf(stderr, "mesboot submission: invalid frame, exhausted ring or sequence; stopping before submission writes\n");
++      exit(76);
++   }
+    uint64_t status_va = VA(SCH_WB + 64);
+    for (int i = 0; i < 4; i++) vw(SCH_WB + 64 + i * 4, 0);
+    const uint64_t status_words[2] = {status_va, 1};
+@@ -356,7 +367,11 @@
+    q.api_status.api_completion_fence_addr = VA(SCH_WB + 32);
+    q.api_status.api_completion_fence_value = sch_seq;
+    uint32_t *qd = (uint32_t *)&q;
+-   for (size_t i = 0; i < size / 4; i++) vw(SCH_RING + (sch_wptr + i) * 4, dw[i]);
++   for (size_t i = 0; i < size / 4; i++) {
++      uint32_t word;
++      memcpy(&word, (const char *)pkt + i * 4, sizeof(word));
++      vw(SCH_RING + (sch_wptr + i) * 4, word);
++   }
+    for (size_t i = 0; i < sizeof(q) / 4; i++) vw(SCH_RING + (sch_wptr + size / 4 + i) * 4, qd[i]);
+    sch_wptr += (uint32_t)((size + sizeof(q)) / 4);
+    vw(SCH_WB + 16, sch_wptr); vw(SCH_WB + 20, 0);          // wptr shadow (polled by MES) before the doorbell
+@@ -808,8 +823,8 @@
+       printf("claim -> kr 0x%x\n", checked_scalar(conn, 113, in, 1, NULL, NULL));
+    }
+    if (!strcmp(argv[1], "gfx")) {   // MES already running (after kiqsched): continue its ring where the last run left it
+-      sch_wptr = vr(SCH_WB + 16); sch_seq = vr64(SCH_WB + 32);
+-      printf("sched ring: wptr=%u seq=%llu\n", sch_wptr, (unsigned long long)sch_seq);
++      sch_wptr = vr64(SCH_WB + 16); sch_seq = vr64(SCH_WB + 32);
++      printf("sched ring: wptr=%llu seq=%llu\n", (unsigned long long)sch_wptr, (unsigned long long)sch_seq);
+       gfx_via_mes();
+    }
+    if (!strcmp(argv[1], "sdmasys")) sdma_sys_test();

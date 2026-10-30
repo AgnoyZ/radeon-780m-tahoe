@@ -46,7 +46,8 @@
     "patches/0002-plugin-relative-radv.patch",
     "patches/0003-bringup-aperture-bounds.patch",
     "patches/0004-checked-bringup-transport.patch",
-    "patches/0005-checked-gpu-completion.patch"
+    "patches/0005-checked-gpu-completion.patch",
+    "patches/0006-bounded-mes-submission.patch"
   ],
   "target": {
     "darwin_major": 25,

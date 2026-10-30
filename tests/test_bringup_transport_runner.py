@@ -9,9 +9,31 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from test_bringup_transport import cases, check_case, exercise, compile_native, completion_cases, check_completion_case
+from test_bringup_transport import submission_cases, check_submission_case
 
 
 class TransportRunnerTests(unittest.TestCase):
+    def test_submission_rejection_has_no_transport_or_state_changes(self):
+        data = {"calls": 0, "ring_writes": 0, "wptr": 897, "seq": 0}
+        def result(summary, status=76):
+            return subprocess.CompletedProcess([], status, "", "mesboot submission: rejected\nfake-submission-summary " + json.dumps(summary))
+        self.assertEqual(data, check_submission_case(result(data), "ring-one-over"))
+        for changed in ({**data, "calls": 1}, {**data, "ring_writes": 1}, {**data, "seq": 1},
+                        {**data, "wptr": 0}, {**data, "calls": False}):
+            with self.assertRaises(RuntimeError): check_submission_case(result(changed), "ring-one-over")
+        for status in (0, -11, 75):
+            with self.assertRaises(RuntimeError): check_submission_case(result(data, status), "ring-one-over")
+
+    def test_submission_suite_keeps_positive_boundaries_and_exhaustion(self):
+        cases = submission_cases()
+        self.assertEqual(16, len(set(cases)))
+        for name in ("last-frame", "last-sequence", "unaligned", "ring-high-word", "sequence-exhausted"):
+            self.assertIn(name, cases)
+        for fault, wptr, seq in (("last-frame", 1024, 1), ("last-sequence", 128, (1 << 64) - 1)):
+            data = {"calls": 142, "ring_writes": 128, "wptr": wptr, "seq": seq}
+            result = subprocess.CompletedProcess([], 0, "submission-returned", "fake-submission-summary " + json.dumps(data))
+            self.assertEqual(data, check_submission_case(result, fault))
+
     def test_failures_cannot_return_zero_or_continue_writes(self):
         valid = subprocess.CompletedProcess([], 74, "", "fake-transport call=1 selector=2\nmesboot transport: stopping\n")
         check_case(valid, 74, 1)

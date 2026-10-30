@@ -49,7 +49,16 @@ class SourceTests(unittest.TestCase):
             prepare(self.stage)
     def test_provenance_is_not_hardware_pass(self):
         self.assertFalse(self.provenance["hardware_tested"])
-        self.assertEqual(5, len(self.provenance["patches_sha256"]))
+        self.assertEqual(6, len(self.provenance["patches_sha256"]))
+    def test_mes_submission_checks_bounds_before_touching_packet_or_vram(self):
+        text = (self.stage / "tools/phxctl/mesboot.c").read_text(encoding="utf-8")
+        submit = text.split("static int mes_submit(")[1].split("#define CMP_RING")[0]
+        self.assertLess(submit.index("exit(76)"), submit.index("vw("))
+        self.assertLess(submit.index("exit(76)"), submit.index("memcpy("))
+        self.assertIn("sch_seq == UINT64_MAX", submit)
+        self.assertIn("sch_wptr > SCH_RING_DWORDS - submission_dwords", submit)
+        self.assertIn("size - api_status_off", submit)
+        self.assertIn("sch_wptr = vr64(SCH_WB + 16)", text)
     def test_mesboot_rejects_missing_gpu_completion_before_later_writes(self):
         text = (self.stage / "tools/phxctl/mesboot.c").read_text(encoding="utf-8")
         submit = text.split("static int mes_submit(")[1].split("#define CMP_RING")[0]
