@@ -22,6 +22,7 @@
 
 ## Not implemented / not verified
 - Machine-specific firmware carve-out safety, all kernel memory/concurrency paths, panel/power differences and full ABI compatibility audit.
+- Initial boot-workflow audit found reference-machine addresses, unchecked IOKit results, masked pipeline failures and automatic reboot/NVRAM changes. See `BRINGUP-AUDIT.md`; the original scripts were inspected but not executed or installed.
 - Verified LLVM AIR runtime build, GPU firmware and boot orchestration; runtime integration of the full Metal stack on the target GPU. RADV's direct system-only dependencies now pass host validation, not target deployment validation.
 - Tahoe installation on the target laptop and actual GPU command completion, Metal rendering, WindowServer integration and long-run stability.
 - Resolved ABI provenance discrepancy noted in EXPERIMENTAL.md; no external redistribution authorization is inferred.
