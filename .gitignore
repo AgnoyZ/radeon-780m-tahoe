@@ -9,6 +9,7 @@
 config.plist
 *.log
 *.ioreg
+inventory.json
 *.dmp
 *.rom
 *.bin

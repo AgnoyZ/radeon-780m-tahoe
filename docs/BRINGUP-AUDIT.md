@@ -109,6 +109,11 @@ GPU is idle or its earlier writes have been undone.
 
 ## Evidence required before an initialization experiment
 
+Start with `TARGET-INVENTORY.md` for the new metadata-only collector. It records
+the actual OS build and whitelisted registry PCI identities/assigned apertures,
+with timeouts and without raw dumps. It does not establish independent hardware
+identity, GPU IP layout or reserved-region ownership and never approves bring-up.
+
 1. Confirm the actual target Tahoe build, a tested external-disk/EFI recovery path
    and the exact driver/firmware revisions. The last verified target environment
    remains Sonoma Recovery, not Tahoe.
@@ -118,8 +123,8 @@ GPU is idle or its earlier writes have been undone.
 3. Pin and audit each firmware input. Validate its hash, header, payload ranges,
    engine/IP version and licensing; do not publish firmware files or reuse
    reference byte counts without checking the actual input.
-4. Replace the unchecked transport helpers and duplicated reference layout before
-   building a target execution plan. Validate the rejection paths using fault
+4. Retain the checked transport/completion paths and replace the duplicated
+   reference layout before building a target execution plan. Validate rejection paths using fault
    injection and boundary tests, without claiming that these are GPU tests.
 5. Review a single, explicit manual initialization sequence and its recovery
    procedure. Hardware execution needs a separate authorized target-machine step;

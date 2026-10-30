@@ -9,6 +9,7 @@ import subprocess
 
 from build_radv import runtime_destination, runtime_metadata_destination, write_runtime_metadata, seal_runtime_bundle
 from test_bringup_transport import compile_native
+from target_inventory import capture as capture_inventory
 from verify_artifacts import inspect_macho
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -104,8 +105,15 @@ def preflight(out):
         probes[kind] = inspect_macho(executable, 2)
     packaging = packaging_preflight(out / "packaging")
     bringup_transport = compile_native(out / "bringup-transport-native")
+    inventory = capture_inventory(out / "inventory")
+    inventory_summary = {"capture_completed": True, "system": inventory["system"],
+                         "pci_root_count": inventory["pci"]["pci_root_count"],
+                         "target_candidate_count": inventory["pci"]["target_candidate_count"],
+                         "safe_to_initialize": inventory["safe_to_initialize"],
+                         "gpu_work_submitted": inventory["gpu_work_submitted"]}
     report = {"metal_compiler": compiler, "cases": reports, "compiled_probes": probes, "packaging": packaging,
               "bringup_transport_compile_only": bringup_transport,
+              "read_only_host_inventory": inventory_summary,
               "native_probes_executed": False, "driver_runtime_tested": False, "hardware_executed": False}
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2), flush=True)
