@@ -1,0 +1,45 @@
+# Private hardware data and local captures
+/private/
+/local/
+/logs/
+/diagnostics/
+/dumps/
+/firmware/
+/EFI/
+config.plist
+*.log
+*.ioreg
+*.dmp
+*.rom
+*.bin
+*.aml
+*.dsl
+*.jpg
+*.jpeg
+*.png
+*.heic
+*.zip
+*.7z
+*.dmg
+*.iso
+*.img
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*
+
+# Build outputs
+/build/
+/dist/
+*.kext/
+*.dSYM/
+*.o
+*.a
+*.dylib
+__pycache__/
+.DS_Store
+Thumbs.db
