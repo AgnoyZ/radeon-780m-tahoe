@@ -1,0 +1,265 @@
+{
+  "ci_run_id": 41063982777,
+  "ci_overall_conclusion": "success",
+  "build": {
+    "nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+    "patches_sha256": {
+      "patches/0001-strict-hardware-execution.patch": "53af4e33ac223b8ea2ccdb49721e99507ef718f21a4198c9082df140244273ec"
+    },
+    "policy_sha256": "71da108bda0a71face8523b71df760d9af0a1c94de8b060032d2dd7faa673e88",
+    "hardware_tested": false,
+    "sdk_commit": "3f750085caa17ec3a7880f11c11bf4f48cd6a164",
+    "vulkan_headers_commit": "6802bb4733b63ed5efd3adb308a6c885ef180ea1",
+    "translator_source_sha256": "1252d982578b19e18144266aab994bb354a757c7491dcb33c15518b6791c3f3c",
+    "project_commit": "a2968730f7b035d8f62867fceeee1472157c5571",
+    "project_dirty": false,
+    "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)\nTarget: x86_64-apple-darwin24.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+    "host": "macOS-15.7.9-x86_64-i386-64bit-Mach-O",
+    "artifacts": {
+      "PhxBringup": {
+        "architecture": "x86_64",
+        "macho_type": 11,
+        "sha256": "b52f1e74b3846cfd9196ff668ee419430b8e54b956b9a009d2da34fbc1efcd69",
+        "bytes": 99776,
+        "bundle_identifier": "org.drip.PhxBringup"
+      },
+      "PhxAccel": {
+        "architecture": "x86_64",
+        "macho_type": 11,
+        "sha256": "21aab7eaced7fe995e52231cc861035e593723e34caca8760871992b232cee30",
+        "bytes": 336416,
+        "bundle_identifier": "com.luuumi.PhxAccel"
+      },
+      "NVMTLDriver": {
+        "architecture": "x86_64",
+        "macho_type": 8,
+        "sha256": "ac61a124f45b6facf7415aa037a10cac1ee29e7875038f1f1737c266714797c8",
+        "bytes": 1535136,
+        "bundle_identifier": "org.agnoyz.radeon780m.NVMTLDriver",
+        "info_plist_sha256": "cfbcaed846d3fb58764bc484a8766e2b3b1fe14c74d0d75f227a92757a84e883",
+        "entrypoint_exports_verified": true,
+        "source_entrypoint": "src/nmplugin/NVMTLDevice.m",
+        "runtime_loaded": false,
+        "missing_runtime_dependencies": [
+          "translator runtime dependencies",
+          "GPU firmware and bring-up"
+        ]
+      },
+      "nvmtl-translator": {
+        "architecture": "x86_64",
+        "macho_type": 6,
+        "sha256": "b8bebbd69419d656c548daf8be533fed3ca8df38e434e3f0ea4bd70ea22a0c2c",
+        "bytes": 14659472,
+        "source_sha256": "1252d982578b19e18144266aab994bb354a757c7491dcb33c15518b6791c3f3c",
+        "source_url": "https://github.com/luuumi-dev/nullarc/releases/download/v0.3.0-alpha/nvmtl-translator-source.tar.gz",
+        "cargo_lock_sha256": "0c461b83a10967cf6d414d51dd58577c3e41f837f9a2ceb53eeb512af68afc99",
+        "rust_toolchain": "1.90.0",
+        "rustc": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+        "plugin_ffi_exports_verified": [
+          "nvmtl_link_externs",
+          "nvmtl_link_runtime",
+          "nvmtl_link_visible",
+          "nvmtl_lower_buffer_addresses",
+          "nvmtl_lower_buffer_addresses_ex",
+          "nvmtl_lower_mesh",
+          "nvmtl_lower_mesh2",
+          "nvmtl_reflect",
+          "nvmtl_reflect_fc",
+          "nvmtl_translate",
+          "nvmtl_translate_fc",
+          "nvmtl_translate_free",
+          "nvmtl_translate_samplers",
+          "nvmtl_translate_set_caps",
+          "nvmtl_translate_set_threadgroup_lengths",
+          "nvmtl_visible_refs"
+        ],
+        "hardware_tested": false,
+        "license": "LGPL-3.0-or-later"
+      },
+      "Mesa-RADV": {
+        "mesa_commit": "f5cb8ee032adabef599ae892ec4e42d796b84da9",
+        "cobalt_commit": "d6c9aedf8e6526a39e349b5886cbc8c7ddf77f65",
+        "nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+        "patches": [
+          {
+            "component": "Cobalt64",
+            "name": "0001-radv-Darwin-macOS-backend-with-canned-gfx1201-device.patch",
+            "sha256": "c70e5b13179edf09c105524d7b36351f5aa9db35f6fffdb91723744ff019679d"
+          },
+          {
+            "component": "Cobalt64",
+            "name": "0002-radv-Darwin-native-backend-Mesa-half-of-the-Navi48-k.patch",
+            "sha256": "8dfc56cec7369c8337e930cc7a0000099425fd891a0c88fd810b7062de9cb480"
+          },
+          {
+            "component": "Cobalt64",
+            "name": "0003-radv-Darwin-scanout-API-on-the-N48N-connection-ABI-1.patch",
+            "sha256": "9cf1c92d436255b3fbb3493f1f602e99e888c0f515fb7fea5631b5da37f6f73d"
+          },
+          {
+            "component": "Cobalt64",
+            "name": "0004-darwin-host-pointer-import-userptr-via-N48N-BoImport.patch",
+            "sha256": "e03062531ba33986507f52635f6b9c1f2c09301108bf06b82223aca2d4ab7807"
+          },
+          {
+            "component": "Cobalt64",
+            "name": "0005-radv-amdgpu-cs_grow-failure-paths-return-instead-of-.patch",
+            "sha256": "f01262151341e94c2c61c4164e661203dfe9a42d87567bb836441ae0095d8fa7"
+          },
+          {
+            "component": "Cobalt64",
+            "name": "0006-radv-darwin-report-the-kext-s-per-session-VRAM-budge.patch",
+            "sha256": "5b9933b1e88bbd310ae5b59cf4f01da000917385154b738bd3b9d53e7c205dcf"
+          },
+          {
+            "component": "Cobalt64",
+            "name": "0007-radv-darwin-take-GB_ADDR_CONFIG-from-QueryInfo-ReadR.patch",
+            "sha256": "8383181e4b3ab9bdbbefc28a4f424e4805d7c17d19366c342abaccf1a8a751f3"
+          },
+          {
+            "component": "Cobalt64",
+            "name": "0008-radv-darwin-radv_darwin_set_service_class-Navi48Brin.patch",
+            "sha256": "550e5a8fb45e2efe7514c4076d9bfcbad01b29e9e59334eb0c2263327572cfc6"
+          },
+          {
+            "component": "Cobalt64",
+            "name": "0009-radv-darwin-radv_darwin_n48n_call-selectors-22.26-on.patch",
+            "sha256": "07e6fd710ea0d06f3fa44dd108d77315c2f22825253021e79d054790d7f74701"
+          },
+          {
+            "component": "radv-phoenix",
+            "name": "0001-radv-darwin-selectable-canned-device-default-phoenix.patch",
+            "sha256": "b066c2b60bb58d075c8dfc647dc510e7a02449bb370c8dbf1a9a9f96f77a5532"
+          },
+          {
+            "component": "radv-phoenix",
+            "name": "0002-radv-darwin-report-Radeon-780M-identity-for-the-phoe.patch",
+            "sha256": "5a6874b77c876296ea6cdca1f6cdc01c7654d93fd8651b02e807688e720369e6"
+          },
+          {
+            "component": "radv-phoenix",
+            "name": "0003-radv-darwin-open-the-PhxBringup-service-by-default.patch",
+            "sha256": "ef19977422a94a2a633ddec32cb236f9e60f6f1536691f7d0f82c5f3c3640aa1"
+          },
+          {
+            "component": "radv-phoenix",
+            "name": "0004-radv-darwin-AMDGPU_INFO_TIMESTAMP-from-SMUIO-GOLDEN_TSC.patch",
+            "sha256": "7838c16102c49c3b2e7f1cef143cb316166e08a4cc95d88ab0bbfaae72986a2b"
+          },
+          {
+            "component": "radv-phoenix",
+            "name": "0005-radv-darwin-reach-PhxBringup-through-the-accelerator.patch",
+            "sha256": "058a0a3bc9ec8679bd3ad940aa64d5a7e4024dd0732aa1afcc758a134dfc137a"
+          },
+          {
+            "component": "radv-phoenix",
+            "name": "0006-radv-unroll-nested-loops-without-a-full-optimization.patch",
+            "sha256": "1d0105993888b0ce9283cbf6ae6eeee3612a47deb7bc7482f896a58edac7e4c0"
+          },
+          {
+            "component": "downstream",
+            "name": "0001-native-phoenix-only.patch",
+            "sha256": "0e91433a8c44dfd2aaf0ca3db1b994427f946daafee053ef75d12241381dedff"
+          }
+        ],
+        "hardware_tested": false,
+        "deployment_performed": false,
+        "architecture": "x86_64",
+        "macho_type": 6,
+        "sha256": "51e7925c2af6110ed71d7e7052f03054766b34bac3db0163f125abc5eb94e4e4",
+        "bytes": 20264560,
+        "runtime_tests": {
+          "native": {
+            "runtime_loaded": true,
+            "physical_devices": 0,
+            "gpu_submitted": false
+          },
+          "reject_mock": {
+            "runtime_loaded": true,
+            "physical_devices": 0,
+            "gpu_submitted": false
+          },
+          "reject_host_only": {
+            "runtime_loaded": true,
+            "physical_devices": 0,
+            "gpu_submitted": false
+          },
+          "reject_other_gpu": {
+            "runtime_loaded": true,
+            "physical_devices": 0,
+            "gpu_submitted": false
+          }
+        },
+        "native_transport_layout_verified": true,
+        "host": "macOS-15.7.9-x86_64-i386-64bit-Mach-O",
+        "metal_stack_complete": false,
+        "dependencies": [
+          "\t@rpath/libvulkan_radeon.dylib (compatibility version 0.0.0, current version 0.0.0)",
+          "\t/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit (compatibility version 1.0.0, current version 275.0.0)",
+          "\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)",
+          "\t/usr/lib/libz.1.dylib (compatibility version 1.0.0, current version 1.2.12)",
+          "\t/usr/local/opt/spirv-tools/lib/libSPIRV-Tools.dylib (compatibility version 0.0.0, current version 0.0.0)",
+          "\t/usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 1900.180.0)"
+        ],
+        "meson_version": "1.9.1",
+        "ninja_version": "1.13.0.git.kitware.jobserver-pipe-1",
+        "glslang_version": "Glslang Version: 11:16.5.0\nESSL Version: OpenGL ES GLSL 3.20 glslang Khronos. 16.5.0\nGLSL Version: 4.60 glslang Khronos. 16.5.0\nSPIR-V Version 0x00010600, Revision 1\nGLSL.std.450 Version 100, Revision 1\nKhronos Tool ID 8\nSPIR-V Generator Version 11\nGL_KHR_vulkan_glsl version 100\nARB_GL_gl_spirv version 100",
+        "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)\nTarget: x86_64-apple-darwin24.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+        "project_commit": "a2968730f7b035d8f62867fceeee1472157c5571"
+      },
+      "metal-smoke": {
+        "architecture": "x86_64",
+        "macho_type": 2,
+        "sha256": "055732c27ba505b64ac14512d7962323a4586eb8b4d07a54ac30a9c10aa9c56f",
+        "bytes": 18376
+      }
+    },
+    "deployment_performed": false,
+    "metal_stack_complete": false
+  },
+  "translator_runtime": {
+    "real_ffi_loaded": true,
+    "exports_present": [
+      "nvmtl_link_externs",
+      "nvmtl_link_runtime",
+      "nvmtl_link_visible",
+      "nvmtl_lower_buffer_addresses",
+      "nvmtl_lower_buffer_addresses_ex",
+      "nvmtl_lower_mesh",
+      "nvmtl_lower_mesh2",
+      "nvmtl_reflect",
+      "nvmtl_reflect_fc",
+      "nvmtl_translate",
+      "nvmtl_translate_fc",
+      "nvmtl_translate_free",
+      "nvmtl_translate_samplers",
+      "nvmtl_translate_set_caps",
+      "nvmtl_translate_set_threadgroup_lengths",
+      "nvmtl_visible_refs"
+    ],
+    "invalid_inputs_rejected": 2,
+    "cases": [
+      {
+        "case": "increment17",
+        "bytes": 1128,
+        "sha256": "2de25fd364d0724c2837e9fdebd544a931ce918a35a4c148edf28d9c96b88307",
+        "spirv_val": "passed"
+      },
+      {
+        "case": "increment29",
+        "bytes": 1128,
+        "sha256": "5a46b4179eb155308da3e449d200b18af591f948c2046912f2ce97625a19d2b4",
+        "spirv_val": "passed"
+      }
+    ],
+    "validator_version": "SPIRV-Tools v2026.3 unknown hash, 2026-07-22T20:34:54+00:00\nTargets:\n  SPIR-V 1.0\n  SPIR-V 1.1\n  SPIR-V 1.2\n  SPIR-V 1.3\n  SPIR-V 1.4\n  SPIR-V 1.5\n  SPIR-V 1.6\n  SPIR-V 1.2 (under OpenCL 2.2 Full Profile semantics)\n  SPIR-V 1.0 (under Vulkan 1.0 semantics)\n  SPIR-V 1.3 (under Vulkan 1.1 semantics)\n  SPIR-V 1.4 (under Vulkan 1.1 semantics)\n  SPIR-V 1.5 (under Vulkan 1.2 semantics)\n  SPIR-V 1.6 (under Vulkan 1.3 semantics) SPIR-V 1.6 (under Vulkan 1.4 semantics)",
+    "hardware_executed": false,
+    "limitation": "Translation/validation only; no GPU execution or Metal pipeline integration"
+  },
+  "retained_binary_artifacts": false,
+  "limitations": [
+    "Host-only load/enumeration checks, not GPU execution or Tahoe validation.",
+    "This historical RADV binary links /usr/local/opt/spirv-tools/lib/libSPIRV-Tools.dylib from the CI host and is not a self-contained deployable runtime.",
+    "The follow-up disables Mesa optional SPIRV-Tools debugging linkage and adds a system-only dependency gate; that fix requires a new native CI run."
+  ]
+}

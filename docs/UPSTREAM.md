@@ -36,7 +36,7 @@
 - 源码未修改；单独动态链接，构建保留相应源归档和许可证。API 按固定插件实际 dlsym 的 16 个符号逐一检查。
 - 这不提供 RADV、LLVM AIR 读取库、硬件 firmware 或自动启动服务，也不等于实机 Metal 加速。
 
-## RADV 固定源码与构建接入（新增原生 CI 待验证）
+## RADV 固定源码与构建接入
 - nullarc 的 `docs/architecture-research.md` 明确指向 `Almosst-DEV/Cobalt64`；已解析固定参考提交 `d6c9aedf8e6526a39e349b5886cbc8c7ddf77f65`。
 - 该提交的 `mesa-patches/README.txt` 指定 Mesa 基线 `f5cb8ee032adabef599ae892ec4e42d796b84da9`，依次应用九个 Darwin 后端补丁；然后才是 nullarc 的六个 Phoenix 补丁。
 - 已核查该 README 和根 LICENSE，补丁声明与 Mesa 同为 MIT。仍需审核具体文件、用户态 ABI 和依赖，不把根许可证视为消除所有来源问题的证明。
@@ -53,3 +53,7 @@
 - 已核查 `llvm/LICENSE.TXT`、Core/BitReader/IRReader/PassBuilder 头文件及 C API 的 buffer 所有权实现。许可证为 Apache-2.0 WITH LLVM-exception，并保留 legacy 与独立 third-party notices；完整二进制发布审计仍未完成。
 - 从官方源码构建独立 dylib，使用实际插件所需的 38 个 LLVM C 符号检查，拒绝依赖构建机 Homebrew 路径。关闭不需要的压缩/编辑/网络库，不拷贝未经固定版本的宿主 dylib。
 - 新测试拟使用 Xcode 将项目自有 Metal kernel 编译为真实 AIR，再经新 LLVM reader 和既有 Rust 翻译器输出 SPIR-V；这些代码已接入，但在原生 CI 运行成功前不记作通过。Apple 编译器本身及生成的测试中间文件不会提交或发布。
+
+## RADV 原生验证后的依赖修复
+- `a296873` / CI `41063982777` 完成实际 dylib 构建、ABI 布局编译检查及四组无设备加载测试，但 otool 报告显示链接了构建机 Homebrew 的 libSPIRV-Tools.dylib，不能作为可直接部署的成品。
+- 固定 Mesa 源码的 `meson.options` 将 spirv-tools 明确列为可选调试 feature（CLC 才强制需要；本构建未启用 CLC）。下游使用 `-Dspirv-tools=disabled` 移除意外运行时链接，同时保留独立 spirv-val 测试，并新增非系统 dylib 依赖拒绝检查。修复本身仍需新的原生 CI 验证。

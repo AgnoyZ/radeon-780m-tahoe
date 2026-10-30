@@ -17,7 +17,18 @@ def meson_command(stage, build):
             "-Dvulkan-drivers=amd", "-Dgallium-drivers=", "-Dplatforms=", "-Dllvm=disabled",
             "-Dglx=disabled", "-Degl=disabled", "-Dgbm=disabled", "-Dopengl=false",
             "-Dgles1=disabled", "-Dgles2=disabled", "-Dxmlconfig=disabled", "-Dvalgrind=disabled",
-            "-Dlibunwind=disabled", "-Dzstd=disabled", "-Dbuild-tests=false", "-Dvulkan-layers=", "-Dtools="]
+            "-Dlibunwind=disabled", "-Dzstd=disabled", "-Dspirv-tools=disabled",
+            "-Dbuild-tests=false", "-Dvulkan-layers=", "-Dtools="]
+
+
+def system_dependencies(otool_output):
+    entries = [line.strip().split(" (", 1)[0] for line in otool_output.splitlines()[1:] if line.strip()]
+    if not entries or entries[0] != "@rpath/libvulkan_radeon.dylib":
+        raise ValueError("Unexpected RADV dylib identity")
+    for entry in entries[1:]:
+        if not entry.startswith(("/usr/lib/", "/System/Library/")):
+            raise ValueError("Non-system RADV dependency: " + entry)
+    return entries[1:]
 
 
 def run(*args):
@@ -71,6 +82,7 @@ def build_radv(mesa, cobalt, headers, out, artifacts):
     destination.mkdir(parents=True)
     final = destination / library.name
     shutil.copy2(library, final)
+    dependencies = system_dependencies(subprocess.check_output(["xcrun", "otool", "-L", str(final)], text=True))
     run("codesign", "--force", "--sign", "-", final)
     run("codesign", "--verify", "--strict", final)
     exports = subprocess.check_output(["xcrun", "nm", "-gU", str(final)], text=True)
@@ -96,7 +108,7 @@ def build_radv(mesa, cobalt, headers, out, artifacts):
     report = {**provenance, **inspect_macho(final, 6), "runtime_tests": tests,
               "native_transport_layout_verified": True,
               "host": platform.platform(), "metal_stack_complete": False,
-              "dependencies": subprocess.check_output(["xcrun", "otool", "-L", str(final)], text=True).splitlines()[1:],
+              "dependencies": dependencies, "runtime_dependency_policy": "system-only",
               "meson_version": subprocess.check_output(["meson", "--version"], text=True).strip(),
               "ninja_version": subprocess.check_output(["ninja", "--version"], text=True).strip(),
               "glslang_version": subprocess.check_output(["glslangValidator", "--version"], text=True).strip(),

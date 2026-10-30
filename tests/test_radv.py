@@ -9,7 +9,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from prepare_radv import ordered_patches, prepare_radv
-from build_radv import meson_command, test_no_device as run_no_device_test
+from build_radv import meson_command, test_no_device as run_no_device_test, system_dependencies
 
 
 def git(path, *args):
@@ -90,9 +90,23 @@ class RadvBuildTests(unittest.TestCase):
     def test_real_amd_build_options_without_install_or_fallback(self):
         command = meson_command(Path("source"), Path("native"))
         self.assertEqual(["meson", "setup", "native", "source"], command[:4])
-        for option in ("-Dvulkan-drivers=amd", "-Dllvm=disabled", "--wrap-mode=nofallback"):
+        for option in ("-Dvulkan-drivers=amd", "-Dllvm=disabled", "--wrap-mode=nofallback", "-Dspirv-tools=disabled"):
             self.assertIn(option, command)
         self.assertNotIn("install", command)
+
+    def test_rejects_the_observed_host_spirv_tools_dependency(self):
+        output = ("library:\n\t@rpath/libvulkan_radeon.dylib (compatibility version 0.0.0)\n"
+                  "\t/usr/local/opt/spirv-tools/lib/libSPIRV-Tools.dylib (compatibility version 0.0.0)\n")
+        with self.assertRaisesRegex(ValueError, "Non-system RADV dependency"):
+            system_dependencies(output)
+
+    def test_accepts_system_frameworks_and_rejects_wrong_icd_identity(self):
+        dependencies = ["/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit", "/usr/lib/libz.1.dylib"]
+        output = "library:\n\t@rpath/libvulkan_radeon.dylib (compatibility version 0.0.0)\n"
+        output += "".join("\t" + item + " (compatibility version 1.0.0)\n" for item in dependencies)
+        self.assertEqual(dependencies, system_dependencies(output))
+        with self.assertRaisesRegex(ValueError, "Unexpected RADV dylib identity"):
+            system_dependencies(output.replace("@rpath/libvulkan_radeon.dylib", "/tmp/libvulkan_radeon.dylib"))
 
     def test_negative_runner_checks_all_four_variants_and_cleans_environment(self):
         stdout = '{"runtime_loaded":true,"physical_devices":0,"gpu_submitted":false}'
