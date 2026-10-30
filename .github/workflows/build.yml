@@ -78,6 +78,8 @@ jobs:
           python3 tools/test_translator_runtime.py --library build/ci/artifacts/NVMTLDriver.bundle/Contents/MacOS/libnvmtl_translate.dylib --plugin-source build/ci/stage/src/nmplugin/NVMTLLibraryLoad.m --fixture tests/fixtures/compute_increment.ll --validator "$(command -v spirv-val)" --out build/ci/artifacts/translator-tests
       - name: Validate actual Metal compiler AIR through LLVM and the translator
         run: python3 tools/test_air_runtime.py --llvm build/ci/artifacts/NVMTLDriver.bundle/Contents/MacOS/air-runtime/libLLVM.dylib --translator build/ci/artifacts/NVMTLDriver.bundle/Contents/MacOS/libnvmtl_translate.dylib --plugin-source build/ci/stage/src/nmplugin/NVMTLLibraryLoad.m --ir-fixture tests/fixtures/compute_increment.ll --metal-fixture tests/fixtures/compute_increment.metal --validator "$(command -v spirv-val)" --out build/ci/artifacts/air-runtime-tests
+      - name: Exercise real plugin metallib compilation without creating a device
+        run: python3 tools/plugin_runtime.py --bundle build/ci/artifacts/NVMTLDriver.bundle --fixture tests/fixtures/compute_increment.metal --validator "$(command -v spirv-val)" --out build/ci/plugin-runtime-tests
       - name: Verify the Metal probe refuses this non-780M build host
         shell: bash
         run: |

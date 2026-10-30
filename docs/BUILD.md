@@ -105,3 +105,15 @@ It requires malformed bitcode rejection, a project IR -> bitcode -> IR roundtrip
 
 ### RADV runtime dependency gate
 The first successful native RADV build also exposed a deployment defect: Mesa auto-detected the CI host's optional SPIRV-Tools library and linked an absolute Homebrew path. The recipe now explicitly sets `-Dspirv-tools=disabled` for Mesa's optional debugging helpers (not the real compiler or the separate mandatory spirv-val tests). Before signing/loading the ICD, `otool -L` must show its expected install name and only `/usr/lib/` or `/System/Library/` dependencies. Other Homebrew, build-directory or unresolved `@rpath` dependencies fail the build instead of being hidden by the CI host's environment. The native result for this correction is tracked separately from the earlier successful-but-host-dependent run.
+
+## Actual Metal plugin compiler integration (native verification pending)
+
+```sh
+python3 tools/plugin_runtime.py --bundle build/experimental/artifacts/NVMTLDriver.bundle --fixture tests/fixtures/compute_increment.metal --validator spirv-val --out build/plugin-runtime-tests
+```
+
+This is distinct from independently calling LLVM and translator APIs. It compiles two project-owned Metal sources into actual metallib containers, loads a relocated copy of the real plugin with `RTLD_NOW`, and calls its existing `nvmtl_translate_metallib` and `nvmtl_compile_library_entry` exports. No plugin source is replaced by a mock; no Metal or Vulkan device is created. It requires the plugin class/functions and both dynamically loaded compiler runtimes to belong to the expected copied images. The plugin's begun/submitted/abandoned GPU command counters must remain zero. Both generated compute shaders must contain store/add operations, differ by arithmetic variant and pass external SPIR-V validation.
+
+Each subprocess uses fresh, isolated AIR/SPIR-V caches. Release constructors clear inherited `NVMTL_*` overrides, so the probe sets cache locations only after loading the plugin. A pre-existing system runtime or target service rejects the test. Separate negative processes remove exactly one runtime from a newly copied bundle (never the original), or supply malformed input. These must fail specifically at library indexing, not via loader failure, a crash, timeout or target-service refusal. Copied negative bundles are re-signed to avoid confusing a broken bundle seal with dependency rejection.
+
+All generated files stay below the fresh ignored output directory. The test does not install the plugin, edit an EFI, enable a GPU or claim full Metal pipeline/WindowServer operation. Python tests cover the runner and fixture-copy rules only; actual plugin behavior requires macOS CI.
