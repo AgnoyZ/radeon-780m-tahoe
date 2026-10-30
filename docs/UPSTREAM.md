@@ -47,3 +47,9 @@
 - 新增 downstream 补丁移除 mock 编译单元、拒绝 MOCK/HOST_BO 与非 Phoenix profile、限制服务选择为 PhxBringup；不更改现有 EFI。
 - Mesa 的 `docs/license.rst` 明确各文件可能有不同许可证；实际基线使用 `licenses/`，并不存在 Cobalt README 提到的 `third-party/THIRD-PARTY-LICENSES.txt`。构建保留实际许可证目录和 Cobalt 说明，不将 README 的泛称视为全面审计结论。
 - 保留上游为 weak entrypoint 使用的 dynamic_lookup 参数，但增加真实 dlopen(RTLD_NOW)、Vulkan 实例创建与无设备枚举测试。此测试不提交 GPU 工作，也不证明 Metal 或桌面加速。
+
+## LLVM AIR 读取库源码接入（原生构建待验证）
+- 固定 LLVM 官方 `llvmorg-21.1.8`，tag 对象 `42befb84c672d78de430feb4c96710e6aa4fc774` 指向提交 `2078da43e25a4623cab2d0d60decddf709aaea28`。源码：https://github.com/llvm/llvm-project 。这是本项目选择的可复现依赖，不宣称它等于 nullarc 未标版本的成品库。
+- 已核查 `llvm/LICENSE.TXT`、Core/BitReader/IRReader/PassBuilder 头文件及 C API 的 buffer 所有权实现。许可证为 Apache-2.0 WITH LLVM-exception，并保留 legacy 与独立 third-party notices；完整二进制发布审计仍未完成。
+- 从官方源码构建独立 dylib，使用实际插件所需的 38 个 LLVM C 符号检查，拒绝依赖构建机 Homebrew 路径。关闭不需要的压缩/编辑/网络库，不拷贝未经固定版本的宿主 dylib。
+- 新测试拟使用 Xcode 将项目自有 Metal kernel 编译为真实 AIR，再经新 LLVM reader 和既有 Rust 翻译器输出 SPIR-V；这些代码已接入，但在原生 CI 运行成功前不记作通过。Apple 编译器本身及生成的测试中间文件不会提交或发布。

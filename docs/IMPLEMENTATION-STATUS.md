@@ -16,16 +16,20 @@
 - The downstream driver refuses mock/host-only devices and non-Phoenix profiles; hardware fallback is not a success path. Existing EFI is unchanged.
 - First native attempt, run `41062610926` / commit `6cf8369`, reached the shared-header ABI probe but failed because the C11 test omitted `<assert.h>` while the upstream Phoenix header uses `static_assert`. Added the standard header; no assertions or compiler diagnostics are disabled. Mesa compilation and ICD runtime tests were not reached by that failed run.
 
+## LLVM AIR reader integration in progress
+- Selected and fetched LLVM 21.1.8 at `2078da43e25a4623cab2d0d60decddf709aaea28`; audited the source license and the plugin's 38 mandatory/optional C API references. This does not establish equivalence with nullarc's unversioned packaged LLVM.
+- Implemented source build, plugin-relative staging, dependency rejection, export and ad-hoc signing checks and bounded real Metal -> AIR -> LLVM IR -> SPIR-V host tests. These new native steps are pending CI; no successful reader/Metal compiler-chain execution is claimed yet.
+
 ## Not implemented / not verified
 - Machine-specific firmware carve-out safety, all kernel memory/concurrency paths, panel/power differences and full ABI compatibility audit.
-- Verified native RADV build, the AIR bitcode-reader runtime, GPU firmware and boot orchestration; runtime integration of the full Metal stack on the target GPU.
+- Verified native RADV/LLVM AIR runtime builds, GPU firmware and boot orchestration; runtime integration of the full Metal stack on the target GPU.
 - Tahoe installation on the target laptop and actual GPU command completion, Metal rendering, WindowServer integration and long-run stability.
 - Resolved ABI provenance discrepancy noted in EXPERIMENTAL.md; no external redistribution authorization is inferred.
 
 The goal remains a working 780M Tahoe graphics stack. This milestone is a code/build foundation, not completion. Current working EFI and Windows disks are untouched.
 
 ## Verified locally
-- Current suite: 31 Python tests passed, including real Git/worktree patch-order tests and negative-runtime runner rejection checks. The real 16-patch Mesa source stage also applied successfully; no native RADV binary has been built locally.
+- Current suite: 35 Python tests passed, including real Git/worktree patch-order tests and negative-runtime runner rejection checks. The real 16-patch Mesa source stage also applied successfully; no native RADV binary has been built locally.
 - Previous Windows Python regression suite: 23 tests passed, including applying the patch to the pinned source, validating the plugin build/entrypoint contract, source-integrity rejection and SPIR-V envelope rejection. New module tests were first observed failing before their implementations existed.
 - Actual translator release archive hash and layout verified locally; 321 Rust source files are present. Rust compilation itself was performed on macOS CI, not this Windows host.
 - Python syntax compilation passed. Native C++/kext/Metal builds are delegated to CI, not claimed as local passes.

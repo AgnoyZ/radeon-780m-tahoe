@@ -30,7 +30,7 @@ jobs:
           build/test-policy
   macos-kexts:
     runs-on: macos-15-intel
-    timeout-minutes: 45
+    timeout-minutes: 90
     needs: source-tests
     steps:
       - name: Refuse public binary publishing before license audit
@@ -64,14 +64,20 @@ jobs:
           command -v glslangValidator >/dev/null || brew install glslang
           command -v pkg-config >/dev/null || brew install pkgconf
           echo "$PWD/build/radv-venv/bin" >> "$GITHUB_PATH"
+      - name: Prepare pinned LLVM AIR runtime source
+        run: |
+          python3 tools/fetch_air_runtime.py build/inputs/llvm
+          cmake --version
       - name: Compile, link, sign and test kernel, Metal, translator and RADV
-        run: python3 tools/build_macos.py --sdk build-sdk --vulkan-headers build-vulkan-headers --translator-source build/inputs/nvmtl-translator-source.tar.gz --mesa build/inputs/radv/mesa --cobalt build/inputs/radv/cobalt --out build/ci
+        run: python3 tools/build_macos.py --sdk build-sdk --vulkan-headers build-vulkan-headers --translator-source build/inputs/nvmtl-translator-source.tar.gz --mesa build/inputs/radv/mesa --cobalt build/inputs/radv/cobalt --llvm build/inputs/llvm --out build/ci
       - name: Validate real translator ABI and generated SPIR-V without a GPU
         env:
           HOMEBREW_NO_AUTO_UPDATE: '1'
         run: |
           command -v spirv-val >/dev/null || brew install spirv-tools
           python3 tools/test_translator_runtime.py --library build/ci/artifacts/NVMTLDriver.bundle/Contents/MacOS/libnvmtl_translate.dylib --plugin-source build/ci/stage/src/nmplugin/NVMTLLibraryLoad.m --fixture tests/fixtures/compute_increment.ll --validator "$(command -v spirv-val)" --out build/ci/artifacts/translator-tests
+      - name: Validate actual Metal compiler AIR through LLVM and the translator
+        run: python3 tools/test_air_runtime.py --llvm build/ci/artifacts/NVMTLDriver.bundle/Contents/MacOS/air-runtime/libLLVM.dylib --translator build/ci/artifacts/NVMTLDriver.bundle/Contents/MacOS/libnvmtl_translate.dylib --plugin-source build/ci/stage/src/nmplugin/NVMTLLibraryLoad.m --ir-fixture tests/fixtures/compute_increment.ll --metal-fixture tests/fixtures/compute_increment.metal --validator "$(command -v spirv-val)" --out build/ci/artifacts/air-runtime-tests
       - name: Verify the Metal probe refuses this non-780M build host
         shell: bash
         run: |

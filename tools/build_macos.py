@@ -12,6 +12,7 @@ from verify_artifacts import inspect_kext, inspect_macho, inspect_plugin
 from build_userspace import build_plugin, PLUGIN_IDENTIFIER
 from build_translator import build_translator
 from build_radv import build_radv
+from build_air_runtime import build_air_runtime
 
 def run(*args):
     print("RUN", " ".join(map(str, args)), flush=True)
@@ -24,6 +25,7 @@ def main():
     parser.add_argument("--translator-source", type=Path, required=True)
     parser.add_argument("--mesa", type=Path, required=True)
     parser.add_argument("--cobalt", type=Path, required=True)
+    parser.add_argument("--llvm", type=Path, required=True)
     parser.add_argument("--out", type=Path, default=ROOT / "build/experimental")
     args = parser.parse_args()
     if platform.system() != "Darwin":
@@ -82,14 +84,16 @@ def main():
     report["NVMTLDriver"] = build_plugin(stage, headers, artifacts, run)
     report["nvmtl-translator"] = build_translator(args.translator_source.resolve(), lock["nvmtl-translator"],
                                                  out, artifacts, stage, run)
-    plugin = artifacts / "NVMTLDriver.bundle"
-    run("codesign", "--force", "--sign", "-", plugin)
-    run("codesign", "--verify", "--strict", plugin)
-    # Adding the dylib changes the enclosing resource seal; report the final signed binary.
-    report["NVMTLDriver"].update(inspect_plugin(plugin, PLUGIN_IDENTIFIER))
     report["NVMTLDriver"]["missing_runtime_dependencies"].remove("AIR-to-SPIR-V translator")
     report["Mesa-RADV"] = build_radv(args.mesa, args.cobalt, headers, out / "radv", artifacts)
     report["NVMTLDriver"]["missing_runtime_dependencies"].remove("Mesa RADV Darwin ICD")
+    report["LLVM-AIR"] = build_air_runtime(args.llvm, out / "llvm", artifacts, stage)
+    report["NVMTLDriver"]["missing_runtime_dependencies"].remove("translator runtime dependencies")
+    plugin = artifacts / "NVMTLDriver.bundle"
+    run("codesign", "--force", "--sign", "-", plugin)
+    run("codesign", "--verify", "--strict", plugin)
+    # Every plugin-adjacent dylib must be present before sealing the enclosing bundle.
+    report["NVMTLDriver"].update(inspect_plugin(plugin, PLUGIN_IDENTIFIER))
     smoke = artifacts / "metal-smoke"
     run("xcrun", "clang", "-arch", "x86_64", "-mmacosx-version-min=13.0", "-fobjc-arc", "-fblocks",
         "-Wall", "-Wextra", "-Werror", "-framework", "Foundation", "-framework", "Metal",

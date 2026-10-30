@@ -20,7 +20,7 @@ build/test-policy
 ```
 
 ## Native macOS: actual kernel binaries
-Requires an Intel Mac with Xcode Command Line Tools, pinned MacKernelSDK, Vulkan-Headers, Mesa/Cobalt sources, Rust 1.90.0, glslangValidator >= 12.2, pkg-config and the hash-locked translator source archive. This is a build host; it need not contain a 780M. Building on a hosted Mac does not test the target laptop.
+Requires an Intel Mac with Xcode Command Line Tools, pinned MacKernelSDK, Vulkan-Headers, Mesa/Cobalt and LLVM 21.1.8 sources, CMake, Rust 1.90.0, glslangValidator >= 12.2, pkg-config and the hash-locked translator source archive. This is a build host; it need not contain a 780M. Building on a hosted Mac does not test the target laptop.
 
 ```sh
 git clone https://github.com/acidanthera/MacKernelSDK.git build-sdk
@@ -29,14 +29,15 @@ git clone --depth 1 --branch v1.4.363 https://github.com/KhronosGroup/Vulkan-Hea
 python3 tools/translator_source.py build/inputs/nvmtl-translator-source.tar.gz
 rustup toolchain install 1.90.0 --profile minimal --target x86_64-apple-darwin
 python3 tools/fetch_radv.py build/inputs/radv
+python3 tools/fetch_air_runtime.py build/inputs/llvm
 python3 -m venv build/radv-venv
 . build/radv-venv/bin/activate
 python -m pip install -r tools/radv-build-requirements.txt
 # Install glslangValidator and pkg-config through your chosen build-host package manager.
-python3 tools/build_macos.py --sdk build-sdk --vulkan-headers build-vulkan-headers --translator-source build/inputs/nvmtl-translator-source.tar.gz --mesa build/inputs/radv/mesa --cobalt build/inputs/radv/cobalt --out build/experimental
+python3 tools/build_macos.py --sdk build-sdk --vulkan-headers build-vulkan-headers --translator-source build/inputs/nvmtl-translator-source.tar.gz --mesa build/inputs/radv/mesa --cobalt build/inputs/radv/cobalt --llvm build/inputs/llvm --out build/experimental
 ```
 
-Outputs under build/experimental/artifacts: PhxBringup.kext, PhxAccel.kext, NVMTLDriver.bundle with libnvmtl_translate.dylib, nvmtl/libvulkan_radeon.dylib and its ICD manifest, metal-smoke, provenance and license notices. The build targets x86_64, preserves the upstream kernel ABI/identifiers for integration, applies the downstream gate, signs ad hoc, and checks Mach-O architecture/type. Never load the upstream and downstream variants together. This is not a complete Metal runtime: the AIR bitcode-reader runtime, firmware/bring-up and target-machine runtime integration are still missing. The RADV build path is implemented; consult IMPLEMENTATION-STATUS.md for actual native CI evidence.
+Outputs under build/experimental/artifacts: PhxBringup.kext, PhxAccel.kext, NVMTLDriver.bundle with libnvmtl_translate.dylib and air-runtime/libLLVM.dylib, nvmtl/libvulkan_radeon.dylib and its ICD manifest, metal-smoke, provenance and license notices. The build targets x86_64, preserves the upstream kernel ABI/identifiers for integration, applies the downstream gate, signs ad hoc, and checks Mach-O architecture/type. Never load the upstream and downstream variants together. This is not a complete Metal runtime: firmware/bring-up and target-machine runtime integration are still missing. RADV and the AIR bitcode-reader now have source-build paths; consult IMPLEMENTATION-STATUS.md for actual native CI evidence rather than assuming either new component has passed.
 
 The Metal plugin is compiled from the pinned `src/nmplugin/NVMTLDevice.m` translation unit (which includes the other plugin sources), not copied from an installed system or a release archive. It uses the upstream release-mode ARC/bundle recipe and normal linker symbol resolution; undefined-symbol escape flags and mock device stubs are not used. Its exported NVMTLDevice class/metaclass and x86_64 MH_BUNDLE structure are checked. The project-authored bundle metadata matches the kernel's plugin name/class, declares Tahoe as its supported deployment target, and has a distinct downstream bundle identifier. Runtime plugin discovery/loading remains untested.
 
@@ -87,3 +88,17 @@ The build checks six shared native-transport structs (every field offset/size), 
 The no-device probe first checks that all four relevant IOKit services are absent, and refuses to run otherwise. It never creates a VkDevice or submits GPU commands. Four fresh processes test native empty enumeration and explicit rejection of mock, host-only and non-Phoenix modes. A timeout, target-service detection, missing exports, loader error, unexpected diagnostics or any enumerated device fails CI. Python mocks only test the runner logic and are not runtime-driver evidence.
 
 Mesa license texts and Cobalt notices accompany local build output. Mesa includes per-file licenses; root MIT wording is not a complete provenance clearance. glslang/pkg-config are build-host packages rather than pinned source inputs; their/tool versions and dylib dependencies are recorded where applicable. No public binaries are uploaded. The staged nvmtl directory mirrors the plugin's expected runtime filenames but is not installed anywhere.
+
+## LLVM AIR runtime source build and compiler-chain tests
+
+The AIR runtime is LLVM 21.1.8 at exact commit `2078da43e25a4623cab2d0d60decddf709aaea28`. This is an explicitly selected downstream dependency, not a claim that it matches nullarc's unversioned release runtime or that it is the newest LLVM. Its Apache-2.0 WITH LLVM-exception license, legacy notice and included standalone third-party notices are retained. Public binary publication is still blocked.
+
+`tools/fetch_air_runtime.py` uses a fresh, pinned sparse Git checkout. `tools/build_air_runtime.py` builds the real Core/BitReader/BitWriter/IRReader/Passes components into libLLVM on Intel macOS. It disables optional zstd/zlib/libxml2/libedit/libpfm/ffi/curl/httplib dependencies and rejects any remaining non-system dependency in the resulting dylib. It does not copy a Homebrew LLVM binary or redistribute Apple's air-opt. The library is placed at the exact plugin-relative air-runtime/libLLVM.dylib path and the containing bundle is re-signed.
+
+The plugin's ten mandatory reader APIs and its optional diagnostic/pass/IR-walk APIs are extracted from the actual pinned source: all 38 symbols must exist. Export checks alone do not test the behavior of every function. The functional test invokes actual LLVM reader/writer and translator APIs, not mocks:
+
+```sh
+python3 tools/test_air_runtime.py --llvm build/experimental/artifacts/NVMTLDriver.bundle/Contents/MacOS/air-runtime/libLLVM.dylib --translator build/experimental/artifacts/NVMTLDriver.bundle/Contents/MacOS/libnvmtl_translate.dylib --plugin-source build/experimental/stage/src/nmplugin/NVMTLLibraryLoad.m --ir-fixture tests/fixtures/compute_increment.ll --metal-fixture tests/fixtures/compute_increment.metal --validator spirv-val --out build/experimental/air-runtime-tests
+```
+
+It requires malformed bitcode rejection, a project IR -> bitcode -> IR roundtrip, and two actual `xcrun metal` compilations of project-owned MSL with different arithmetic constants. Each AIR blob must be read into IR, translated into a compute SPIR-V module with store/add operations, and accepted by spirv-val. The two Metal variants must produce different SPIR-V. Missing Metal tools, reader errors, crashes, external validation errors or the 240-second test timeout fail the test; there is no text-fixture fallback for unavailable Apple tools. Generated compiler intermediates stay in the ignored build output and are not published. These are host compiler-chain checks, NOT GPU or full-plugin execution.
