@@ -71,7 +71,7 @@ validate firmware responses, propagate every GPU timeout, or remove the hardcode
 reference memory layout. No automatic GPU reset or speculative recovery writes
 are added. The real tool is not executed or installed by these checks.
 
-## Completion handling added; native verification pending
+## Completion handling checked on hosts, not target hardware
 
 `patches/0005-checked-gpu-completion.patch` makes missing MES completion terminal
 (exit 75), so callers such as `sched_test` cannot ignore a timeout and launch the
@@ -97,7 +97,10 @@ tokens, mismatched high fence/token words, and independent scratch/memory failur
 They check bounded polling, no next stage or adoption after failure, and no later
 scalar write after the injected failed completion. This is **control-flow testing
 with fake observations**, not GPU emulation, packet correctness or hardware proof.
-The new native checks have not yet completed.
+Run `41089800738` / code `61c5c0e` passed all 52 transport and 20 completion
+cases under ASan/UBSan. Its macOS preflight also compiled/linked the real tool
+without executing it. The full native driver build remains in progress; see
+`validation/ci-61c5c0e-completion.json`.
 
 No hardware rollback is attempted. KIQ/SDMA experiments, ring capacity/ownership,
 sequence exhaustion, firmware responses, target mappings and safe recovery still
