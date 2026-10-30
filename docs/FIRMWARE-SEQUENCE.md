@@ -98,3 +98,13 @@ for a shortened synthetic file to independently exercise the size check.
 Real CommonCrypto is tested separately by native CI in `verify-file` mode,
 which never opens IOKit. Host tests cannot prove firmware execution, target
 memory ownership, correct target IP selection or acceleration.
+
+Run `41146858706`, code `ccd95b5`, passed the Linux source job: 121 Python
+tests, all 114 actual-CLI sequence cases, the existing 60 firmware-control
+cases and 69 PSP-method cases, with ASan/UBSan enabled for the C/C++ suites.
+The sequence report's event order/byte totals were independently rechecked;
+its actual CLI hash was compared to freshly staged LF source and its patch
+and shared-header hashes to the corresponding Git objects. See
+`validation/ci-ccd95b5-sequence.json`. Native compilation preflight also passed
+in job `124374016775`; its full native build is still running and is not counted
+as a pass. No target hardware experiment follows from these host results.
