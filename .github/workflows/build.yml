@@ -30,6 +30,8 @@ jobs:
           build/test-policy
       - name: Fault-inject actual bring-up transport without hardware
         run: python3 tools/test_bringup_transport.py --out build/transport-tests
+      - name: Exercise actual PSP kernel methods without hardware
+        run: python3 tools/test_psp_submission.py --out build/psp-tests
   macos-kexts:
     runs-on: macos-15-intel
     timeout-minutes: 90

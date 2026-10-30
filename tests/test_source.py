@@ -49,7 +49,16 @@ class SourceTests(unittest.TestCase):
             prepare(self.stage)
     def test_provenance_is_not_hardware_pass(self):
         self.assertFalse(self.provenance["hardware_tested"])
-        self.assertEqual(6, len(self.provenance["patches_sha256"]))
+        self.assertEqual(7, len(self.provenance["patches_sha256"]))
+    def test_psp_failure_is_not_success_or_a_ready_tmr(self):
+        body = self.bringup.split("IOReturn PhxBringup::pspRunCmd(")[1].split("// Selector 103:")[0]
+        self.assertIn("return observed != fence ? kIOReturnTimeout : kIOReturnError", body)
+        self.assertIn("pspSubmissionFaulted = true", body)
+        self.assertLess(body.index("wptr > ringSizeDw"), body.index("cmd[i] = 0"))
+        self.assertLess(body.index("fenceCounter == UINT32_MAX"), body.index("cmd[i] = 0"))
+        self.assertIn("tmrSetUp = r == kIOReturnSuccess", self.bringup)
+        clear = self.bringup.split("void PhxBringup::clearRing() {")[1].split("\n}", 1)[0]
+        self.assertNotIn("pspSubmissionFaulted", clear)
     def test_mes_submission_checks_bounds_before_touching_packet_or_vram(self):
         text = (self.stage / "tools/phxctl/mesboot.c").read_text(encoding="utf-8")
         submit = text.split("static int mes_submit(")[1].split("#define CMP_RING")[0]

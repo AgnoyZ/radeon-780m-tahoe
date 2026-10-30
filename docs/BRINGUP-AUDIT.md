@@ -140,6 +140,13 @@ execution or permission to initialize hardware.
 
 ## Evidence required before an initialization experiment
 
+The kernel PSP false-success path is now corrected by patch `0007`; see
+`PSP-COMPLETION.md`. PSP completion errors/timeouts return failure, invalidate TMR
+readiness and latch subsequent PSP/firmware write refusal. Command preconditions
+and padded firmware-staging extents are checked before their respective writes.
+Actual-method host fault tests are wired into CI, with native execution pending.
+This does not establish target memory ownership or provide hardware rollback.
+
 Start with `TARGET-INVENTORY.md` for the new metadata-only collector. It records
 the actual OS build and whitelisted registry PCI identities/assigned apertures,
 with timeouts and without raw dumps. It does not establish independent hardware
