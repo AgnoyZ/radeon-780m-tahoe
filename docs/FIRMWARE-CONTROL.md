@@ -1,5 +1,10 @@
 # Checked firmware control: not a deployment workflow
 
+The profile-driven multi-file command added in patch 0011 is documented in
+`FIRMWARE-SEQUENCE.md`. It retains all nine verified inputs and one IOKit
+connection through TOC/TMR, seventeen IP loads and RLC autoload. It is not
+hardware-validated or a complete GPU bring-up workflow.
+
 Patch `0008-checked-firmware-control.patch` updates the actual reference
 `tools/phxctl/phxctl.c`. Previously a file short read ended the transfer loop,
 then `loadfw` submitted the smaller byte count and could exit successfully after

@@ -1,3 +1,4 @@
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -49,7 +50,12 @@ class SourceTests(unittest.TestCase):
             prepare(self.stage)
     def test_provenance_is_not_hardware_pass(self):
         self.assertFalse(self.provenance["hardware_tested"])
-        self.assertEqual(10, len(self.provenance["patches_sha256"]))
+        self.assertEqual(11, len(self.provenance["patches_sha256"]))
+    def test_firmware_profile_is_staged_and_bound_to_provenance(self):
+        from firmware_profile import checked_header
+        data = checked_header()
+        self.assertEqual(data, (self.stage / "src/phxbringup/PhxFirmwareProfile.h").read_bytes())
+        self.assertEqual(hashlib.sha256(data).hexdigest(), self.provenance["firmware_profile_sha256"])
     def test_firmware_control_authenticates_snapshot_before_writes(self):
         text = (self.stage / "tools/phxctl/phxctl.c").read_text(encoding="utf-8")
         self.assertEqual(1, text.count("IOConnectCallScalarMethod("))

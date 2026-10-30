@@ -1,6 +1,7 @@
 # Implementation status (2026-10-31)
 
 ## Implemented; target hardware verification pending
+- Added the profile-driven `phxctl firmware-sequence`: all nine whole-file snapshots are verified before service lookup, then one connection performs explicit layout/ring, checked TOC-size/TMR setup, seventeen typed IP loads and RLC autoload. A generated metadata-only header is bound to the reviewed firmware lock/audit and source provenance. New actual-CLI synthetic sequence tests cover order, bytes, snapshot mutation and failure at each component; CI results must be recorded separately when available. Memory ownership, target compatibility, SMU/GART/MES follow-on initialization and actual execution remain unverified. See `FIRMWARE-SEQUENCE.md`.
 - Pinned nullarc source submodule and MacKernelSDK dependency.
 - Downstream patches require explicit opt-in and Darwin 25 / PCI 1002:1900 before PCI command changes or framebuffer boot arming consumption.
 - Removed legacy no-GPU submission and wait success; unavailable GPU returns NotReady instead of fabricating a fence retirement.

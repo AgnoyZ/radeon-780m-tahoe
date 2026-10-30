@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import tarfile
+from firmware_profile import checked_header
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -40,6 +41,7 @@ def prepare(destination, root=ROOT):
     verify_checkout(source, lock["nullarc"]["commit"])
     if destination.exists():
         raise RuntimeError("Staging directory already exists; choose a fresh output, do not overwrite")
+    firmware_profile = checked_header(root)
     archive = git(source, "archive", lock["nullarc"]["commit"], "src/phxbringup", "src/phxaccel", "src/nmplugin",
                   "tools/phxctl/mesboot.c", "tools/phxctl/phxctl.c", "tools/phxctl/mes_v11_api_def.h", "tools/phxctl/csb_gfx11.h",
                   "LICENSE", "LICENSES", "THIRD_PARTY_NOTICES.md")
@@ -57,11 +59,13 @@ def prepare(destination, root=ROOT):
         (destination / relative).write_bytes(policy)
     psp_layout = (root / "src/PhxPspLayout.h").read_bytes()
     (destination / "src/phxbringup/PhxPspLayout.h").write_bytes(psp_layout)
+    (destination / "src/phxbringup/PhxFirmwareProfile.h").write_bytes(firmware_profile)
     runtime_path = (root / "src/PhxRuntimePath.h").read_bytes()
     (destination / "src/nmplugin/PhxRuntimePath.h").write_bytes(runtime_path)
     result = {"nullarc_commit": lock["nullarc"]["commit"], "patches_sha256": patch_hashes,
               "policy_sha256": hashlib.sha256(policy).hexdigest(),
               "psp_layout_sha256": hashlib.sha256(psp_layout).hexdigest(),
+              "firmware_profile_sha256": hashlib.sha256(firmware_profile).hexdigest(),
               "runtime_path_sha256": hashlib.sha256(runtime_path).hexdigest(), "hardware_tested": False}
     (destination / "source-provenance.json").write_text(json.dumps(result, indent=2) + "\n")
     return result

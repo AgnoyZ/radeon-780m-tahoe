@@ -1,0 +1,128 @@
+--- a/tools/phxctl/phxctl.c
++++ b/tools/phxctl/phxctl.c
+@@ -19,6 +19,7 @@
+ #include <unistd.h>
+ #include "../../src/phxbringup/PhxNativeABI.h"
+ #include "../../src/phxbringup/PhxPspLayout.h"
++#include "../../src/phxbringup/PhxFirmwareProfile.h"
+ static_assert(sizeof(struct PhxPspLayout) == 64, "PSP layout wire size");
+ #include <stdint.h>
+ #include <stdio.h>
+@@ -41,11 +42,21 @@
+ 
+ static io_connect_t conn;
+ static uint8_t *staging_snapshot;
++static uint8_t *sequence_images[PHX_FW_FILE_COUNT];
++
++static void free_sequence_images(void)
++{
++   for (unsigned i = 0; i < PHX_FW_FILE_COUNT; ++i) {
++      free(sequence_images[i]);
++      sequence_images[i] = NULL;
++   }
++}
+ 
+ static _Noreturn void control_failure(int status, const char *what)
+ {
+    free(staging_snapshot);
+    staging_snapshot = NULL;
++   free_sequence_images();
+    fprintf(stderr, "phxctl checked failure: %s; stopping (no rollback)\n", what);
+    exit(status);
+ }
+@@ -243,8 +254,95 @@
+    {"SDMA0_F32_CNTL", 0xA000 + 0x589a},
+ };
+ 
++static void stage_profile_step(const struct PhxFirmwareStep *step)
++{
++   for (uint32_t staged = 0; staged < step->bytes;) {
++      uint32_t chunk = step->bytes - staged > 4096 ? 4096 : step->bytes - staged;
++      uint64_t input[1] = {staged};
++      checked_method(conn, SEL_DBG_FW_STAGE, input, 1,
++                     sequence_images[step->file_index] + step->offset + staged, chunk, NULL, NULL, NULL, NULL);
++      staged += chunk;
++   }
++}
++
++static int firmware_sequence(int argc, char **argv)
++{
++   if (argc != 8)
++      control_failure(64, "firmware-sequence requires firmware directory, ring offset, TMR offset/capacity, staging offset/capacity");
++   struct PhxPspLayout layout = {PHX_PSP_LAYOUT_VERSION, checked_u64(argv[3]), checked_u64(argv[4]),
++      checked_u64(argv[5]), checked_u64(argv[6]), checked_u64(argv[7]), {0, 0}};
++   if (((layout.ringOffset | layout.tmrOffset | layout.tmrCapacity | layout.stagingOffset | layout.stagingCapacity) & 0xfff) ||
++       layout.tmrCapacity > UINT32_MAX || layout.stagingCapacity > PHX_PSP_STAGING_MAX_BYTES ||
++       !phxPspSpanFits(layout.ringOffset, PHX_PSP_LAYOUT_RING_BYTES, UINT64_MAX) ||
++       !phxPspSpanFits(layout.tmrOffset, layout.tmrCapacity, UINT64_MAX) ||
++       !phxPspSpanFits(layout.stagingOffset, layout.stagingCapacity, UINT64_MAX) ||
++       !phxPspDisjoint(layout.ringOffset, PHX_PSP_LAYOUT_RING_BYTES, layout.tmrOffset, layout.tmrCapacity) ||
++       !phxPspDisjoint(layout.ringOffset, PHX_PSP_LAYOUT_RING_BYTES, layout.stagingOffset, layout.stagingCapacity) ||
++       !phxPspDisjoint(layout.tmrOffset, layout.tmrCapacity, layout.stagingOffset, layout.stagingCapacity))
++      control_failure(64, "invalid relative firmware layout; target bounds still require kernel validation");
++   for (unsigned i = 0; i < PHX_FW_STEP_COUNT; ++i) {
++      const struct PhxFirmwareStep *s = &phxFirmwareSteps[i];
++      const uint64_t padded = ((uint64_t)s->bytes + 3) & ~3ull;
++      if (s->file_index >= PHX_FW_FILE_COUNT || (s->offset & 3) || !s->bytes ||
++          !phxPspSpanFits(s->offset, s->bytes, phxFirmwareFiles[s->file_index].bytes) ||
++          padded > layout.stagingCapacity || (i == 0 ? s->fw_type != 0 : s->fw_type == 0))
++         control_failure(64, "compiled firmware profile does not fit the staging capacity");
++   }
++   /* Snapshot every input before service lookup or any command can change hardware. */
++   for (unsigned i = 0; i < PHX_FW_FILE_COUNT; ++i) {
++      char path[4096];
++      int length = snprintf(path, sizeof(path), "%s/%s", argv[2], phxFirmwareFiles[i].name);
++      if (length < 0 || (size_t)length >= sizeof(path)) control_failure(64, "firmware path is too long");
++      uint32_t bytes = 0;
++      sequence_images[i] = firmware_snapshot(path, phxFirmwareFiles[i].sha256, &bytes);
++      if (bytes != phxFirmwareFiles[i].bytes) control_failure(65, "firmware size differs from the reviewed profile");
++   }
++   if (open_kext()) control_failure(74, "firmware sequence could not open the service");
++   uint64_t output[4] = {0};
++   uint32_t count = 4;
++   checked_method(conn, PHX_PSP_LAYOUT_SELECTOR, NULL, 0, &layout, sizeof(layout), output, &count, NULL, NULL);
++   if (!phxPspLayoutValid(&layout, output[0], output[1], output[2], output[3]))
++      control_failure(75, "kernel layout observation does not validate the requested regions");
++   const uint64_t mc_base = output[0], physical_base = output[1];
++   /* Address alignment is knowable before TOC; its actual size is checked later. */
++   if (!phxPspTmrFits(&layout, mc_base, physical_base, 1))
++      control_failure(75, "configured TMR addresses are not aligned for initialization");
++   uint64_t ring[2] = {1, layout.ringOffset};
++   count = 4;
++   checked_scalar(conn, SEL_DBG_PSP_RING, ring, 2, output, &count);
++   if (output[1] != mc_base + layout.ringOffset)
++      control_failure(75, "created PSP ring address differs from the requested layout");
++   stage_profile_step(&phxFirmwareSteps[0]);
++   uint64_t toc[2] = {0, phxFirmwareSteps[0].bytes};
++   count = 4;
++   checked_scalar(conn, PHX_PSP_LOAD_TOC_SELECTOR, toc, 2, output, &count);
++   if (!output[2] || output[2] > UINT32_MAX || output[3] != 1 ||
++       !phxPspTmrFits(&layout, mc_base, physical_base, (uint32_t)output[2]))
++      control_failure(75, "TOC size or configured region fit is unusable");
++   uint64_t tmr[2] = {1, output[2]};
++   count = 4;
++   checked_scalar(conn, SEL_DBG_PSP_CTL, tmr, 2, output, &count);
++   /* The synchronous PSP completion permits reuse of the same staging region. */
++   for (unsigned i = 1; i < PHX_FW_STEP_COUNT; ++i) {
++      const struct PhxFirmwareStep *s = &phxFirmwareSteps[i];
++      stage_profile_step(s);
++      uint64_t load[3] = {s->fw_type, 0, s->bytes};
++      count = 4;
++      checked_scalar(conn, SEL_DBG_PSP_LOADIPFW, load, 3, output, &count);
++   }
++   uint64_t autoload[2] = {2, 0};
++   count = 4;
++   checked_scalar(conn, SEL_DBG_PSP_CTL, autoload, 2, output, &count);
++   if (IOServiceClose(conn) != KERN_SUCCESS) control_failure(74, "service close failed after firmware commands");
++   free_sequence_images();
++   printf("firmware-sequence complete: %u IP loads and RLC autoload acknowledged; GPU operation unverified\n",
++          PHX_FW_STEP_COUNT - 1);
++   return 0;
++}
++
+ int main(int argc, char **argv)
+ {
++   if (argc >= 2 && !strcmp(argv[1], "firmware-sequence")) return firmware_sequence(argc, argv);
+    if (argc >= 2 && !strcmp(argv[1], "loadtoc") && argc != 7)
+       control_failure(64, "loadtoc requires file, offset, size, staging offset and reviewed SHA-256");
+    if (argc >= 2 && !strcmp(argv[1], "psp-layout") && argc != 7)
