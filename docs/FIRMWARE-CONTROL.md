@@ -71,6 +71,13 @@ as errors, before building the harness; the native build also explicitly selects
 C11. The POSIX standalone compilation passed the run above; the native compiler
 and CommonCrypto path still need their own observed results.
 
+The earlier native run `41101826570`, code `b39f6f8`, subsequently finished with
+failure in job `124220444422`. Its compiler errors identify `static_assert` in
+`PhxNativeABI.h` as an invalid declaration, confirming the missing-include defect
+fixed by `5a066d0`. That failed preflight did not reach any real CommonCrypto
+file-verification case or the full native driver build. A successful Linux test
+of the corrected revision does not turn the failed native run into a pass.
+
 Patch 0009 adds `psp-layout` to send an explicit 64-byte descriptor to the new
 privileged/debug kernel selector. It supplies metadata without staging bytes or
 creating a ring. Seven additional CLI cases check descriptor fields, argument
