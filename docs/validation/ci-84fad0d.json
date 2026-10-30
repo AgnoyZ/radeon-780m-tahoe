@@ -1,0 +1,55 @@
+{
+  "ci_run_id": 41073491733,
+  "ci_overall_conclusion": "cancelled",
+  "cancellation_reason": "Superseded after run 41069365794 proved the same Metal standard flag invalid; corrected run 41077457040 passed its early preflight. Not cancelled because polling timed out.",
+  "radv": {
+    "project_commit": "84fad0dba215dca5b12587972ff1c5c4beb15cee",
+    "mesa_commit": "f5cb8ee032adabef599ae892ec4e42d796b84da9",
+    "cobalt_commit": "d6c9aedf8e6526a39e349b5886cbc8c7ddf77f65",
+    "nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+    "architecture": "x86_64",
+    "macho_type": 6,
+    "sha256": "bf386fee7ab64d49618c5daf753b74eed28e002bc70aa8e72a638aa26401e915",
+    "bytes": 20264208,
+    "runtime_layout": "plugin-relative",
+    "dependencies": [
+      "/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit",
+      "/usr/lib/libSystem.B.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/usr/lib/libc++.1.dylib"
+    ],
+    "runtime_dependency_policy": "system-only",
+    "runtime_tests": {
+      "native": {
+        "runtime_loaded": true,
+        "physical_devices": 0,
+        "gpu_submitted": false
+      },
+      "reject_mock": {
+        "runtime_loaded": true,
+        "physical_devices": 0,
+        "gpu_submitted": false
+      },
+      "reject_host_only": {
+        "runtime_loaded": true,
+        "physical_devices": 0,
+        "gpu_submitted": false
+      },
+      "reject_other_gpu": {
+        "runtime_loaded": true,
+        "physical_devices": 0,
+        "gpu_submitted": false
+      }
+    },
+    "native_transport_layout_verified": true,
+    "hardware_tested": false,
+    "deployment_performed": false,
+    "metal_stack_complete": false
+  },
+  "retained_binary_artifacts": false,
+  "limitations": [
+    "RADV direct loading from the plugin-relative build layout passed; the full Metal plugin runtime step did not run.",
+    "Partial evidence from an intentionally cancelled run, not a complete build pass.",
+    "No target hardware execution or deployment."
+  ]
+}
