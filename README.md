@@ -29,6 +29,7 @@
 - `tools/`、`tests/`：隔离构建、产物校验与真实 Metal 计算探针。
 - `docs/BUILD.md`、`docs/IMPLEMENTATION-STATUS.md`：构建方法与未完成项。
 - `docs/TARGET-INVENTORY.md`：目标机只读元数据采集；不安装驱动、不提交 GPU 工作，报告仅保存在本地。
+- `firmware.lock.json`、`docs/FIRMWARE-MANIFEST.md`：固定官方固件来源和哈希，离线解析文件分段；不包含固件、不加载硬件。
 - `AGENTS.md`：隐私、安全、回退和 GitHub 同步要求。
 
 本机 EFI 配置继续由独立私有仓库 `AgnoyZ/thinkbook-16-g6-ahp-hackintosh` 管理，本仓库不替换它。

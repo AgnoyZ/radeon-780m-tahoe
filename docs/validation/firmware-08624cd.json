@@ -1,0 +1,544 @@
+{
+  "source_commit": "08624cd0b8ac0fde63c0099efbe043f6ecd74b25",
+  "reference_nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+  "file_count": 9,
+  "firmware_lock_file_sha256": "f139c4e96119421a00d31159507b8bb7fcbce8f84bda37eb48bafe8b0191a3ac",
+  "parser_source_sha256": "09b9eb09ea3001c6103d4e7a23d2f92490e6304603db1e03eca51f1a969d7633",
+  "linux_source_sha256": {
+    "linux-amdgpu_ucode.h": "9b717be2e98470203d188c44c6a9468e37efbec397140af9f4106518b6f31e3c",
+    "linux-amdgpu_ucode.c": "c28085638023bc9bf40eb21ddd94b06e62e935f87d948810e80cc8c4b2858b46",
+    "linux-amdgpu_rlc.c": "32a5c62305d6e45b01c9ebf0df6bad2fb2b68eafe9764365aaf077cf341267fe",
+    "linux-amdgpu_psp.c": "99df64d3917a17cf611347c9fec9cfa992dcdc98dd248a5a1afe22d080d43884"
+  },
+  "manifest": {
+    "schema_version": 1,
+    "linux_parser_reference_commit": "7d0a66e4bb9081d75c82ec4957c50034cb0ea449",
+    "lock_sha256": "8cbccc8fdbf21f067d4ef7dda4b6024a25edf9706fb9d9a4e08e768f0c4d8927",
+    "files": [
+      {
+        "name": "gc_11_0_1_imu.bin",
+        "kind": "imu",
+        "sha256": "ac71f4eec713fc35b4a1fe27531e3eb04edd81eeac2cef64df01ac50d8510805",
+        "size_bytes": 132352,
+        "header_size_bytes": 48,
+        "header_version": [
+          1,
+          0
+        ],
+        "ip_version": [
+          11,
+          0
+        ],
+        "ucode_version": 184626432,
+        "common_payload": {
+          "file_offset": 256,
+          "size_bytes": 132096
+        },
+        "crc32_reported": "3eea8e37",
+        "crc32_zlib_common_payload": "6a148321",
+        "crc32_convention_verified": false,
+        "components": [
+          {
+            "component": "instruction",
+            "file_offset": 256,
+            "size_bytes": 66048,
+            "sha256": "8c249ced5e85ca1c4a4f57397747e29f99770f7dba4a059dd471d47ad270086d"
+          },
+          {
+            "component": "data",
+            "file_offset": 66304,
+            "size_bytes": 66048,
+            "sha256": "0ca170d33abd182de5edc6f112d51f88ad70c451baba1f73b06653d1450809e4"
+          }
+        ],
+        "jump_table": null,
+        "absent_optional_components": [],
+        "vendor_signature_verified": false,
+        "target_compatibility_verified": false
+      },
+      {
+        "name": "gc_11_0_1_me.bin",
+        "kind": "gfx",
+        "sha256": "62c5e749ad848941e5d8b85f66eeb2b969ee82919724dfd94dbf6e354be8befc",
+        "size_bytes": 263424,
+        "header_size_bytes": 44,
+        "header_version": [
+          1,
+          0
+        ],
+        "ip_version": [
+          11,
+          0
+        ],
+        "ucode_version": 103,
+        "common_payload": {
+          "file_offset": 256,
+          "size_bytes": 263168
+        },
+        "crc32_reported": "7159a4ba",
+        "crc32_zlib_common_payload": "a05230a6",
+        "crc32_convention_verified": false,
+        "components": [
+          {
+            "component": "ucode",
+            "file_offset": 256,
+            "size_bytes": 263168,
+            "sha256": "1a2319935c38ce39ef40fbce66e7cb997451beb9803d3f325da411425a967f56"
+          }
+        ],
+        "jump_table": {
+          "file_offset": 262400,
+          "size_bytes": 512,
+          "sha256": "ae7a4f1e31452fd83f88729ee493a6e456d55d123555ed3ef6552018831ce8d9"
+        },
+        "absent_optional_components": [],
+        "vendor_signature_verified": false,
+        "target_compatibility_verified": false
+      },
+      {
+        "name": "gc_11_0_1_mec.bin",
+        "kind": "gfx-mec",
+        "sha256": "b0a4006b3934adc1d7996e6d901206dea37203b4839debe4a5ed4e393a615cbb",
+        "size_bytes": 268160,
+        "header_size_bytes": 44,
+        "header_version": [
+          1,
+          0
+        ],
+        "ip_version": [
+          11,
+          0
+        ],
+        "ucode_version": 70,
+        "common_payload": {
+          "file_offset": 256,
+          "size_bytes": 267904
+        },
+        "crc32_reported": "3bb3f909",
+        "crc32_zlib_common_payload": "fd8d732a",
+        "crc32_convention_verified": false,
+        "components": [
+          {
+            "component": "instruction",
+            "file_offset": 256,
+            "size_bytes": 267008,
+            "sha256": "c695b248bf7cb3047d892bd3a47a24696a3f3ed08a4362587c8d63ac3b3765f5"
+          },
+          {
+            "component": "jump_table",
+            "file_offset": 267264,
+            "size_bytes": 896,
+            "sha256": "1d6e2b1d6e3248efc1133d44c4c5eda6884a839e6bf0a640cedbf986f000aa79"
+          }
+        ],
+        "jump_table": {
+          "file_offset": 267264,
+          "size_bytes": 896,
+          "sha256": "1d6e2b1d6e3248efc1133d44c4c5eda6884a839e6bf0a640cedbf986f000aa79"
+        },
+        "absent_optional_components": [],
+        "vendor_signature_verified": false,
+        "target_compatibility_verified": false
+      },
+      {
+        "name": "gc_11_0_1_mes1.bin",
+        "kind": "mes",
+        "sha256": "3a8b60ea88b7adbbc71da0ddee0370d5d65c1d66186fd4f4ba9d16a854b24db8",
+        "size_bytes": 235600,
+        "header_size_bytes": 72,
+        "header_version": [
+          1,
+          0
+        ],
+        "ip_version": [
+          11,
+          0
+        ],
+        "ucode_version": 0,
+        "common_payload": {
+          "file_offset": 256,
+          "size_bytes": 235344
+        },
+        "crc32_reported": "01f7650c",
+        "crc32_zlib_common_payload": "c835b9d8",
+        "crc32_convention_verified": false,
+        "components": [
+          {
+            "component": "instruction",
+            "file_offset": 256,
+            "size_bytes": 104272,
+            "sha256": "1a4d4a1f0b83d3c7d7c2be6bafe484cb1b0aaf16b6e091f0d4f96ae5f09bcc78"
+          },
+          {
+            "component": "data",
+            "file_offset": 104528,
+            "size_bytes": 131072,
+            "sha256": "771d299c1690a9ad5a312a0025635bb3aa090f82cbbac3eece11b7b989ace7fa"
+          }
+        ],
+        "jump_table": null,
+        "absent_optional_components": [],
+        "vendor_signature_verified": false,
+        "target_compatibility_verified": false
+      },
+      {
+        "name": "gc_11_0_1_mes_2.bin",
+        "kind": "mes",
+        "sha256": "962f56c7e661479e3cabf89c1fcd6344f10cfa8b8d1f672fc445bb21414c1392",
+        "size_bytes": 266976,
+        "header_size_bytes": 72,
+        "header_version": [
+          1,
+          0
+        ],
+        "ip_version": [
+          11,
+          0
+        ],
+        "ucode_version": 0,
+        "common_payload": {
+          "file_offset": 256,
+          "size_bytes": 266720
+        },
+        "crc32_reported": "05aa83f0",
+        "crc32_zlib_common_payload": "a275f8b0",
+        "crc32_convention_verified": false,
+        "components": [
+          {
+            "component": "instruction",
+            "file_offset": 256,
+            "size_bytes": 135648,
+            "sha256": "0f3d7b27ca29cd8d10c5ef28c109c2ca7bae2c8df5517ccd2d83afd283068815"
+          },
+          {
+            "component": "data",
+            "file_offset": 135904,
+            "size_bytes": 131072,
+            "sha256": "928e3fd6e61dd42f998d4cdd109c314cdd9a0133c208b97f6901ffd1d31cd550"
+          }
+        ],
+        "jump_table": null,
+        "absent_optional_components": [],
+        "vendor_signature_verified": false,
+        "target_compatibility_verified": false
+      },
+      {
+        "name": "gc_11_0_1_pfp.bin",
+        "kind": "gfx",
+        "sha256": "449c72cae1c57838185197ad4003aeee7ccbdba892a28bb2624d9e85f57a2df1",
+        "size_bytes": 263424,
+        "header_size_bytes": 44,
+        "header_version": [
+          1,
+          0
+        ],
+        "ip_version": [
+          11,
+          0
+        ],
+        "ucode_version": 111,
+        "common_payload": {
+          "file_offset": 256,
+          "size_bytes": 263168
+        },
+        "crc32_reported": "68881f8c",
+        "crc32_zlib_common_payload": "b9838b90",
+        "crc32_convention_verified": false,
+        "components": [
+          {
+            "component": "ucode",
+            "file_offset": 256,
+            "size_bytes": 263168,
+            "sha256": "724e0665a3f74389b101ccaf45caf8e9eb17c77eabb25c12fdd856b9779cf61e"
+          }
+        ],
+        "jump_table": {
+          "file_offset": 262400,
+          "size_bytes": 512,
+          "sha256": "ca46cd2707779f4eedafdfec7aeaf657ed2f5584265a98da5d0d5ea221217f1d"
+        },
+        "absent_optional_components": [],
+        "vendor_signature_verified": false,
+        "target_compatibility_verified": false
+      },
+      {
+        "name": "gc_11_0_1_rlc.bin",
+        "kind": "rlc",
+        "sha256": "5f07dc1f0a75ecd9cb56d805ea869184a50ed9e43d811ebf833b8906534650ef",
+        "size_bytes": 157040,
+        "header_size_bytes": 204,
+        "header_version": [
+          2,
+          3
+        ],
+        "ip_version": [
+          11,
+          0
+        ],
+        "ucode_version": 140,
+        "common_payload": {
+          "file_offset": 256,
+          "size_bytes": 25088
+        },
+        "crc32_reported": "abdb397e",
+        "crc32_zlib_common_payload": "45e5a492",
+        "crc32_convention_verified": false,
+        "components": [
+          {
+            "component": "ucode",
+            "file_offset": 256,
+            "size_bytes": 25088,
+            "sha256": "8d4e9adf34c957f4eb700670f4900af67b8597acb4c1488732f5a2a260f22c56"
+          },
+          {
+            "component": "restore_gpm",
+            "file_offset": 25344,
+            "size_bytes": 2560,
+            "sha256": "92d296a77aaae9512f52046bf4c5b62cee121b5917d5a351426d5cdc426782d2"
+          },
+          {
+            "component": "restore_srm",
+            "file_offset": 27904,
+            "size_bytes": 21104,
+            "sha256": "9fefc400ef68d6abad21f4f9254153f2011fb0cf7474e3da0149462648b026fd"
+          },
+          {
+            "component": "iram",
+            "file_offset": 49008,
+            "size_bytes": 66048,
+            "sha256": "76ff4398f21385253208af4e1762726d6d074cf76b78a98cc5bada03fe45ad9b"
+          },
+          {
+            "component": "dram",
+            "file_offset": 115056,
+            "size_bytes": 33280,
+            "sha256": "ca09e953ce70adedc26ff128dbe77619c6b40f5931f8a9db9ccc1d01a77e5347"
+          },
+          {
+            "component": "rlcp",
+            "file_offset": 148336,
+            "size_bytes": 8704,
+            "sha256": "6a853f20e7a3dcb6eb72a7455109e69e4e46f1ba3a095b34e7b129a66bec63c2"
+          }
+        ],
+        "jump_table": null,
+        "absent_optional_components": [
+          "restore_cntl",
+          "rlcv"
+        ],
+        "vendor_signature_verified": false,
+        "target_compatibility_verified": false
+      },
+      {
+        "name": "psp_13_0_4_toc.bin",
+        "kind": "psp-toc",
+        "sha256": "11e3529d748e2b6b204681183360a6ead80665b8deda996dfcf35973f789fc3d",
+        "size_bytes": 2560,
+        "header_size_bytes": 68,
+        "header_version": [
+          1,
+          0
+        ],
+        "ip_version": [
+          13,
+          0
+        ],
+        "ucode_version": 11,
+        "common_payload": {
+          "file_offset": 256,
+          "size_bytes": 2304
+        },
+        "crc32_reported": "12b73c3f",
+        "crc32_zlib_common_payload": "d1dd978b",
+        "crc32_convention_verified": false,
+        "components": [
+          {
+            "component": "toc",
+            "file_offset": 256,
+            "size_bytes": 2304,
+            "sha256": "cbc7ba6e6a5c5ffba512a56d994b3395a2fd5d1549e83eb5d4751bd348422c4b"
+          }
+        ],
+        "jump_table": null,
+        "absent_optional_components": [],
+        "vendor_signature_verified": false,
+        "target_compatibility_verified": false
+      },
+      {
+        "name": "sdma_6_0_1.bin",
+        "kind": "sdma",
+        "sha256": "708c2c2c45262c98ebe8e34e32c3f1ce8eb5b007bab560c9ea9b576a8e4d6768",
+        "size_bytes": 34560,
+        "header_size_bytes": 64,
+        "header_version": [
+          2,
+          0
+        ],
+        "ip_version": [
+          6,
+          0
+        ],
+        "ucode_version": 24,
+        "common_payload": {
+          "file_offset": 256,
+          "size_bytes": 34304
+        },
+        "crc32_reported": "1c14c405",
+        "crc32_zlib_common_payload": "18a5dae0",
+        "crc32_convention_verified": false,
+        "components": [
+          {
+            "component": "context",
+            "file_offset": 256,
+            "size_bytes": 17408,
+            "sha256": "8fddf09ad91968c927367192c686b3ce571c3b56a8a443e452a18446d1f00d0d"
+          },
+          {
+            "component": "control",
+            "file_offset": 17664,
+            "size_bytes": 16896,
+            "sha256": "d3dc64de7abc5afcda5ce3c13d792f3e16061e2fd7e090ad76415f15b8de570e"
+          }
+        ],
+        "jump_table": null,
+        "absent_optional_components": [],
+        "vendor_signature_verified": false,
+        "target_compatibility_verified": false
+      }
+    ],
+    "hardware_executed": false,
+    "firmware_loaded": false,
+    "safe_to_initialize": false,
+    "limitations": [
+      "File offsets are not device addresses or allocation/ownership grants.",
+      "Matching a source hash does not verify a vendor signature or target IP compatibility.",
+      "This report does not authorize firmware loading or replace a target memory-layout audit."
+    ]
+  },
+  "reference_load_extents": [
+    {
+      "name": "gc_11_0_1_pfp.bin",
+      "component": "ucode",
+      "file_offset": 256,
+      "size_bytes": 263168,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_me.bin",
+      "component": "ucode",
+      "file_offset": 256,
+      "size_bytes": 263168,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_mec.bin",
+      "component": "instruction",
+      "file_offset": 256,
+      "size_bytes": 267008,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "sdma_6_0_1.bin",
+      "component": "context",
+      "file_offset": 256,
+      "size_bytes": 17408,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "sdma_6_0_1.bin",
+      "component": "control",
+      "file_offset": 17664,
+      "size_bytes": 16896,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_mes_2.bin",
+      "component": "instruction",
+      "file_offset": 256,
+      "size_bytes": 135648,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_mes_2.bin",
+      "component": "data",
+      "file_offset": 135904,
+      "size_bytes": 131072,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_mes1.bin",
+      "component": "instruction",
+      "file_offset": 256,
+      "size_bytes": 104272,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_mes1.bin",
+      "component": "data",
+      "file_offset": 104528,
+      "size_bytes": 131072,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_imu.bin",
+      "component": "instruction",
+      "file_offset": 256,
+      "size_bytes": 66048,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_imu.bin",
+      "component": "data",
+      "file_offset": 66304,
+      "size_bytes": 66048,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_rlc.bin",
+      "component": "restore_gpm",
+      "file_offset": 25344,
+      "size_bytes": 2560,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_rlc.bin",
+      "component": "restore_srm",
+      "file_offset": 27904,
+      "size_bytes": 21104,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_rlc.bin",
+      "component": "iram",
+      "file_offset": 49008,
+      "size_bytes": 66048,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_rlc.bin",
+      "component": "dram",
+      "file_offset": 115056,
+      "size_bytes": 33280,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_rlc.bin",
+      "component": "rlcp",
+      "file_offset": 148336,
+      "size_bytes": 8704,
+      "reference_extent_matches": true
+    },
+    {
+      "name": "gc_11_0_1_rlc.bin",
+      "component": "ucode",
+      "file_offset": 256,
+      "size_bytes": 25088,
+      "reference_extent_matches": true
+    }
+  ],
+  "toc_reference_extent_matches": true,
+  "hardware_executed": false,
+  "firmware_loaded": false,
+  "firmware_binaries_committed": false,
+  "limitation": "Actual vendor-file header/range/hash inspection only. Reference extents matching does not validate PSP command IDs, device addresses, signatures, target IP selection or boot sequencing."
+}

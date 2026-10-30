@@ -144,6 +144,13 @@ the actual OS build and whitelisted registry PCI identities/assigned apertures,
 with timeouts and without raw dumps. It does not establish independent hardware
 identity, GPU IP layout or reserved-region ownership and never approves bring-up.
 
+`FIRMWARE-MANIFEST.md` now covers offline inspection of nine pinned official
+firmware candidates, with header-derived components and exact source hashes.
+Their 17 reference load extents and the TOC extent match the documented formats;
+see `validation/firmware-08624cd.json`. This removes guesswork from file slicing
+but does not replace fixed device addresses, validate PSP commands or implement
+a checked hardware loader. Firmware selection still requires target IP evidence.
+
 1. Confirm the actual target Tahoe build, a tested external-disk/EFI recovery path
    and the exact driver/firmware revisions. The last verified target environment
    remains Sonoma Recovery, not Tahoe.

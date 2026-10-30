@@ -2,7 +2,7 @@ name: Build and test experimental 780M sources
 on:
   push:
     branches: [main]
-    paths: ['src/**', 'tools/**', 'tests/**', 'patches/**', 'upstream/**', 'upstream.lock.json', '.github/workflows/**', '.gitmodules', 'docs/EXPERIMENTAL.md']
+    paths: ['src/**', 'tools/**', 'tests/**', 'patches/**', 'upstream/**', 'upstream.lock.json', 'firmware.lock.json', '.github/workflows/**', '.gitmodules', 'docs/EXPERIMENTAL.md']
   pull_request:
   workflow_dispatch:
     inputs:

@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "purpose": "Reference-workflow firmware inputs; not verified target selection or approved loading",
+  "upstream": {
+    "repository": "https://gitlab.com/kernel-firmware/linux-firmware.git",
+    "commit": "08624cd0b8ac0fde63c0099efbe043f6ecd74b25",
+    "directory": "amdgpu"
+  },
+  "license": {
+    "path": "LICENSES/LICENSE.amdgpu",
+    "sha256": "572872598565dc3513470de971a32bf9db301f47afeef3636345eadae33b2eee"
+  },
+  "whence_sha256": "aa66a3ce2ae325b1cd87efe4454f94434b55c4e024eef555b039e3576591fdbd",
+  "files": [
+    {
+      "name": "gc_11_0_1_imu.bin",
+      "kind": "imu",
+      "sha256": "ac71f4eec713fc35b4a1fe27531e3eb04edd81eeac2cef64df01ac50d8510805",
+      "size_bytes": 132352,
+      "header_version": [
+        1,
+        0
+      ],
+      "ip_version": [
+        11,
+        0
+      ]
+    },
+    {
+      "name": "gc_11_0_1_me.bin",
+      "kind": "gfx",
+      "sha256": "62c5e749ad848941e5d8b85f66eeb2b969ee82919724dfd94dbf6e354be8befc",
+      "size_bytes": 263424,
+      "header_version": [
+        1,
+        0
+      ],
+      "ip_version": [
+        11,
+        0
+      ]
+    },
+    {
+      "name": "gc_11_0_1_mec.bin",
+      "kind": "gfx-mec",
+      "sha256": "b0a4006b3934adc1d7996e6d901206dea37203b4839debe4a5ed4e393a615cbb",
+      "size_bytes": 268160,
+      "header_version": [
+        1,
+        0
+      ],
+      "ip_version": [
+        11,
+        0
+      ]
+    },
+    {
+      "name": "gc_11_0_1_mes1.bin",
+      "kind": "mes",
+      "sha256": "3a8b60ea88b7adbbc71da0ddee0370d5d65c1d66186fd4f4ba9d16a854b24db8",
+      "size_bytes": 235600,
+      "header_version": [
+        1,
+        0
+      ],
+      "ip_version": [
+        11,
+        0
+      ]
+    },
+    {
+      "name": "gc_11_0_1_mes_2.bin",
+      "kind": "mes",
+      "sha256": "962f56c7e661479e3cabf89c1fcd6344f10cfa8b8d1f672fc445bb21414c1392",
+      "size_bytes": 266976,
+      "header_version": [
+        1,
+        0
+      ],
+      "ip_version": [
+        11,
+        0
+      ]
+    },
+    {
+      "name": "gc_11_0_1_pfp.bin",
+      "kind": "gfx",
+      "sha256": "449c72cae1c57838185197ad4003aeee7ccbdba892a28bb2624d9e85f57a2df1",
+      "size_bytes": 263424,
+      "header_version": [
+        1,
+        0
+      ],
+      "ip_version": [
+        11,
+        0
+      ]
+    },
+    {
+      "name": "gc_11_0_1_rlc.bin",
+      "kind": "rlc",
+      "sha256": "5f07dc1f0a75ecd9cb56d805ea869184a50ed9e43d811ebf833b8906534650ef",
+      "size_bytes": 157040,
+      "header_version": [
+        2,
+        3
+      ],
+      "ip_version": [
+        11,
+        0
+      ]
+    },
+    {
+      "name": "psp_13_0_4_toc.bin",
+      "kind": "psp-toc",
+      "sha256": "11e3529d748e2b6b204681183360a6ead80665b8deda996dfcf35973f789fc3d",
+      "size_bytes": 2560,
+      "header_version": [
+        1,
+        0
+      ],
+      "ip_version": [
+        13,
+        0
+      ]
+    },
+    {
+      "name": "sdma_6_0_1.bin",
+      "kind": "sdma",
+      "sha256": "708c2c2c45262c98ebe8e34e32c3f1ce8eb5b007bab560c9ea9b576a8e4d6768",
+      "size_bytes": 34560,
+      "header_version": [
+        2,
+        0
+      ],
+      "ip_version": [
+        6,
+        0
+      ]
+    }
+  ]
+}
