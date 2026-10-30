@@ -10,9 +10,9 @@
 - Source-build integration for the actual NVMTLDriver Metal plugin, pinned Vulkan headers, normal symbol resolution, exported Objective-C entrypoint checks, matching bundle metadata and dependency license notices. Native CI verification passed (see evidence below).
 - Hash-locked LGPL translator source, locked Rust build, all 16 plugin FFI export checks and real-dylib AIR-to-SPIR-V tests passed native CI. Only the translate/free calls and negative-input behavior were exercised; symbol presence does not test the behavior of all 16 exports.
 
-## RADV native build verified; dependency fix pending
+## RADV native build and direct dependency fix verified
 - Exact Mesa/Cobalt/nullarc source staging applies all 15 upstream patches plus a native-Phoenix-only downstream patch successfully on the local host. Canonical patch hashes come from Git objects.
-- Implemented Intel macOS Mesa/ACO/RADV source build, signed dylib/ICD staging, shared transport-layout assertions and actual no-device dynamic-loading tests. Native CI run `41063982777` passed this component on its build host; the resulting binary has a host-library dependency that must be removed before deployment (see evidence below).
+- Implemented Intel macOS Mesa/ACO/RADV source build, signed dylib/ICD staging, shared transport-layout assertions and actual no-device dynamic-loading tests. Native CI run `41063982777` initially exposed a Homebrew dependency; the RADV phase of `41067014778` verified its removal (see evidence below). Target deployment remains unverified.
 - The downstream driver refuses mock/host-only devices and non-Phoenix profiles; hardware fallback is not a success path. Existing EFI is unchanged.
 - First native attempt, run `41062610926` / commit `6cf8369`, reached the shared-header ABI probe but failed because the C11 test omitted `<assert.h>` while the upstream Phoenix header uses `static_assert`. Added the standard header; no assertions or compiler diagnostics are disabled. Mesa compilation and ICD runtime tests were not reached by that failed run.
 
@@ -29,7 +29,7 @@
 The goal remains a working 780M Tahoe graphics stack. This milestone is a code/build foundation, not completion. Current working EFI and Windows disks are untouched.
 
 ## Verified locally
-- Current suite: 37 Python tests passed, including real Git/worktree patch-order tests and negative-runtime runner rejection checks. The real 16-patch Mesa source stage also applied successfully; no native RADV binary has been built locally.
+- Current suite: 45 Python tests passed, including real Git/worktree patch-order tests, plugin-relative RADV staging and compiler-runner rejection checks. The real 16-patch Mesa source stage also applied successfully; no native RADV binary has been built locally.
 - Previous Windows Python regression suite: 23 tests passed, including applying the patch to the pinned source, validating the plugin build/entrypoint contract, source-integrity rejection and SPIR-V envelope rejection. New module tests were first observed failing before their implementations existed.
 - Actual translator release archive hash and layout verified locally; 321 Rust source files are present. Rust compilation itself was performed on macOS CI, not this Windows host.
 - Python syntax compilation passed. Native C++/kext/Metal builds are delegated to CI, not claimed as local passes.
@@ -69,3 +69,9 @@ The goal remains a working 780M Tahoe graphics stack. This milestone is a code/b
 - Commit `e454560` replaces marketing-name matching with Metal registry ID to PCI `1002:1900` verification, refuses ambiguous/unverified identities and permits submission only on Darwin 25.
 - Six real dispatch sizes use alternating 0/256-byte output offsets, unchanged-input checks, guards and independent expected results. Complement initialization rejects missing GPU writes. The checker is shared with synthetic CPU tests; those tests are not GPU evidence.
 - Native Objective-C compilation, sanitizer execution of the new checker and non-target-host refusal remain subject to CI results. No probe has executed on the target laptop.
+
+## Plugin-relative RADV integration (native verification pending)
+- The full build now packages RADV alongside the plugin executable. A downstream source patch resolves this exact library from the loaded plugin image and removes system-path/environment selection and generic Vulkan-loader fallback. Standalone RADV builds retain their separate layout. No installed file is changed.
+- Source staging records the new patch and shared path helper hashes. C++ sanitizer tests cover path bounds/invalid inputs; Python tests cover actual patch application, matching package layout and refusing overwrites.
+- The real-plugin host test now additionally attempts initialization only after confirming target services are absent. It requires the expected bundled RADV image, its no-service diagnostic and zero GPU command counters; an unexplained failure is not success. Missing RADV is a separate negative case, using a newly copied/re-signed bundle.
+- Actual plugin/LLVM/RADV interoperability on macOS and on the target GPU remains unproven until the respective native and hardware tests succeed.

@@ -1,0 +1,98 @@
+--- a/src/nmplugin/nvmtl_vk.c
++++ b/src/nmplugin/nvmtl_vk.c
+@@ -54,11 +54,6 @@
+ #include <sys/stat.h>
+ #include <pthread.h>
+ static pthread_mutex_t g_gpu_clock_lock = PTHREAD_MUTEX_INITIALIZER;
+-static inline const char *nvmtl_pick_vk(const char *staged, const char *dev) {
+-    return access(staged, R_OK) == 0 ? staged : dev;
+-}
+-#define NVMTL_LOADER nvmtl_pick_vk("/Library/GPUBundles/nvmtl/libvulkan.dylib", \
+-                                   "/Library/GPUBundles/nvmtl/libvulkan.dylib")
+ /*
+  * The Vulkan driver under this process's Metal device follows the GPU it runs on: NVK for NVIDIA (the NVAccel
+  * accelerator), RADV for AMD and ANV for Intel (NMXAccel, the accelerator for the GPUs NMXGPU drives).
+@@ -98,23 +93,12 @@
+     g_vendor = (v == 0x1002 || v == 0x8086) ? v : 0x10de;
+     return g_vendor;
+ }
+-static const char *nvmtl_vk_icd_json(void) {
+-    switch (nvmtl_vk_vendor()) {
+-    case 0x1002: return "/Library/GPUBundles/nvmtl/radeon_icd.json";
+-    case 0x8086: return "/Library/GPUBundles/nvmtl/intel_icd.json";
+-    default:     return "/Library/GPUBundles/nvmtl/nvk_icd.json";
+-    }
+-}
+-#define NVMTL_ICD    nvmtl_vk_icd_json()
+-static inline const char *nvmtl_icd_lib_path(void) {
+-    const char *e = getenv("NVMTL_ICD_LIB"); if (e && access(e, R_OK) == 0) return e;
+-    switch (nvmtl_vk_vendor()) {
+-    case 0x1002: return "/Library/GPUBundles/nvmtl/libvulkan_radeon.dylib";
+-    case 0x8086: return "/Library/GPUBundles/nvmtl/libvulkan_intel.dylib";
+-    default:     return "/Library/GPUBundles/nvmtl/libvulkan_nouveau.dylib";
+-    }
+-}
+-#define NVMTL_ICD_LIB nvmtl_icd_lib_path()
++#include "PhxRuntimePath.h"
++static int nvmtl_icd_lib_path(char *path, size_t capacity) {
++    Dl_info info;
++    return dladdr((const void *)&nvmtl_icd_lib_path, &info) && info.dli_fname &&
++           phxRuntimeLibraryPath(info.dli_fname, path, capacity);
++}
+ 
+ static void *g_lib;
+ static int g_sample_loader_unwrapped;
+@@ -684,6 +668,10 @@
+ {
+     if (g_state) return g_state == 1 ? 0 : -1;
+     g_state = -1;
++    char icdPath[PATH_MAX];
++    if (!nvmtl_icd_lib_path(icdPath, sizeof(icdPath))) {
++        nvlog("vk: cannot resolve the plugin-relative RADV runtime"); return -1;
++    }
+     if (!getenv("NVRM_FLUSH_TIMEOUT_MS")) {
+         char budget[32]; snprintf(budget, sizeof budget, "%ld", nvmtl_gpu_wait_budget_ms());
+         setenv("NVRM_FLUSH_TIMEOUT_MS", budget, 1);
+@@ -702,35 +690,30 @@
+             }
+         }
+     }
+-    g_lib = dlopen(NVMTL_ICD_LIB, RTLD_NOW | RTLD_LOCAL);
++    g_lib = dlopen(icdPath, RTLD_NOW | RTLD_LOCAL);
+     if (g_lib) {
+         pvkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)dlsym(g_lib, "vkGetInstanceProcAddr");
+         if (!pvkGetInstanceProcAddr)
+             pvkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)dlsym(g_lib, "vk_icdGetInstanceProcAddr");
+         if (pvkGetInstanceProcAddr) {
+             char vid[1200];
+-            nvlog("vk: driver opened directly: %s (image %s)", NVMTL_ICD_LIB, nvmtl_image_ident((const void *)pvkGetInstanceProcAddr, vid, sizeof vid));
++            nvlog("vk: driver opened directly: %s (image %s)", icdPath, nvmtl_image_ident((const void *)pvkGetInstanceProcAddr, vid, sizeof vid));
+             { int rb = nvmtl_rebind_import((const void *)pvkGetInstanceProcAddr, "_sysconf", (void *)nvmtl_sysconf);
+-              if (rb <= 0) nvlog("vk: memory-size fallback missing: _sysconf not rebound in %s (%d) -- sandboxed apps may have no device", NVMTL_ICD_LIB, rb); }
++              if (rb <= 0) nvlog("vk: memory-size fallback missing: _sysconf not rebound in %s (%d) -- sandboxed apps may have no device", icdPath, rb); }
+             if (nvmtl_vk_vendor() == 0x10de) { int rb = nvmtl_rebind_import((const void *)pvkGetInstanceProcAddr, "_open", (void *)nvmtl_icd_open);
+-              if (rb <= 0) nvlog("vk: owned handle fallback missing: _open not rebound in %s (%d)", NVMTL_ICD_LIB, rb); }
++              if (rb <= 0) nvlog("vk: owned handle fallback missing: _open not rebound in %s (%d)", icdPath, rb); }
+             pnvk_stage_import = (void (*)(const nvmtl_vram_rec *))dlsym(g_lib, "nvmtl_nvk_stage_import");
+             pnvk_surface_dirty = (uint32_t (*)(VkDevice, uint32_t, uint32_t))dlsym(g_lib, "nvmtl_nvk_surface_dirty");
+             pnvk_sample_depth_contract = (VkResult (*)(VkDevice, uint32_t *, uint32_t *))dlsym(g_lib, "nvmtl_nvk_sample_depth_contract_v1");
+             pnvk_sample_depth_image = (VkResult (*)(VkDevice, VkImage, uint32_t *))dlsym(g_lib, "nvmtl_nvk_sample_depth_image_v1");
+             pnvk_sparse = (int (*)(void))dlsym(g_lib, "nvmtl_nvk_sparse_bind_v1");
+         }
+-        else { nvlog("vk: %s has no vkGetInstanceProcAddr", NVMTL_ICD_LIB); dlclose(g_lib); g_lib = NULL; }
++        else { nvlog("vk: %s has no vkGetInstanceProcAddr", icdPath); dlclose(g_lib); g_lib = NULL; }
+     } else {
+-        nvlog("vk: dlopen(%s): %s", NVMTL_ICD_LIB, dlerror());
++        nvlog("vk: dlopen(%s): %s", icdPath, dlerror());
+     }
+     if (!pvkGetInstanceProcAddr) {
+-        if (!getenv("VK_ICD_FILENAMES")) setenv("VK_ICD_FILENAMES", NVMTL_ICD, 1);
+-        g_lib = dlopen(NVMTL_LOADER, RTLD_NOW | RTLD_LOCAL);
+-        if (!g_lib) { nvlog("vk: dlopen(%s): %s", NVMTL_LOADER, dlerror()); return -1; }
+-        pvkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)dlsym(g_lib, "vkGetInstanceProcAddr");
+-        if (!pvkGetInstanceProcAddr) { nvlog("vk: no vkGetInstanceProcAddr"); return -1; }
+-        nvlog("vk: fell back to the loader at %s", NVMTL_LOADER);
++        nvlog("vk: bundled RADV unavailable; refusing another Vulkan loader"); return -1;
+     }
+     pvkCreateInstance = (PFN_vkCreateInstance)pvkGetInstanceProcAddr(NULL, "vkCreateInstance");
+     if (!pvkCreateInstance) { nvlog("vk: no vkCreateInstance"); return -1; }

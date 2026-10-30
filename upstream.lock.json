@@ -42,7 +42,8 @@
     "license": "Apache-2.0 WITH LLVM-exception"
   },
   "patches": [
-    "patches/0001-strict-hardware-execution.patch"
+    "patches/0001-strict-hardware-execution.patch",
+    "patches/0002-plugin-relative-radv.patch"
   ],
   "target": {
     "darwin_major": 25,

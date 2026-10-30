@@ -85,7 +85,7 @@ def main():
     report["nvmtl-translator"] = build_translator(args.translator_source.resolve(), lock["nvmtl-translator"],
                                                  out, artifacts, stage, run)
     report["NVMTLDriver"]["missing_runtime_dependencies"].remove("AIR-to-SPIR-V translator")
-    report["Mesa-RADV"] = build_radv(args.mesa, args.cobalt, headers, out / "radv", artifacts)
+    report["Mesa-RADV"] = build_radv(args.mesa, args.cobalt, headers, out / "radv", artifacts, plugin_bundle=True)
     report["NVMTLDriver"]["missing_runtime_dependencies"].remove("Mesa RADV Darwin ICD")
     report["LLVM-AIR"] = build_air_runtime(args.llvm, out / "llvm", artifacts, stage)
     report["NVMTLDriver"]["missing_runtime_dependencies"].remove("translator runtime dependencies")

@@ -11,6 +11,7 @@
 typedef NSDictionary *(*IndexFn)(NSData *, NSDictionary *__autoreleasing *, NSDictionary *__autoreleasing *);
 typedef NSData *(*CompileFn)(NSData *, NSString *, NSString *, NSString *, NSString *__autoreleasing *);
 typedef void (*CountsFn)(uint64_t *, uint64_t *, uint64_t *);
+typedef int (*InitializeFn)(void);
 
 static BOOL same_image(const void *symbol, NSString *expected) {
     Dl_info info;
@@ -54,18 +55,20 @@ int main(int argc, const char **argv) {
         IndexFn index = (IndexFn)dlsym(plugin, "nvmtl_translate_metallib");
         CompileFn compile = (CompileFn)dlsym(plugin, "nvmtl_compile_library_entry");
         CountsFn counts = (CountsFn)dlsym(plugin, "nvmtl_vk_cmd_counts");
+        InitializeFn initialize = (InitializeFn)dlsym(plugin, "nvmtl_vk_init");
         Class device = objc_getClass("NVMTLDevice");
         const char *classImage = device ? class_getImageName(device) : NULL;
         if (!same_image((const void *)index, executable) || !same_image((const void *)compile, executable) ||
-            !same_image((const void *)counts, executable) || !classImage ||
+            !same_image((const void *)counts, executable) || !same_image((const void *)initialize, executable) || !classImage ||
             ![[@(classImage) stringByResolvingSymlinksInPath] isEqualToString:[executable stringByResolvingSymlinksInPath]]) return 6;
 
         // Release-mode constructors clear NVMTL_*; set isolated caches only after dlopen.
-        for (NSString *name in @[@"aircache", @"spvcache"]) {
+        for (NSString *name in @[@"aircache", @"spvcache", @"mesacache"]) {
             NSString *directory = [out stringByAppendingPathComponent:name];
             if ([files fileExistsAtPath:directory] ||
                 ![files createDirectoryAtPath:directory withIntermediateDirectories:NO attributes:nil error:NULL]) return 7;
             if ([name isEqualToString:@"aircache"] && setenv("NVMTL_AIRCACHE", directory.fileSystemRepresentation, 1)) return 7;
+            if ([name isEqualToString:@"mesacache"] && setenv("MESA_SHADER_CACHE_DIR", directory.fileSystemRepresentation, 1)) return 7;
         }
         if (setenv("NVMTL_IDXCACHE_OFF", "1", 1) || setenv("NVMTL_SPVCACHE_OFF", "1", 1) ||
             setenv("NVMTL_SPVCACHE_KEEP_STALE", "1", 1)) return 7;
@@ -86,12 +89,20 @@ int main(int argc, const char **argv) {
             !already_loaded([directory stringByAppendingPathComponent:@"air-runtime/libLLVM.dylib"], "LLVMParseBitcodeInContext2")) {
             fprintf(stderr, "Plugin did not load its own translator/LLVM runtime\n"); return 22;
         }
+        // This host has no target service. Exercise real plugin ICD loading, not GPU work.
+        NSString *ignored = [out stringByAppendingPathComponent:@"ignored-external-driver"];
+        if (setenv("NVMTL_ICD_LIB", ignored.fileSystemRepresentation, 1) ||
+            setenv("VK_ICD_FILENAMES", ignored.fileSystemRepresentation, 1)) return 7;
+        if (initialize() == 0) { fprintf(stderr, "Unexpected plugin device initialization on a no-device host\n"); return 26; }
+        if (!already_loaded([directory stringByAppendingPathComponent:@"libvulkan_radeon.dylib"], "vk_icdGetInstanceProcAddr")) {
+            fprintf(stderr, "Plugin RADV runtime missing\n"); return 25;
+        }
         uint64_t begun = 0, submitted = 0, abandoned = 0;
         counts(&begun, &submitted, &abandoned);
         if (begun || submitted || abandoned) { fprintf(stderr, "Unexpected GPU command activity\n"); return 23; }
         NSString *path = [out stringByAppendingPathComponent:@"compiled.spv"];
         if ([files fileExistsAtPath:path] || ![spirv writeToFile:path options:NSDataWritingWithoutOverwriting error:NULL]) return 24;
-        puts("{\"plugin_loaded\":true,\"plugin_compiler_executed\":true,\"bundled_runtimes_loaded\":true,\"gpu_commands_begun\":0,\"gpu_commands_submitted\":0,\"gpu_commands_abandoned\":0}");
+        puts("{\"plugin_loaded\":true,\"plugin_compiler_executed\":true,\"bundled_runtimes_loaded\":true,\"bundled_radv_loaded\":true,\"no_device_init_rejected\":true,\"gpu_commands_begun\":0,\"gpu_commands_submitted\":0,\"gpu_commands_abandoned\":0}");
         // Objective-C classes and registered image callbacks live until this process exits.
         return 0;
     }

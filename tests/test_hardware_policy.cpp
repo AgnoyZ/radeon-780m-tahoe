@@ -1,8 +1,24 @@
 #include "PhxHardwarePolicy.hpp"
 #include "PhxComputeProbe.h"
+#include "PhxRuntimePath.h"
 #include <cassert>
 #include <iostream>
 #include <vector>
+
+static void runtime_path_tests() {
+    char path[128];
+    assert(phxRuntimeLibraryPath("/tmp/test bundle/Contents/MacOS/NVMTLDriver", path, sizeof(path)));
+    assert(!strcmp(path, "/tmp/test bundle/Contents/MacOS/libvulkan_radeon.dylib"));
+    assert(!phxRuntimeLibraryPath("relative/NVMTLDriver", path, sizeof(path)) && !path[0]);
+    assert(!phxRuntimeLibraryPath("/directory/", path, sizeof(path)) && !path[0]);
+    assert(!phxRuntimeLibraryPath(nullptr, path, sizeof(path)) && !path[0]);
+    assert(!phxRuntimeLibraryPath("/image", nullptr, sizeof(path)));
+    assert(!phxRuntimeLibraryPath("/image", path, 0));
+    const size_t required = strlen("/libvulkan_radeon.dylib") + 1;
+    assert(!phxRuntimeLibraryPath("/image", path, required - 1) && !path[0]);
+    assert(phxRuntimeLibraryPath("/image", path, required));
+    assert(!strcmp(path, "/libvulkan_radeon.dylib"));
+}
 
 static void compute_check_tests() {
     assert(phxProbeTarget(0x1002, 0x1900));
@@ -64,5 +80,6 @@ int main() {
         assert(sameEngine(a, b) == (a <= 1 && a == b));
     assert(!sameEngine(UINT32_MAX, UINT32_MAX));
     compute_check_tests();
+    runtime_path_tests();
     std::cout << "Hardware policy and compute-check assertions passed (not a GPU execution test).\n";
 }

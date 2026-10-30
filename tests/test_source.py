@@ -49,7 +49,17 @@ class SourceTests(unittest.TestCase):
             prepare(self.stage)
     def test_provenance_is_not_hardware_pass(self):
         self.assertFalse(self.provenance["hardware_tested"])
-        self.assertEqual(1, len(self.provenance["patches_sha256"]))
+        self.assertEqual(2, len(self.provenance["patches_sha256"]))
+    def test_plugin_uses_only_its_own_radv(self):
+        text = (self.stage / "src/nmplugin/nvmtl_vk.c").read_text(encoding="utf-8")
+        self.assertTrue('phxRuntimeLibraryPath' in text, 'Plugin-relative path helper is not wired')
+        self.assertIn('dlopen(icdPath, RTLD_NOW | RTLD_LOCAL)', text)
+        self.assertNotIn('NVMTL_LOADER', text)
+        self.assertNotIn('NVMTL_ICD_LIB', text)
+        self.assertNotIn('VK_ICD_FILENAMES', text)
+        self.assertIn('refusing another Vulkan loader', text)
+        self.assertEqual((ROOT / "src/PhxRuntimePath.h").read_bytes(),
+                         (self.stage / "src/nmplugin/PhxRuntimePath.h").read_bytes())
     def test_plugin_source_and_notice_are_staged(self):
         self.assertTrue((self.stage / "src/nmplugin/NVMTLDevice.m").is_file())
         self.assertTrue((self.stage / "src/nmplugin/nvmtl_vk.c").is_file())

@@ -18,14 +18,18 @@ class PluginRuntimeTests(unittest.TestCase):
 
     def test_positive_requires_actual_load_and_no_commands(self):
         data = {"plugin_loaded": True, "plugin_compiler_executed": True, "bundled_runtimes_loaded": True,
+                "bundled_radv_loaded": True, "no_device_init_rejected": True,
                 "gpu_commands_begun": 0, "gpu_commands_submitted": 0, "gpu_commands_abandoned": 0}
-        self.assertEqual(data, check_probe(subprocess.CompletedProcess([], 0, json.dumps(data), "")))
+        diagnostic = "IOServiceOpen(PhxBringup) failed"
+        self.assertEqual(data, check_probe(subprocess.CompletedProcess([], 0, json.dumps(data), diagnostic)))
+        with self.assertRaises(RuntimeError):
+            check_probe(subprocess.CompletedProcess([], 0, json.dumps(data), ""))
         for key in data:
             bad = {**data, key: not data[key] if isinstance(data[key], bool) else 1}
             with self.subTest(key=key), self.assertRaises(RuntimeError):
-                check_probe(subprocess.CompletedProcess([], 0, json.dumps(bad), ""))
+                check_probe(subprocess.CompletedProcess([], 0, json.dumps(bad), diagnostic))
         with self.assertRaises(RuntimeError):
-            check_probe(subprocess.CompletedProcess([], 0, json.dumps({**data, "gpu_commands_begun": False}), ""))
+            check_probe(subprocess.CompletedProcess([], 0, json.dumps({**data, "gpu_commands_begun": False}), diagnostic))
 
     def test_negative_is_not_a_crash_or_missing_plugin_pass(self):
         self.assertIsNone(check_probe(subprocess.CompletedProcess([], 20, "", "Plugin library index failed"), negative=True))
@@ -34,6 +38,12 @@ class PluginRuntimeTests(unittest.TestCase):
                 check_probe(subprocess.CompletedProcess([], code, "", "Plugin library index failed"), negative=True)
         with self.assertRaises(RuntimeError):
             check_probe(subprocess.CompletedProcess([], 20, "", "different error"), negative=True)
+
+    def test_missing_radv_requires_its_specific_rejection(self):
+        self.assertIsNone(check_probe(subprocess.CompletedProcess([], 25, "", "Plugin RADV runtime missing"), negative="missing_radv"))
+        for code in (0, 5, 20, 26, 77, -11):
+            with self.subTest(code=code), self.assertRaises(RuntimeError):
+                check_probe(subprocess.CompletedProcess([], code, "", "Plugin RADV runtime missing"), negative="missing_radv")
 
     def test_copy_omits_one_runtime_without_changing_original(self):
         with tempfile.TemporaryDirectory() as temporary:

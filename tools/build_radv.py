@@ -56,7 +56,21 @@ def test_no_device(probe, library):
     return report
 
 
-def build_radv(mesa, cobalt, headers, out, artifacts):
+def runtime_destination(artifacts, plugin_bundle):
+    artifacts = Path(artifacts)
+    destination = artifacts / ("NVMTLDriver.bundle/Contents/MacOS" if plugin_bundle else "nvmtl")
+    if plugin_bundle:
+        if not (destination / "NVMTLDriver").is_file():
+            raise RuntimeError("Build the actual plugin before staging its RADV runtime")
+        if any((destination / name).exists() for name in
+               ("libvulkan_radeon.dylib", "radeon_icd.json", "radv-build-report.json")):
+            raise RuntimeError("RADV artifacts already exist; refusing overwrite")
+    elif destination.exists():
+        raise RuntimeError("RADV artifacts already exist; refusing overwrite")
+    return destination
+
+
+def build_radv(mesa, cobalt, headers, out, artifacts, plugin_bundle=False):
     if platform.system() != "Darwin" or platform.machine() != "x86_64":
         raise RuntimeError("RADV requires a native Intel macOS build host; other hosts are not a build pass")
     mesa, cobalt, headers, out, artifacts = map(lambda p: Path(p).resolve(), (mesa, cobalt, headers, out, artifacts))
@@ -64,9 +78,7 @@ def build_radv(mesa, cobalt, headers, out, artifacts):
     verify_checkout(headers, lock["Vulkan-Headers"]["commit"])
     if out.exists():
         raise RuntimeError("RADV output exists; choose a fresh path")
-    destination = artifacts / "nvmtl"
-    if destination.exists():
-        raise RuntimeError("RADV artifacts already exist; refusing overwrite")
+    destination = runtime_destination(artifacts, plugin_bundle)
     stage = out / "source"
     provenance = prepare_radv(mesa, cobalt, stage)
     abi_probe = out / "radv-abi"
@@ -79,7 +91,7 @@ def build_radv(mesa, cobalt, headers, out, artifacts):
     run("ninja", "-C", native, "-j", str(min(os.cpu_count() or 2, 4)))
     library = native / "src/amd/vulkan/libvulkan_radeon.dylib"
     inspect_macho(library, 6)
-    destination.mkdir(parents=True)
+    destination.mkdir(parents=True, exist_ok=plugin_bundle)
     final = destination / library.name
     shutil.copy2(library, final)
     dependencies = system_dependencies(subprocess.check_output(["xcrun", "otool", "-L", str(final)], text=True))
@@ -109,6 +121,7 @@ def build_radv(mesa, cobalt, headers, out, artifacts):
               "native_transport_layout_verified": True,
               "host": platform.platform(), "metal_stack_complete": False,
               "dependencies": dependencies, "runtime_dependency_policy": "system-only",
+              "runtime_layout": "plugin-relative" if plugin_bundle else "standalone-nvmtl",
               "meson_version": subprocess.check_output(["meson", "--version"], text=True).strip(),
               "ninja_version": subprocess.check_output(["ninja", "--version"], text=True).strip(),
               "glslang_version": subprocess.check_output(["glslangValidator", "--version"], text=True).strip(),

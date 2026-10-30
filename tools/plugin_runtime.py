@@ -12,6 +12,7 @@ from test_translator_runtime import spirv_instructions
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {"plugin_loaded": True, "plugin_compiler_executed": True, "bundled_runtimes_loaded": True,
+            "bundled_radv_loaded": True, "no_device_init_rejected": True,
             "gpu_commands_begun": 0, "gpu_commands_submitted": 0, "gpu_commands_abandoned": 0}
 
 
@@ -22,11 +23,14 @@ def clean_environment(environment):
 
 def check_probe(result, negative=False):
     if negative:
-        if result.returncode != 20 or "Plugin library index failed" not in result.stderr or result.stdout.strip():
-            raise RuntimeError(f"Expected plugin indexing rejection, got {result.returncode}: {result.stderr}")
+        code, message = (25, "Plugin RADV runtime missing") if negative == "missing_radv" else (20, "Plugin library index failed")
+        if result.returncode != code or message not in result.stderr or result.stdout.strip():
+            raise RuntimeError(f"Expected plugin rejection ({message}), got {result.returncode}: {result.stderr}")
         return None
     if result.returncode:
         raise RuntimeError(f"Actual plugin compiler failed ({result.returncode}): {result.stderr}")
+    if "IOServiceOpen(PhxBringup" not in result.stderr:
+        raise RuntimeError("Plugin did not reach RADV's actual no-service enumeration path")
     data = json.loads(result.stdout)
     if data != EXPECTED or any(type(data[k]) is not type(v) for k, v in EXPECTED.items()):
         raise RuntimeError("Plugin did not verify its runtime images and absence of GPU commands")
@@ -35,7 +39,7 @@ def check_probe(result, negative=False):
 
 def copy_bundle(source, destination, omit=None):
     source = Path(source).resolve()
-    if omit not in (None, "libnvmtl_translate.dylib", "air-runtime/libLLVM.dylib"):
+    if omit not in (None, "libnvmtl_translate.dylib", "air-runtime/libLLVM.dylib", "libvulkan_radeon.dylib"):
         raise ValueError("Only a named runtime may be omitted from a negative fixture")
     excluded = source / "Contents/MacOS" / omit if omit else None
     def ignore(directory, names):
@@ -51,9 +55,9 @@ def exercise(bundle, fixture, validator, out):
         raise RuntimeError("Plugin test output exists; choose a fresh directory")
     source_executable = bundle / "Contents/MacOS/NVMTLDriver"
     required = [source_executable, bundle / "Contents/MacOS/libnvmtl_translate.dylib",
-                bundle / "Contents/MacOS/air-runtime/libLLVM.dylib"]
+                bundle / "Contents/MacOS/air-runtime/libLLVM.dylib", bundle / "Contents/MacOS/libvulkan_radeon.dylib"]
     if not all(p.is_file() for p in required):
-        raise RuntimeError("Build the actual plugin and both compiler runtimes first")
+        raise RuntimeError("Build the actual plugin, both compiler runtimes and bundled RADV first")
     out.mkdir(parents=True)
     env = clean_environment(os.environ)
     def run(*command, timeout=60):
@@ -90,6 +94,7 @@ def exercise(bundle, fixture, validator, out):
         raise RuntimeError("Actual plugin returned identical SPIR-V for different Metal arithmetic")
     negatives = []
     for name, omit in (("missing_translator", "libnvmtl_translate.dylib"), ("missing_llvm", "air-runtime/libLLVM.dylib"),
+                       ("missing_radv", "libvulkan_radeon.dylib"),
                        ("malformed_metallib", None)):
         negative = out / name
         negative.mkdir()
@@ -105,16 +110,17 @@ def exercise(bundle, fixture, validator, out):
             lib.write_bytes(b"not a metallib")
         result = subprocess.run([str(probe), str(target / "Contents/MacOS/NVMTLDriver"), str(lib), str(negative)],
                                 capture_output=True, text=True, env=env, timeout=90)
-        check_probe(result, negative=True)
+        check_probe(result, negative=name)
         if (negative / "compiled.spv").exists():
             raise RuntimeError("Rejected plugin compilation produced an output")
         negatives.append(name)
     report = {"plugin_sha256": hashlib.sha256(source_executable.read_bytes()).hexdigest(),
               "translator_sha256": hashlib.sha256(required[1].read_bytes()).hexdigest(),
-              "llvm_sha256": hashlib.sha256(required[2].read_bytes()).hexdigest(), "cases": reports,
+              "llvm_sha256": hashlib.sha256(required[2].read_bytes()).hexdigest(),
+              "radv_sha256": hashlib.sha256(required[3].read_bytes()).hexdigest(), "cases": reports,
               "negative_cases_passed": negatives, "relocated_bundle_tested": True, "hardware_executed": False,
               "metal_device_created": False, "full_metal_pipeline_tested": False,
-              "limitation": "Actual plugin compiler only; no Metal/Vulkan device, GPU execution or target runtime integration"}
+              "limitation": "Actual plugin compiler and no-device ICD initialization; no Metal/Vulkan device, GPU execution or target runtime integration"}
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2), flush=True)
 
