@@ -2,8 +2,14 @@ name: Build and test experimental 780M sources
 on:
   push:
     branches: [main]
+    paths: ['src/**', 'tools/**', 'tests/**', 'patches/**', 'upstream/**', 'upstream.lock.json', '.github/workflows/**', '.gitmodules', 'docs/EXPERIMENTAL.md']
   pull_request:
   workflow_dispatch:
+    inputs:
+      retain_artifacts:
+        description: 'Upload private build artifacts (requires available Actions storage)'
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -37,7 +43,26 @@ jobs:
           git -C build-sdk checkout --detach 3f750085caa17ec3a7880f11c11bf4f48cd6a164
       - name: Compile, link, ad-hoc sign and inspect kexts; compile Metal probe
         run: python3 tools/build_macos.py --sdk build-sdk --out build/ci
+      - name: Verify the Metal probe refuses this non-780M build host
+        shell: bash
+        run: |
+          build/ci/artifacts/metal-smoke --list
+          python3 - <<'PY'
+          import subprocess
+          probe = 'build/ci/artifacts/metal-smoke'
+          listing = subprocess.run([probe, '--list'], capture_output=True, text=True, check=True)
+          if '780m' in listing.stdout.lower():
+              raise SystemExit('Unexpected target GPU on hosted CI; do not auto-submit work')
+          result = subprocess.run([probe], capture_output=True, text=True, timeout=10)
+          print(result.stdout, result.stderr)
+          if result.returncode != 4:
+              raise SystemExit(f'Expected no-device refusal (4), got {result.returncode}')
+          PY
+      - name: Report compile-only artifact retention policy
+        if: ${{ !inputs.retain_artifacts }}
+        run: echo '::notice::Compile/test-only run. Binaries are not retained; storage quota was exhausted on 2026-10-30. Build report and checksums remain in this job log. No hardware test has run.'
       - name: Preserve private experimental artifacts and upstream license notices
+        if: ${{ inputs.retain_artifacts }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: experimental-780m-${{ github.sha }}
