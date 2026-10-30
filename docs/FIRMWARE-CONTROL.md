@@ -57,7 +57,15 @@ after the first chunk, read failures/interruptions, hash refusals, argument boun
 short/long replies, stage/load failures and no later operations after a failed
 prerequisite. The fake crypto checks fixture bytes but is **not** a SHA-256
 implementation test; native CommonCrypto results must be reported separately.
-Host execution of these new C cases is pending; 104 Python tests passed locally.
+Host execution of these new C cases is pending; 105 Python tests passed locally.
+
+Source review found that the newly included shared ABI header uses C11
+`static_assert`, but `phxctl.c` had not included `<assert.h>`. The test harness
+included it first and could hide this standalone compilation defect. Patch 0008
+now includes the header in the tool itself. Host CI first compiles the actual
+tool as its own C11 translation unit with fake IOKit declarations and warnings
+as errors, before building the harness; the native build also explicitly selects
+C11. This correction still needs observed POSIX/native compiler results.
 
 ## Remaining integration
 

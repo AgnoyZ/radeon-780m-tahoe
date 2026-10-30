@@ -59,10 +59,13 @@ memory/register-write counts, including after software ring clearing. Positive
 cases check actual frame/command fields and returned addresses. The Linux CI job
 runs them under ASan/UBSan before native driver builds. Run `41099945379`, code
 `7921a7c`, reports this test step completed successfully at `2026-10-30T17:34:18Z`.
-The source job is still in checkout cleanup at the recorded observation, so its
-per-case JSON log is not yet available. The step evidence explicitly preserves
-that limit in `validation/ci-7921a7c-psp-step.json`. All 98 Python source/runner
-tests passed locally; the complete native kernel build remains unverified.
+The source job subsequently reported completed/success and its log became
+available. All 32 per-case reports passed; the six extracted method hashes match
+the currently staged method bodies and all seven recorded patch hashes match
+their source files. Full per-case evidence is in
+`validation/ci-7921a7c-psp.json`; the earlier step-only observation is preserved
+in `validation/ci-7921a7c-psp-step.json`. The complete native kernel build remains
+unverified. These fake-hardware observations do not verify PSP firmware behavior.
 
 ## Remaining hardware requirements
 

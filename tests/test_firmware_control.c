@@ -1,5 +1,4 @@
 /* Actual CLI source; explicit fake IOKit/crypto and injected POSIX read failures. */
-#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,6 +10,7 @@ static ssize_t injected_read(int, void *, size_t);
 #include "phxctl.c"
 #undef main
 #undef read
+#include <assert.h>
 
 static const char *fault, *path, *reference_hash;
 static unsigned hellos, stages, accepted_bytes, loads, opens, hashes, reads, smus, reg_reads;

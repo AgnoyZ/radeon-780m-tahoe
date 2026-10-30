@@ -83,6 +83,10 @@ def exercise(out):
     stage = out / "stage"
     provenance = prepare(stage)
     binary = out / "firmware-control-host-test"
+    # Compile independently before the harness can supply any missing includes.
+    subprocess.run([compiler, "-std=c11", "-D_DEFAULT_SOURCE", "-Wall", "-Wextra", "-Werror", "-fsyntax-only",
+                    "-I" + str(ROOT / "tests/fake_iokit"), str(stage / "tools/phxctl/phxctl.c")],
+                   check=True, timeout=60)
     subprocess.run([compiler, "-std=c11", "-D_DEFAULT_SOURCE", "-Wall", "-Wextra", "-Werror", "-g",
                     "-fsanitize=address,undefined", "-fno-sanitize-recover=all", "-I" + str(ROOT / "tests/fake_iokit"),
                     "-I" + str(stage / "tools/phxctl"), str(ROOT / "tests/test_firmware_control.c"),
@@ -95,6 +99,7 @@ def exercise(out):
                                 capture_output=True, text=True, timeout=15)
         reports.append({"case": mode + ":" + fault, **check_result(result, mode, fault)})
     report = {"source_provenance": provenance, "cases": reports, "hardware_executed": False,
+              "standalone_source_compiled": True,
               "crypto_backend": "explicit fake verifying fixture bytes; real CommonCrypto tested separately on macOS",
               "limitation": "Actual CLI control flow with fake IOKit; not firmware execution or proof of target address ownership"}
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -109,7 +114,7 @@ def compile_native_control(stage, out):
     if out.exists(): raise RuntimeError("Native control output exists; choose a fresh directory")
     out.mkdir()
     binary = out / "phxctl-offline-check"
-    subprocess.run(["xcrun", "clang", "-arch", "x86_64", "-mmacosx-version-min=15.0", "-O2",
+    subprocess.run(["xcrun", "clang", "-std=c11", "-arch", "x86_64", "-mmacosx-version-min=15.0", "-O2",
                     str(Path(stage) / "tools/phxctl/phxctl.c"), "-framework", "IOKit", "-framework", "CoreFoundation",
                     "-o", str(binary)], check=True, timeout=60)
     fixture = out / "synthetic-file.bin"

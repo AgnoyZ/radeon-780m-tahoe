@@ -55,6 +55,23 @@ class FirmwareControlRunnerTests(unittest.TestCase):
             with self.assertRaises(RuntimeError): compile_native_control(Path(directory), out)
             self.assertFalse(out.exists())
 
+    def test_standalone_compile_failure_stops_before_harness_build(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch("test_firmware_control.platform.system", return_value="Linux"), \
+             mock.patch("test_firmware_control.shutil.which", return_value="clang"), \
+             mock.patch("test_firmware_control.prepare", return_value={}), \
+             mock.patch("test_firmware_control.subprocess.run", side_effect=subprocess.CalledProcessError(1, "clang")) as run:
+            out = Path(directory) / "new"
+            with self.assertRaises(subprocess.CalledProcessError):
+                exercise(out)
+            run.assert_called_once()
+            command = run.call_args.args[0]
+            self.assertIn("-std=c11", command)
+            self.assertIn("-Werror", command)
+            self.assertIn("-fsyntax-only", command)
+            self.assertEqual(str(out.resolve() / "stage/tools/phxctl/phxctl.c"), command[-1])
+            self.assertFalse(out.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

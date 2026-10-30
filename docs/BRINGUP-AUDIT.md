@@ -144,9 +144,10 @@ The kernel PSP false-success path is now corrected by patch `0007`; see
 `PSP-COMPLETION.md`. PSP completion errors/timeouts return failure, invalidate TMR
 readiness and latch subsequent PSP/firmware write refusal. Command preconditions
 and padded firmware-staging extents are checked before their respective writes.
-Run `41099945379` reports the 32-case actual-method sanitizer step successful;
-source-job cleanup is still live and its per-case log is not yet available. See
-`validation/ci-7921a7c-psp-step.json`. Full native kernel build verification is
+Run `41099945379` reports the source job completed/success; all 32 actual-method
+sanitizer cases have now been extracted from its log and their method/patch
+hashes cross-checked. See `validation/ci-7921a7c-psp.json`; the earlier step-only
+observation is retained separately. Full native kernel build verification is
 pending. This does not establish target memory ownership or hardware rollback.
 
 Start with `TARGET-INVENTORY.md` for the new metadata-only collector. It records

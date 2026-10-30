@@ -1,10 +1,11 @@
 diff --git a/tools/phxctl/phxctl.c b/tools/phxctl/phxctl.c
 --- a/tools/phxctl/phxctl.c
 +++ b/tools/phxctl/phxctl.c
-@@ -11,6 +11,12 @@
+@@ -11,6 +11,13 @@
   * GC segment 0 = 0x1260, segment 1 = 0xA000.
   */
  #include <IOKit/IOKitLib.h>
++#include <assert.h>
 +#include <CommonCrypto/CommonDigest.h>
 +#include <errno.h>
 +#include <fcntl.h>

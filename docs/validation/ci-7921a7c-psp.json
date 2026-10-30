@@ -1,0 +1,201 @@
+{
+  "ci_run_id": 41099945379,
+  "project_commit": "7921a7ce2ec872f98800bbccd1acc800797b07ae",
+  "source_job_id": 124215369875,
+  "source_job_status_at_observation": "completed",
+  "source_job_conclusion_at_observation": "success",
+  "per_case_log_report_extracted": true,
+  "sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "native_kernel_build_verified": false,
+  "source_provenance": {
+    "nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+    "patches_sha256": {
+      "patches/0001-strict-hardware-execution.patch": "53af4e33ac223b8ea2ccdb49721e99507ef718f21a4198c9082df140244273ec",
+      "patches/0002-plugin-relative-radv.patch": "67235b00d8e420353cd7f4351a1ff5ade88fe72b6a1a506ed84ba19b88808a7a",
+      "patches/0003-bringup-aperture-bounds.patch": "4942a952b7da1bd37af728e9d5e7d921dc3996c8fd024a1126615da9e29a6898",
+      "patches/0004-checked-bringup-transport.patch": "c1a04745a43c9defc39fdfa0e85465398f78912f5ecb63d246e5a34644e99887",
+      "patches/0005-checked-gpu-completion.patch": "0d5220a1321fdd3b56a0139cb7f5e308fa47a192cec360f517f4a8afe0f1b1bf",
+      "patches/0006-bounded-mes-submission.patch": "e77c3bd279241a4c19eb597329e4f71823ef79ec436a2b577feff09f9b575d30",
+      "patches/0007-checked-psp-completion.patch": "64b8ede45d56618de4846dc7fc68f2966cfc660b752e8359ecd65ab1c324cdea"
+    },
+    "policy_sha256": "2cde00d8647958d0151f98332f33f935cb10ad27c987dea9ac5acfff85340ebe",
+    "runtime_path_sha256": "c0413b83f37eeece90543905914628624ceee7c6998e0b886229d09713d554ad",
+    "hardware_tested": false
+  },
+  "actual_method_sha256": {
+    "clearRing": "4a67f29500d72ca405417b6cfa5ee949c90757d2d0230efb7241f4969f7d2235",
+    "pspRing": "5f025bfd549318aca39330466e1131fe28c63be49c314b43922b61cc9237f6eb",
+    "pspRunCmd": "419c730f64f6a4883862d1a034f8f0919950b42cefcca6649d0ab88fbde4f032",
+    "fwStage": "cafeb4a92699f6eb328953f4bb865b5efb10a44ef3bb69e9ba424a09a58c264c",
+    "loadIpFw": "dd558196879dcba2c32b305efebbdd47a308170d8556c96b76e7aab992e5395e",
+    "pspCtl": "c1fcc7e8c72e294fa13d52e727dbed9603f5042beb251a21fbf823f440a18aba"
+  },
+  "cases": [
+    {
+      "case": "success",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "timeout",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "wrong-fence",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "psp-error",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "last-fence",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "fence-exhausted",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "bad-wptr",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "high-wptr",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "last-slot",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "wrap-sentinel",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "max-words",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "too-many-words",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "null-words",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "null-output",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "cmd-overflow",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "fence-overflow",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "ring-overflow",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "unaligned-cmd",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "tmr-success",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "tmr-timeout",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "tmr-error",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "tmr-too-large",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "stage-tail",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "stage-overrun",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "stage-null",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "stage-empty",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "stage-aperture-overflow",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "load-success",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "load-error",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "load-address-overflow",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "create-timeout",
+      "passed": true,
+      "hardware_executed": false
+    },
+    {
+      "case": "destroy-timeout",
+      "passed": true,
+      "hardware_executed": false
+    }
+  ],
+  "hardware_executed": false,
+  "kernel_loaded": false,
+  "limitation": "Actual kernel method bodies with fake memory, registers, locks and firmware observations; not PSP emulation or target proof"
+}
