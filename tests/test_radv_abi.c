@@ -1,4 +1,5 @@
 /* Compare the actual pinned headers, not a separately retyped ABI. */
+#include <assert.h>
 #include <stddef.h>
 #include "navi48_native_abi.h"
 #include "PhxNativeABI.h"

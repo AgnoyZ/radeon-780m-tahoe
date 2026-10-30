@@ -14,6 +14,7 @@
 - Exact Mesa/Cobalt/nullarc source staging applies all 15 upstream patches plus a native-Phoenix-only downstream patch successfully on the local host. Canonical patch hashes come from Git objects.
 - Implemented Intel macOS Mesa/ACO/RADV source build, signed dylib/ICD staging, shared transport-layout assertions and actual no-device dynamic-loading tests. Native CI has not yet verified this new component.
 - The downstream driver refuses mock/host-only devices and non-Phoenix profiles; hardware fallback is not a success path. Existing EFI is unchanged.
+- First native attempt, run `41062610926` / commit `6cf8369`, reached the shared-header ABI probe but failed because the C11 test omitted `<assert.h>` while the upstream Phoenix header uses `static_assert`. Added the standard header; no assertions or compiler diagnostics are disabled. Mesa compilation and ICD runtime tests were not reached by that failed run.
 
 ## Not implemented / not verified
 - Machine-specific firmware carve-out safety, all kernel memory/concurrency paths, panel/power differences and full ABI compatibility audit.
