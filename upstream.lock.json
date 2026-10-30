@@ -44,7 +44,8 @@
   "patches": [
     "patches/0001-strict-hardware-execution.patch",
     "patches/0002-plugin-relative-radv.patch",
-    "patches/0003-bringup-aperture-bounds.patch"
+    "patches/0003-bringup-aperture-bounds.patch",
+    "patches/0004-checked-bringup-transport.patch"
   ],
   "target": {
     "darwin_major": 25,

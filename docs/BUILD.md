@@ -129,6 +129,19 @@ verifying again. These stubs are never loaded, installed, or presented as driver
 Vulkan, LLVM, translator, or GPU evidence. A packaging pass does not replace the
 later checks against actual built components. No binaries are published by CI.
 
+### Bring-up transport checks, not deployment
+
+The source-test job runs `python3 tools/test_bringup_transport.py --out build/transport-tests`.
+It compiles the real patched `mesboot.c` into an ASan/UBSan-instrumented harness
+with **fake IOKit**, then executes 47 positive/error/short/long-response cases.
+No GPU or kernel connection exists in this harness. The macOS preflight also
+compiles and links the actual tool against real IOKit, but does not execute it.
+Neither executable is copied into the build's deliverable artifacts.
+
+Do not run the real `mesboot-compile-only` tool on the target laptop: its
+reference-machine memory layout and GPU response/recovery paths are not ready.
+See `BRINGUP-AUDIT.md` for the remaining target bring-up requirements.
+
 ### RADV runtime dependency gate
 The first successful native RADV build also exposed a deployment defect: Mesa auto-detected the CI host's optional SPIRV-Tools library and linked an absolute Homebrew path. The recipe now explicitly sets `-Dspirv-tools=disabled` for Mesa's optional debugging helpers (not the real compiler or the separate mandatory spirv-val tests). Before signing/loading the ICD, `otool -L` must show its expected install name and only `/usr/lib/` or `/System/Library/` dependencies. Other Homebrew, build-directory or unresolved `@rpath` dependencies fail the build instead of being hidden by the CI host's environment. The native result for this correction is tracked separately from the earlier successful-but-host-dependent run.
 

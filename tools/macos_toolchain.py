@@ -8,6 +8,7 @@ import plistlib
 import subprocess
 
 from build_radv import runtime_destination, runtime_metadata_destination, write_runtime_metadata, seal_runtime_bundle
+from test_bringup_transport import compile_native
 from verify_artifacts import inspect_macho
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -102,7 +103,9 @@ def preflight(out):
         subprocess.run(probe_command(kind, executable), check=True, timeout=60)
         probes[kind] = inspect_macho(executable, 2)
     packaging = packaging_preflight(out / "packaging")
+    bringup_transport = compile_native(out / "bringup-transport-native")
     report = {"metal_compiler": compiler, "cases": reports, "compiled_probes": probes, "packaging": packaging,
+              "bringup_transport_compile_only": bringup_transport,
               "native_probes_executed": False, "driver_runtime_tested": False, "hardware_executed": False}
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2), flush=True)

@@ -3,7 +3,9 @@
 Reviewed pinned nullarc `cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339` on 2026-10-30.
 This is a source audit, not a firmware or target-hardware test. None of the reviewed
 scripts was executed. No source reference-machine address is a verified ThinkBook
-address. The current build intentionally does not install these scripts or tools.
+address. The build does not install these scripts or tools. The downstream
+`mesboot.c` is now staged for compile-only and fake-transport regression checks;
+it is not packaged as a deployable initialization tool.
 
 ## Concrete blockers in the reference workflow
 
@@ -11,7 +13,7 @@ address. The current build intentionally does not install these scripts or tools
 | --- | --- | --- |
 | `tools/phxctl/bringup5.sh` | Uses literal firmware byte offsets/sizes and literal PSP command words, rather than a verified local firmware manifest and target memory map. | Parse the actual pinned firmware headers, validate payload bounds and expected IP, and derive addresses from reviewed target evidence. Never copy reference command addresses as defaults. |
 | `tools/phxctl/mesboot.c` | `VRAM_MC`, `FB_PA`, the system aperture and default/fault-page registers contain reference-machine constants. Queue, GART and scratch regions also have fixed offsets. | Introduce an explicit target layout with verified MC/physical/aperture relationships and exclusive region ownership. BAR bounds alone or finding zero-filled memory does not prove a region is free. |
-| `tools/phxctl/mesboot.c` | Helpers `rd`, `wr`, `vw` and `vr` discard IOKit return codes; `rd` can return its initialized zero after a failed read. | Propagate transport status and exact returned lengths. Stop before the next write when any prerequisite read/write or firmware response fails. Zero is not a replacement for an unknown register value. |
+| `tools/phxctl/mesboot.c` | Upstream helpers discard IOKit return codes and can use initialized zero after a failed read. | Downstream patch `0004` makes IOKit errors and mismatched reply lengths terminal; firmware/GPU response semantics and timeout propagation still need separate work. |
 | `tools/phxctl/bringup5.sh`, `tools/phxctl/full.sh` | Firmware/register operations are piped to `grep`/`tail` without `pipefail`; failures can be hidden by a successful final pipeline command. | Use a checked, structured stage runner. Track transport completion and device response separately; do not infer success from a matching log line. |
 | `tools/phxctl/full.sh`, `tools/phxctl/phxboot.sh` | The workflow includes automatic reboot timers, `killall shutdown`, sysctl changes, allow-list changes and NVRAM-based display arming. | Keep initial manual compute bring-up separate from desktop takeover and persistent boot configuration. Any recovery mechanism must own only its own timer/process and require an explicitly reviewed deployment plan. No automatic installation here. |
 | `src/phxbringup/PhxNativeABI.h` and `PhxBringup.cpp` | Kernel firmware/ring offsets and size checks are coupled to the experimental layout; the shell's raw PSP words and userspace constants duplicate layout assumptions. | Define one validated layout contract shared by userspace and kernel. Check arithmetic overflow, alignment, pairwise overlap and firmware/display reservations before permitting writes. |
@@ -36,6 +38,34 @@ small-range assertions in the sanitizer suite. These are source/host arithmetic
 checks, not GPU execution. They do not establish ownership of the selected VRAM
 regions, validate firmware, remove the reference-machine constants, or make the
 original boot scripts safe to deploy.
+
+## Checked userspace transport (2026-10-31)
+
+`patches/0004-checked-bringup-transport.patch` routes every `mesboot.c` scalar and
+structured IOKit request through checked calls. A non-success status or any
+short/long reply exits with status 74 before returning a register value, issuing
+the next write, or printing a successful command return. This covers register and
+VRAM access, doorbells, system memory, queue adoption, accelerator claim and the
+HELLO handshake. HELLO also rejects a different ABI version. Service lookup
+references are released after opening.
+
+The fault-injection harness includes the **actual staged tool source**, replacing
+only IOKit with an explicit fake transport. Its 47 subprocess cases cover normal
+returns, legitimate zero data, transport errors, both reply-length directions,
+ABI/open failures and failed read/write prerequisites. ASan/UBSan instrument this
+host test; it asserts the exact call count so a later write cannot masquerade as
+an acceptable error. Native preflight separately compiles/links the patched tool
+against real macOS IOKit without executing it. Native results are pending.
+
+Source provenance is retained for the new patch. The staged tool uses the pinned
+upstream MIT option (`LICENSE` and `LICENSES/MIT.txt`); its two unmodified AMD
+headers retain their embedded 2021/2022 MIT-style notices. No firmware is added.
+
+**This is not a safe deployment workflow yet.** Stopping userspace does not undo
+hardware changes already made, prove that outstanding GPU work is quiescent,
+validate firmware responses, propagate every GPU timeout, or remove the hardcoded
+reference memory layout. No automatic GPU reset or speculative recovery writes
+are added. The real tool is not executed or installed by these checks.
 
 ## Evidence required before an initialization experiment
 

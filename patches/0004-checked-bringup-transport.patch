@@ -1,0 +1,122 @@
+diff --git a/tools/phxctl/mesboot.c b/tools/phxctl/mesboot.c
+--- a/tools/phxctl/mesboot.c
++++ b/tools/phxctl/mesboot.c
+@@ -22,37 +22,71 @@
+ 
+ static io_connect_t conn;
+ 
++/* Transport failure is terminal: never use a zero/partial reply or continue writes. */
++static kern_return_t checked_scalar(io_connect_t connection, uint32_t selector,
++    const uint64_t *input, uint32_t input_count, uint64_t *output, uint32_t *output_count)
++{
++   const uint32_t expected = output_count ? *output_count : 0;
++   kern_return_t kr = IOConnectCallScalarMethod(connection, selector, input, input_count, output, output_count);
++   if (kr != KERN_SUCCESS || (output_count && *output_count != expected)) {
++      fprintf(stderr, "mesboot transport: selector=%u status=0x%x scalar-count=%u expected=%u; stopping\n",
++              selector, (unsigned)kr, output_count ? *output_count : 0, expected);
++      exit(74);
++   }
++   return kr;
++}
++static kern_return_t checked_method(io_connect_t connection, uint32_t selector,
++    const uint64_t *input, uint32_t input_count, const void *input_data, size_t input_size,
++    uint64_t *output, uint32_t *output_count, void *output_data, size_t *output_size)
++{
++   const uint32_t expected_count = output_count ? *output_count : 0;
++   const size_t expected_size = output_size ? *output_size : 0;
++   kern_return_t kr = IOConnectCallMethod(connection, selector, input, input_count, input_data, input_size,
++                                         output, output_count, output_data, output_size);
++   if (kr != KERN_SUCCESS || (output_count && *output_count != expected_count) ||
++       (output_size && *output_size != expected_size)) {
++      fprintf(stderr, "mesboot transport: selector=%u status=0x%x scalar-count=%u expected=%u bytes=%zu expected=%zu; stopping\n",
++              selector, (unsigned)kr, output_count ? *output_count : 0, expected_count,
++              output_size ? *output_size : 0, expected_size);
++      exit(74);
++   }
++   return kr;
++}
++
++
+ static int open_kext(void)
+ {
+    io_service_t svc = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("PhxBringup"));
+    if (!svc) { fprintf(stderr, "no PhxBringup\n"); return -1; }
+    kern_return_t kr = IOServiceOpen(svc, mach_task_self(), UC_TYPE, &conn);
++   IOObjectRelease(svc);
+    uint64_t hin[2] = {1, 0}, hout[4]; uint32_t hn = 4;
+-   if (kr == 0) kr = IOConnectCallScalarMethod(conn, SEL_HELLO, hin, 2, hout, &hn);
++   if (kr == 0) kr = checked_scalar(conn, SEL_HELLO, hin, 2, hout, &hn);
+    if (kr) { fprintf(stderr, "open: 0x%x\n", kr); return -1; }
++   if (hout[0] != hin[0]) { fprintf(stderr, "incompatible PhxBringup ABI\n"); IOServiceClose(conn); return -1; }
+    return 0;
+ }
+ static uint32_t rd(uint32_t reg)
+ {
+    uint64_t in[3] = {reg, 1, 0xFFFFFFFFull}; uint32_t v = 0; size_t sz = 4;
+-   IOConnectCallMethod(conn, SEL_READREGS, in, 3, NULL, 0, NULL, NULL, &v, &sz);
++   checked_method(conn, SEL_READREGS, in, 3, NULL, 0, NULL, NULL, &v, &sz);
+    return v;
+ }
+ static uint32_t wr(uint32_t reg, uint32_t val)
+ {
+    uint64_t in[2] = {reg, val}, out[1] = {0}; uint32_t n = 1;
+-   IOConnectCallScalarMethod(conn, SEL_DBG_WRITE_REG, in, 2, out, &n);
++   checked_scalar(conn, SEL_DBG_WRITE_REG, in, 2, out, &n);
+    return (uint32_t)out[0];
+ }
+ static kern_return_t db(uint64_t byteOff, uint64_t v)
+ {
+    uint64_t in[3] = {byteOff, v & 0xffffffffu, v >> 32};
+-   return IOConnectCallScalarMethod(conn, SEL_DBG_DOORBELL, in, 3, NULL, NULL);
++   return checked_scalar(conn, SEL_DBG_DOORBELL, in, 3, NULL, NULL);
+ }
+ static kern_return_t sm(uint64_t op, uint64_t a, uint64_t b, uint64_t *o0, uint64_t *o1)
+ {
+    uint64_t in[3] = {op, a, b}, out[2] = {0, 0}; uint32_t n = 2;
+-   kern_return_t kr = IOConnectCallScalarMethod(conn, SEL_DBG_SYSMEM, in, 3, out, &n);
++   kern_return_t kr = checked_scalar(conn, SEL_DBG_SYSMEM, in, 3, out, &n);
+    if (o0) *o0 = out[0];
+    if (o1) *o1 = out[1];
+    return kr;
+@@ -60,12 +94,12 @@
+ static void vw(uint64_t off, uint32_t v)
+ {
+    uint64_t in[2] = {off, v};
+-   IOConnectCallScalarMethod(conn, SEL_DBG_VRAM_WRITE, in, 2, NULL, NULL);
++   checked_scalar(conn, SEL_DBG_VRAM_WRITE, in, 2, NULL, NULL);
+ }
+ static uint32_t vr(uint64_t off)
+ {
+    uint64_t in[2] = {off, 4}; uint32_t buf[4] = {0}; size_t sz = sizeof(buf);
+-   IOConnectCallMethod(conn, SEL_DBG_VRAM_READ, in, 2, NULL, 0, NULL, NULL, buf, &sz);
++   checked_method(conn, SEL_DBG_VRAM_READ, in, 2, NULL, 0, NULL, NULL, buf, &sz);
+    return buf[0];
+ }
+ 
+@@ -361,7 +395,7 @@
+    grbm_select(0, 0, 0, 0);
+    if (env_on("ADOPT")) {   // hand the working compute queue to the kext: SUBMIT from RADV goes here from now on
+       uint64_t in[6] = {CMP_RING, 1024, CMP_WB, 6 * 4, 8, 0x2550000};
+-      kern_return_t kr = IOConnectCallScalarMethod(conn, SEL_DBG_ADOPTQ, in, 6, NULL, NULL);
++      kern_return_t kr = checked_scalar(conn, SEL_DBG_ADOPTQ, in, 6, NULL, NULL);
+       printf("adopt queue -> kr 0x%x\n", kr);
+       return;
+    }
+@@ -669,7 +703,7 @@
+           rd(SEG1(0x2041)), vr(TESTBUF + 0x40), rd(SEG0(0x1e88)), vr(GFX_WB), rd(0x2004), rd(0x21a0));
+    if (env_on("ADOPT_GFX")) {   // hand the gfx queue to the kext as its second queue
+       uint64_t in[6] = {GFX_RING, GFX_RDW, GFX_WB, GFX_DB * 4, w, 0x2580000 | 1};
+-      kern_return_t kr = IOConnectCallScalarMethod(conn, SEL_DBG_ADOPTQ, in, 6, NULL, NULL);
++      kern_return_t kr = checked_scalar(conn, SEL_DBG_ADOPTQ, in, 6, NULL, NULL);
+       printf("adopt gfx queue -> kr 0x%x\n", kr);
+    }
+ }
+@@ -751,7 +785,7 @@
+    if (!strcmp(argv[1], "kiqsched")) { kiq_init_only(); sched_test(); }
+    if (!strcmp(argv[1], "claim")) {   // GPU is up: let PhxAccel (the Metal accelerator) start on it
+       uint64_t in[1] = {1};
+-      printf("claim -> kr 0x%x\n", IOConnectCallScalarMethod(conn, 113, in, 1, NULL, NULL));
++      printf("claim -> kr 0x%x\n", checked_scalar(conn, 113, in, 1, NULL, NULL));
+    }
+    if (!strcmp(argv[1], "gfx")) {   // MES already running (after kiqsched): continue its ring where the last run left it
+       sch_wptr = vr(SCH_WB + 16); sch_seq = vr(SCH_WB + 32);

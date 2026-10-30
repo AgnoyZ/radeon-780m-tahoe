@@ -41,6 +41,7 @@ def prepare(destination, root=ROOT):
     if destination.exists():
         raise RuntimeError("Staging directory already exists; choose a fresh output, do not overwrite")
     archive = git(source, "archive", lock["nullarc"]["commit"], "src/phxbringup", "src/phxaccel", "src/nmplugin",
+                  "tools/phxctl/mesboot.c", "tools/phxctl/mes_v11_api_def.h", "tools/phxctl/csb_gfx11.h",
                   "LICENSE", "LICENSES", "THIRD_PARTY_NOTICES.md")
     destination.mkdir(parents=True)
     export_archive(archive, destination)

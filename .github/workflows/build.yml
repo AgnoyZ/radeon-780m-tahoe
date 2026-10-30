@@ -28,6 +28,8 @@ jobs:
           mkdir -p build
           clang++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -Isrc tests/test_hardware_policy.cpp -o build/test-policy
           build/test-policy
+      - name: Fault-inject actual bring-up transport without hardware
+        run: python3 tools/test_bringup_transport.py --out build/transport-tests
   macos-kexts:
     runs-on: macos-15-intel
     timeout-minutes: 90

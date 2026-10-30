@@ -49,7 +49,19 @@ class SourceTests(unittest.TestCase):
             prepare(self.stage)
     def test_provenance_is_not_hardware_pass(self):
         self.assertFalse(self.provenance["hardware_tested"])
-        self.assertEqual(3, len(self.provenance["patches_sha256"]))
+        self.assertEqual(4, len(self.provenance["patches_sha256"]))
+    def test_mesboot_checks_all_iokit_calls_and_reply_lengths(self):
+        text = (self.stage / "tools/phxctl/mesboot.c").read_text(encoding="utf-8")
+        self.assertEqual(1, text.count("IOConnectCallScalarMethod("))
+        self.assertEqual(1, text.count("IOConnectCallMethod("))
+        self.assertIn("if (kr != KERN_SUCCESS || (output_count && *output_count != expected))", text)
+        self.assertIn("(output_size && *output_size != expected_size)", text)
+        self.assertIn("exit(74)", text)
+        self.assertIn("IOObjectRelease(svc)", text)
+        self.assertIn("hout[0] != hin[0]", text)
+        for header in ("mes_v11_api_def.h", "csb_gfx11.h"):
+            self.assertEqual((ROOT / "upstream/nullarc/tools/phxctl" / header).read_bytes(),
+                             (self.stage / "tools/phxctl" / header).read_bytes())
     def test_bringup_bounds_are_checked_before_aperture_access(self):
         doorbell = self.bringup.split("IOReturn PhxBringup::doorbellWrite(")[1].split("IOReturn PhxBringup::vramWrite(")[0]
         self.assertIn("phx780m::rangeWithin(byteOff, 8, doorbellMap->getLength())", doorbell)
