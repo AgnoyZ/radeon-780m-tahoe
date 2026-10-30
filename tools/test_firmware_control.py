@@ -22,16 +22,21 @@ def cases():
         yield "load", fault
     for mode, faults in (("stage", ("ok", "stage-second")), ("verify", ("ok", "hash-mismatch", "hash-format")),
                          ("smu", ("ok", "smu-status", "smu-transport")),
-                         ("reg", ("ok", "reg-short", "reg-long", "reg-status"))):
+                         ("reg", ("ok", "reg-short", "reg-long", "reg-status")),
+                         ("layout", ("ok", "layout-status", "layout-short", "layout-long", "arg-overflow", "arg-negative", "missing-layout"))):
         for fault in faults:
             yield mode, fault
 
 
 def expected_result(mode, fault):
-    data = dict.fromkeys(("hellos", "stages", "accepted_bytes", "loads", "opens", "hashes", "reads", "smus", "reg_reads"), 0)
-    if fault == "missing-hash": return 64, data
+    data = dict.fromkeys(("hellos", "stages", "accepted_bytes", "loads", "opens", "hashes", "reads", "smus", "reg_reads", "layouts"), 0)
+    if fault in ("missing-hash", "missing-layout"): return 64, data
     if mode != "verify": data.update(hellos=1, opens=1)
     if fault.startswith("hello-"): return (75 if fault == "hello-abi" else 74), data
+    if mode == "layout":
+        if fault.startswith("arg-"): return 64, data
+        data["layouts"] = 1
+        return (0 if fault == "ok" else 74), data
     if mode == "smu":
         data["smus"] = 5 if fault == "ok" else 1
         return {"ok": 0, "smu-status": 75, "smu-transport": 74}[fault], data
@@ -66,9 +71,10 @@ def check_result(result, mode, fault):
     if observed != expected or any(type(v) is not int for v in observed.values()):
         raise RuntimeError("Firmware control continued incorrectly after a failed prerequisite")
     if expected_status and ("phxctl checked failure:" not in result.stderr or any(
-            word in result.stdout for word in ("loadfw ", "staged ", "verified firmware snapshot"))):
+            word in result.stdout for word in ("loadfw ", "staged ", "verified firmware snapshot", "psp layout configured"))):
         raise RuntimeError("Failure was not reported or a success message escaped")
-    marker = {"load": "loadfw ", "stage": "staged ", "verify": "verified firmware snapshot", "smu": "smu ", "reg": "0x00123"}[mode]
+    marker = {"load": "loadfw ", "stage": "staged ", "verify": "verified firmware snapshot", "smu": "smu ",
+              "reg": "0x00123", "layout": "psp layout configured"}[mode]
     if not expected_status and marker not in result.stdout:
         raise RuntimeError("Successful control path did not report its result")
     return observed

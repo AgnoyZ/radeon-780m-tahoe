@@ -19,11 +19,12 @@ def result(status, counts, stdout=""):
 class FirmwareControlRunnerTests(unittest.TestCase):
     def test_suite_covers_snapshot_mutation_and_failed_prerequisites(self):
         actual = list(cases())
-        self.assertEqual(39, len(set(actual)))
+        self.assertEqual(46, len(set(actual)))
         for fault in ("mutate-file", "read-short", "read-error", "read-eintr", "hello-short", "hello-long",
                       "stage-first", "stage-second", "load-short", "load-long", "psp-timeout"):
             self.assertIn(("load", fault), actual)
         self.assertIn(("verify", "hash-mismatch"), actual)
+        self.assertIn(("layout", "layout-status"), actual)
 
     def test_stage_failure_cannot_load_or_continue_transferring(self):
         status, counts = expected_result("load", "stage-second")

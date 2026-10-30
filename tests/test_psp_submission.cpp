@@ -1,6 +1,7 @@
 // Actual staged kernel methods; only their OS, memory and hardware dependencies are faked.
 #include "PhxNativeABI.h"
 #include "PhxHardwarePolicy.hpp"
+#include "PhxPspLayout.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -30,11 +31,15 @@ public:
     FakeMap *fbAper{&memory};
     int lock{0};
     int *smuLock{&lock};
-    uint64_t fbAperLen, fbMcBase{0x100000000ull}, fbPhys{0x200000000ull};
+    int gpuMutex{0};
+    int *gpuLock{&gpuMutex};
+    uint64_t fbAperLen, fbSize{0x10000}, fbMcBase{0x100000000ull}, fbPhys{0x200000000ull};
     uint64_t ringMc{0x100000000ull}, ringOff{0}, cmdOff{0x4000}, cmdMc{0x100004000ull};
     uint64_t fenceOff{0x8000}, fenceMc{0x100008000ull};
     uint32_t fenceCounter{0};
     bool pspSubmissionFaulted{false};
+    PhxPspLayout pspLayout{PHX_PSP_LAYOUT_VERSION, 0, 0x9000, 0x3000, 0xC000, 0x1000, {0, 0}};
+    bool pspLayoutConfigured{true}, gpuActive{false};
     uint64_t tmrOff{0x9000}, tmrMc{0x100009000ull}, tmrSize{0};
     uint64_t fwBufOff{0xC000}, fwBufMc{0x10000C000ull}, fwBufSize{0x1000};
     bool tmrSetUp{false};
@@ -53,7 +58,7 @@ public:
     void hdpFlush() { assert(lock); ++flushes; }
     bool pspWaitTos(uint32_t timeout) const {
         assert(lock && timeout == 2000); ++waits;
-        return mode == "create-timeout" && waits == 1;
+        return mode == "layout-create-success" || (mode == "create-timeout" && waits == 1);
     }
     void step() {
         assert(lock); ++sleeps;
@@ -66,6 +71,8 @@ public:
         memory.words[(cmdOff + PHX_PSP_GFX_RESP_OFFSET + 12) / 4] = 0xABCDEF01;
     }
     void clearRing();
+    bool gpuReady() const { assert(gpuMutex == 1); return gpuActive; }
+    IOReturn configurePspLayout(const PhxPspLayout &, uint64_t[4]);
     IOReturn pspRing(uint32_t, uint64_t, uint64_t[4]);
     IOReturn pspRunCmd(uint32_t, const uint32_t *, uint32_t, uint64_t[4]);
     IOReturn fwStage(uint32_t, const void *, uint32_t);
@@ -109,13 +116,74 @@ int main(int argc, char **argv) {
     uint64_t out[4] = {99, 99, 99, 99};
     uint32_t words[15] = {0x10203040, 2, 3, 4};
     IOReturn result;
-    if (test.rfind("tmr-", 0) == 0) {
+    if (test.rfind("layout-", 0) == 0) {
+        p.clearRing(); p.pspLayoutConfigured = false; p.pspLayout = {};
+        PhxPspLayout candidate{PHX_PSP_LAYOUT_VERSION, 0x1000, 0xA000, 0x2000, 0xD000, 0x2000, {0, 0}};
+        const auto before = p.memory.words;
+        if (test == "layout-overlap") candidate.tmrOffset = 0x9000;
+        if (test == "layout-outside-vram") p.fbSize = 0xE000;
+        if (test == "layout-outside-aperture") p.fbAperLen = 0xE000;
+        if (test == "layout-mc-overflow") p.fbMcBase = UINT64_MAX - 4095;
+        if (test == "layout-physical-overflow") p.fbPhys = UINT64_MAX - 4095;
+        if (test == "layout-active-ring") p.ringMc = p.fbMcBase;
+        if (test == "layout-active-gpu") p.gpuActive = true;
+        if (test == "layout-faulted") p.pspSubmissionFaulted = true;
+        if (test == "layout-create-missing") {
+            result = p.pspRing(1, candidate.ringOffset, out);
+            assert(result == kIOReturnNotReady);
+        } else {
+            result = p.configurePspLayout(candidate, test == "layout-null-output" ? nullptr : out);
+            bool accepted = test == "layout-configure" || test == "layout-reconfigure" ||
+                            test == "layout-create-success" || test == "layout-create-mismatch" ||
+                            test == "layout-create-revalidate";
+            assert(p.pspLayoutConfigured == accepted);
+            if (accepted) {
+                assert(result == kIOReturnSuccess && !memcmp(&candidate, &p.pspLayout, sizeof(candidate)));
+                assert(out[0] == p.fbMcBase && out[1] == p.fbPhys && out[2] == p.fbSize && out[3] == p.fbAperLen);
+                assert(!p.writes && !p.reads && !p.waits && p.memory.words == before);
+                if (test == "layout-reconfigure") {
+                    candidate.ringOffset = 0;
+                    assert(p.configurePspLayout(candidate, out) == kIOReturnSuccess);
+                    assert(p.pspLayout.ringOffset == 0);
+                    candidate.version = 2;
+                    assert(p.configurePspLayout(candidate, out) == kIOReturnBadArgument);
+                    assert(p.pspLayout.version == 1 && p.pspLayout.ringOffset == 0 && p.pspLayoutConfigured);
+                } else if (test != "layout-configure") {
+                    if (test == "layout-create-revalidate") p.fbSize = 0xE000;
+                    result = p.pspRing(1, candidate.ringOffset + (test == "layout-create-mismatch" ? 4096 : 0), out);
+                    if (test == "layout-create-success") {
+                        assert(result == kIOReturnSuccess && p.ringOff == candidate.ringOffset);
+                        assert(p.ringMc == p.fbMcBase + candidate.ringOffset);
+                        assert(p.tmrOff == candidate.tmrOffset && p.tmrMc == p.fbMcBase + candidate.tmrOffset);
+                        assert(p.fwBufOff == candidate.stagingOffset && p.fwBufSize == candidate.stagingCapacity);
+                        assert(p.fwBufMc == p.fbMcBase + candidate.stagingOffset);
+                        assert(p.cmdOff == candidate.ringOffset + PHX_PSP_CMD_REL);
+                        assert(p.fenceOff == candidate.ringOffset + PHX_PSP_FENCE_REL);
+                        assert(p.writes == 5 && p.waits == 2);
+                        for (size_t i = 0; i < before.size(); ++i) {
+                            const auto off = i * 4;
+                            bool cleared = (off >= p.ringOff && off < p.ringOff + PHX_PSP_RING_BUF_SIZE) ||
+                                           (off >= p.cmdOff && off < p.cmdOff + 4096) ||
+                                           (off >= p.fenceOff && off < p.fenceOff + 4096);
+                            assert(p.memory.words[i] == (cleared ? 0u : before[i]));
+                        }
+                    } else assert(result == kIOReturnBadArgument);
+                }
+            } else {
+                assert(result == (test == "layout-faulted" ? kIOReturnNotReady :
+                    test == "layout-active-ring" || test == "layout-active-gpu" ? kIOReturnExclusiveAccess : kIOReturnBadArgument));
+                assert(p.pspLayout.version == 0);
+            }
+        }
+        if (test != "layout-create-success")
+            assert(!p.writes && !p.reads && !p.waits && p.memory.words == before);
+    } else if (test.rfind("tmr-", 0) == 0) {
         if (test == "tmr-error" || test == "tmr-timeout") { p.tmrSetUp = true; p.tmrSize = 8192; }
         const auto before = p.memory.words;
-        result = p.pspCtl(1, test == "tmr-too-large" ? PHX_VRAM_TMR_CAP + 1 : 4096, out);
+        result = p.pspCtl(1, test == "tmr-zero" ? 0 : test == "tmr-too-large" ? p.pspLayout.tmrCapacity + 1 : 4096, out);
         if (test == "tmr-success") {
             assert(result == kIOReturnSuccess && p.tmrSetUp && p.tmrSize == 4096);
-        } else if (test == "tmr-too-large") {
+        } else if (test == "tmr-too-large" || test == "tmr-zero") {
             assert(result == kIOReturnBadArgument && !p.tmrSetUp && p.tmrSize == 0);
             assert(p.memory.words == before && !p.writes && !p.reads);
         } else {
@@ -198,6 +266,6 @@ int main(int argc, char **argv) {
             assert(!p.writes && !p.sleeps && p.memory.words == before && p.fenceCounter == initialFence);
         }
     }
-    assert(p.lock == 0);
+    assert(p.lock == 0 && p.gpuMutex == 0);
     std::cout << "{\"case\":\"" << test << "\",\"passed\":true,\"hardware_executed\":false}\n";
 }

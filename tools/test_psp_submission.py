@@ -10,13 +10,17 @@ import subprocess
 
 from prepare_source import ROOT, prepare
 
-METHODS = ("clearRing", "pspRing", "pspRunCmd", "fwStage", "loadIpFw", "pspCtl")
+METHODS = ("clearRing", "configurePspLayout", "pspRing", "pspRunCmd", "fwStage", "loadIpFw", "pspCtl")
 CASES = ("success", "timeout", "wrong-fence", "psp-error", "last-fence", "fence-exhausted",
          "bad-wptr", "high-wptr", "last-slot", "wrap-sentinel", "max-words", "too-many-words", "null-words",
          "null-output", "cmd-overflow", "fence-overflow", "ring-overflow", "unaligned-cmd",
          "tmr-success", "tmr-timeout", "tmr-error", "tmr-too-large", "stage-tail",
          "stage-overrun", "stage-null", "stage-empty", "stage-aperture-overflow",
-         "load-success", "load-error", "load-address-overflow", "create-timeout", "destroy-timeout")
+         "load-success", "load-error", "load-address-overflow", "create-timeout", "destroy-timeout",
+         "layout-configure", "layout-overlap", "layout-outside-vram", "layout-outside-aperture",
+         "layout-mc-overflow", "layout-physical-overflow", "layout-active-ring", "layout-active-gpu",
+         "layout-faulted", "layout-create-missing", "layout-create-mismatch", "layout-create-revalidate",
+         "layout-create-success", "tmr-zero", "layout-reconfigure", "layout-null-output")
 
 
 def extract_methods(source):

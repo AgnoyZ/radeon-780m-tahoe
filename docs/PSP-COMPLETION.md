@@ -69,11 +69,17 @@ unverified. These fake-hardware observations do not verify PSP firmware behavior
 
 ## Remaining hardware requirements
 
+Patch 0009 now replaces implicit managed PSP offsets with a shared explicit
+descriptor; see `PSP-LAYOUT.md`. The harness extracts a seventh actual method for
+configuration and adds sixteen cases (48 total). Those new C++ cases are pending
+CI execution. The previously recorded 32-case result is historical evidence for
+code `7921a7c`, not verification of the changed methods.
+
 Stopping writes does not cancel in-flight firmware, roll back prior writes,
 prove memory ownership or establish a safe reboot/unload/reset. The latch is
 software state, not a persistent hardware interlock. Unrelated raw debug MMIO,
 VRAM and SMU operations are outside this guard; do not run the reference scripts.
-Fixed device addresses, firmware provenance/selection, target TMR sizing,
+Reference addresses outside the managed PSP path, firmware provenance/selection, target TMR sizing,
 exclusive ownership and recovery still need integration with target evidence.
 
 No kext was loaded, firmware executed or machine setting changed. The full goal

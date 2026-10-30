@@ -57,7 +57,10 @@ after the first chunk, read failures/interruptions, hash refusals, argument boun
 short/long replies, stage/load failures and no later operations after a failed
 prerequisite. The fake crypto checks fixture bytes but is **not** a SHA-256
 implementation test; native CommonCrypto results must be reported separately.
-Host execution of these new C cases is pending; 105 Python tests passed locally.
+Run `41102630320`, code `5a066d0`, has now passed all 39 cases under ASan/UBSan
+and standalone C11 compilation. The extracted report and patch hashes are in
+`validation/ci-5a066d0-control.json`. Real native CommonCrypto execution remains
+unverified; fake crypto results must not be used as a substitute.
 
 Source review found that the newly included shared ABI header uses C11
 `static_assert`, but `phxctl.c` had not included `<assert.h>`. The test harness
@@ -65,7 +68,15 @@ included it first and could hide this standalone compilation defect. Patch 0008
 now includes the header in the tool itself. Host CI first compiles the actual
 tool as its own C11 translation unit with fake IOKit declarations and warnings
 as errors, before building the harness; the native build also explicitly selects
-C11. This correction still needs observed POSIX/native compiler results.
+C11. The POSIX standalone compilation passed the run above; the native compiler
+and CommonCrypto path still need their own observed results.
+
+Patch 0009 adds `psp-layout` to send an explicit 64-byte descriptor to the new
+privileged/debug kernel selector. It supplies metadata without staging bytes or
+creating a ring. Seven additional CLI cases check descriptor fields, argument
+refusal and terminal transport/reply errors, bringing the host suite to 46 cases.
+These additions await C execution in CI; 106 Python tests pass locally. See
+`PSP-LAYOUT.md` for the wire contract and the still-missing ownership requirements.
 
 ## Remaining integration
 
@@ -74,7 +85,8 @@ an automatically authenticated trust source. It does not automatically validate
 component selection, PSP firmware type, destination allocation or target IP
 compatibility. The header-derived manifest is a separate input; a controlled
 orchestrator still needs to connect it to a verified target memory layout and
-command sequence. Other raw-debug argument paths are not a reviewed deployment
+command sequence. The new layout descriptor checks numeric bounds/overlap but
+does not allocate or establish ownership of its regions. Other raw-debug argument paths are not a reviewed deployment
 interface. Shell pipelines still need explicit error propagation.
 
 No real firmware, kext or target machine is executed/modified by these tests.

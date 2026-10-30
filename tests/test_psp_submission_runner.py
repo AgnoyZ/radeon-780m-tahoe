@@ -56,9 +56,10 @@ class PSPSubmissionRunnerTests(unittest.TestCase):
             self.assertFalse(out.exists())
 
     def test_ci_runs_completion_staging_and_lifetime_cases(self):
-        self.assertEqual(32, len(set(CASES)))
+        self.assertEqual(48, len(set(CASES)))
         for case in ("success", "timeout", "psp-error", "tmr-timeout", "stage-overrun",
-                     "load-address-overflow", "create-timeout", "destroy-timeout"):
+                     "load-address-overflow", "create-timeout", "destroy-timeout", "layout-configure",
+                     "layout-create-success", "layout-create-missing", "layout-reconfigure", "tmr-zero"):
             self.assertIn(case, CASES)
         self.assertIn("python3 tools/test_psp_submission.py", (ROOT / ".github/workflows/build.yml").read_text())
 

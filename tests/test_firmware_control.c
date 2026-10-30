@@ -13,12 +13,12 @@ static ssize_t injected_read(int, void *, size_t);
 #include <assert.h>
 
 static const char *fault, *path, *reference_hash;
-static unsigned hellos, stages, accepted_bytes, loads, opens, hashes, reads, smus, reg_reads;
+static unsigned hellos, stages, accepted_bytes, loads, opens, hashes, reads, smus, reg_reads, layouts;
 
 static void summary(void) {
     fprintf(stderr, "fake-control-summary {\"hellos\":%u,\"stages\":%u,\"accepted_bytes\":%u,"
-                    "\"loads\":%u,\"opens\":%u,\"hashes\":%u,\"reads\":%u,\"smus\":%u,\"reg_reads\":%u}\n",
-            hellos, stages, accepted_bytes, loads, opens, hashes, reads, smus, reg_reads);
+                    "\"loads\":%u,\"opens\":%u,\"hashes\":%u,\"reads\":%u,\"smus\":%u,\"reg_reads\":%u,\"layouts\":%u}\n",
+            hellos, stages, accepted_bytes, loads, opens, hashes, reads, smus, reg_reads, layouts);
 }
 
 static ssize_t injected_read(int fd, void *buffer, size_t length) {
@@ -80,7 +80,22 @@ kern_return_t IOConnectCallScalarMethod(io_connect_t connection, uint32_t select
 kern_return_t IOConnectCallMethod(io_connect_t connection, uint32_t selector,
     const uint64_t *input, uint32_t input_count, const void *input_data, size_t input_size,
     uint64_t *output, uint32_t *output_count, void *output_data, size_t *output_size) {
-    assert(connection == 7 && !output && !output_count);
+    assert(connection == 7);
+    if (selector == PHX_PSP_LAYOUT_SELECTOR) {
+        assert(!input && !input_count && input_data && input_size == 64);
+        assert(output && output_count && *output_count == 4 && !output_data && !output_size);
+        struct PhxPspLayout layout;
+        memcpy(&layout, input_data, sizeof(layout));
+        assert(layout.version == 1 && !layout.reserved[0] && !layout.reserved[1]);
+        assert(layout.ringOffset == 0x1000 && layout.tmrOffset == 0xA000 && layout.tmrCapacity == 0x2000);
+        assert(layout.stagingOffset == 0xD000 && layout.stagingCapacity == 0x2000);
+        assert(!stages && !loads); ++layouts;
+        memset(output, 0, 4 * sizeof(*output));
+        if (!strcmp(fault, "layout-short")) --*output_count;
+        if (!strcmp(fault, "layout-long")) ++*output_count;
+        return !strcmp(fault, "layout-status") ? 5 : 0;
+    }
+    assert(!output && !output_count);
     if (selector == SEL_READREGS) {
         assert(input_count == 3 && !input_data && !input_size && output_data && *output_size == 4);
         ++reg_reads; *(uint32_t *)output_data = 0;
@@ -117,6 +132,12 @@ int main(int argc, char **argv) {
     if (!strcmp(fault, "slice-overflow")) offset = "4294967295";
     if (!strcmp(fault, "destination-overflow")) destination = "16777212";
     if (!strcmp(fault, "destination-alignment")) destination = "4097";
+    if (!strcmp(mode, "layout")) {
+        char *ring = !strcmp(fault, "arg-overflow") ? "18446744073709551616" :
+                     !strcmp(fault, "arg-negative") ? "-1" : "0x1000";
+        char *args[] = {"phxctl", "psp-layout", ring, "0xA000", "8192", "0xD000", "8192", NULL};
+        return phxctl_reference_main(!strcmp(fault, "missing-layout") ? 6 : 7, args);
+    }
     if (!strcmp(mode, "verify")) {
         char *args[] = {"phxctl", "verify-file", (char *)path, hash, NULL};
         return phxctl_reference_main(4, args);

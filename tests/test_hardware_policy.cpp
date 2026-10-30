@@ -1,9 +1,54 @@
 #include "PhxHardwarePolicy.hpp"
 #include "PhxComputeProbe.h"
 #include "PhxRuntimePath.h"
+#include "PhxPspLayout.h"
 #include <cassert>
 #include <iostream>
 #include <vector>
+
+static void psp_layout_tests() {
+    static_assert(sizeof(PhxPspLayout) == 64, "shared layout wire size");
+    const PhxPspLayout valid{1, 0, 0x9000, 0x2000, 0xB000, 0x1000, {0, 0}};
+    auto check = [](const PhxPspLayout *layout) {
+        return phxPspLayoutValid(layout, 0x100000000ull, 0x200000000ull, 0x10000, 0xC000);
+    };
+    assert(check(&valid));
+    assert(!check(nullptr));
+    for (unsigned field = 0; field < 8; ++field) {
+        auto changed = valid;
+        uint64_t words[8];
+        memcpy(words, &changed, sizeof(words));
+        words[field] += 1;
+        memcpy(&changed, words, sizeof(words));
+        assert(!check(&changed));
+    }
+    const uint64_t badCaps[] = {0, 0x100000000ull, UINT64_MAX};
+    for (auto cap : badCaps) {
+        auto changed = valid; changed.tmrCapacity = cap;
+        assert(!check(&changed));
+        changed = valid; changed.stagingCapacity = cap;
+        assert(!check(&changed));
+    }
+    const uint64_t badBases[] = {0, UINT64_MAX - 4095, UINT64_MAX};
+    for (auto base : badBases) {
+        assert(!phxPspLayoutValid(&valid, base, 0x200000000ull, 0x10000, 0xC000));
+        assert(!phxPspLayoutValid(&valid, 0x100000000ull, base, 0x10000, 0xC000));
+    }
+    for (auto limit : {0ull, 0xBFFFull}) {
+        assert(!phxPspLayoutValid(&valid, 0x100000000ull, 0x200000000ull, limit, 0xC000));
+        assert(!phxPspLayoutValid(&valid, 0x100000000ull, 0x200000000ull, 0x10000, limit));
+    }
+    auto reordered = valid;
+    reordered.stagingOffset = 0; reordered.tmrOffset = 0x1000; reordered.ringOffset = 0x3000;
+    assert(check(&reordered));
+    for (uint64_t a = 0; a < 24; ++a)
+        for (uint64_t b = 0; b < 24; ++b)
+            for (uint64_t an = 1; an < 16; ++an)
+                for (uint64_t bn = 1; bn < 16; ++bn)
+                    assert(phxPspDisjoint(a, an, b, bn) == (a + an <= b || b + bn <= a));
+    assert(!phxPspSpanFits(UINT64_MAX - 3, 8, UINT64_MAX));
+    assert(!phxPspDisjoint(UINT64_MAX - 3, 8, UINT64_MAX - 1, 4));
+}
 
 static void aperture_bounds_tests() {
     using phx780m::rangeWithin;
@@ -102,5 +147,6 @@ int main() {
     compute_check_tests();
     runtime_path_tests();
     aperture_bounds_tests();
+    psp_layout_tests();
     std::cout << "Hardware policy, aperture bounds and compute-check assertions passed (not a GPU execution test).\n";
 }

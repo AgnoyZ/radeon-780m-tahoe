@@ -16,7 +16,7 @@ it is not packaged as a deployable initialization tool.
 | `tools/phxctl/mesboot.c` | Upstream helpers discard IOKit return codes and can use initialized zero after a failed read. | Downstream patch `0004` makes IOKit errors and mismatched reply lengths terminal; firmware/GPU response semantics and timeout propagation still need separate work. |
 | `tools/phxctl/bringup5.sh`, `tools/phxctl/full.sh` | Firmware/register operations are piped to `grep`/`tail` without `pipefail`; failures can be hidden by a successful final pipeline command. | Use a checked, structured stage runner. Track transport completion and device response separately; do not infer success from a matching log line. |
 | `tools/phxctl/full.sh`, `tools/phxctl/phxboot.sh` | The workflow includes automatic reboot timers, `killall shutdown`, sysctl changes, allow-list changes and NVRAM-based display arming. | Keep initial manual compute bring-up separate from desktop takeover and persistent boot configuration. Any recovery mechanism must own only its own timer/process and require an explicitly reviewed deployment plan. No automatic installation here. |
-| `src/phxbringup/PhxNativeABI.h` and `PhxBringup.cpp` | Kernel firmware/ring offsets and size checks are coupled to the experimental layout; the shell's raw PSP words and userspace constants duplicate layout assumptions. | Define one validated layout contract shared by userspace and kernel. Check arithmetic overflow, alignment, pairwise overlap and firmware/display reservations before permitting writes. |
+| `src/phxbringup/PhxNativeABI.h` and `PhxBringup.cpp` | The original kernel firmware/ring offsets were coupled to the experimental layout; raw shell PSP words and other userspace constants still duplicate assumptions. | Patch 0009 now supplies an explicit shared descriptor with arithmetic/alignment/overlap checks. Firmware/display reservations and target ownership are still unimplemented; see `PSP-LAYOUT.md`. |
 
 The existing downstream PCI/Darwin/opt-in gate is necessary but does not resolve
 these layout, firmware, sequencing or recovery problems. A compiled kext and a
@@ -167,6 +167,15 @@ errors to the actual `phxctl` tool; see `FIRMWARE-CONTROL.md`. It removes the
 short-read/partial-load path and stops after failed prerequisites. This is still
 a low-level tool, not a target allocation/command orchestrator. Its original
 shell pipelines and raw-debug parameters are not approved for deployment.
+
+Patch `0009` replaces implicit managed kernel PSP placement with an explicit
+versioned descriptor shared with `phxctl`. Configuration itself changes only
+software metadata. Ring creation rechecks all three regions against reported
+VRAM and mapped aperture bounds, verifies MC/physical address arithmetic and
+requires pairwise disjoint ranges before aperture writes. This removes the
+managed PSP fixed-offset dependency, but does not grant reserved-region ownership
+or change the separate `mesboot.c` reference layout. Tests for the new paths are
+pending C/C++ CI execution; see `PSP-LAYOUT.md`.
 
 1. Confirm the actual target Tahoe build, a tested external-disk/EFI recovery path
    and the exact driver/firmware revisions. The last verified target environment

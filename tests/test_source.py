@@ -49,7 +49,7 @@ class SourceTests(unittest.TestCase):
             prepare(self.stage)
     def test_provenance_is_not_hardware_pass(self):
         self.assertFalse(self.provenance["hardware_tested"])
-        self.assertEqual(8, len(self.provenance["patches_sha256"]))
+        self.assertEqual(9, len(self.provenance["patches_sha256"]))
     def test_firmware_control_authenticates_snapshot_before_writes(self):
         text = (self.stage / "tools/phxctl/phxctl.c").read_text(encoding="utf-8")
         self.assertEqual(1, text.count("IOConnectCallScalarMethod("))
@@ -113,9 +113,24 @@ class SourceTests(unittest.TestCase):
         self.assertNotIn("byteOff + 8 >", doorbell)
         self.assertLess(doorbell.index("phx780m::rangeWithin"), doorbell.index("getVirtualAddress()"))
         ring = self.bringup.split("IOReturn PhxBringup::pspRing(")[1].split("IOReturn PhxBringup::pspRunCmd(")[0]
-        self.assertIn("phx780m::rangeWithin(carveOffset, PHX_PSP_FENCE_REL + 0x1000, PHX_VRAM_TMR_OFF)", ring)
-        self.assertIn("phx780m::rangeWithin(carveOffset, PHX_PSP_FENCE_REL + 0x1000, fbAperLen)", ring)
-        self.assertLess(ring.index("phx780m::rangeWithin"), ring.index("getVirtualAddress()"))
+        self.assertIn("phxPspLayoutValid(&pspLayout, fbMcBase, fbPhys, fbSize, fbAperLen)", ring)
+        self.assertIn("carveOffset != pspLayout.ringOffset", ring)
+        self.assertIn("!pspLayoutConfigured", ring)
+        self.assertLess(ring.index("phxPspLayoutValid"), ring.index("getVirtualAddress()"))
+        for constant in ("PHX_VRAM_TMR_OFF", "PHX_VRAM_TMR_CAP", "PHX_VRAM_FWBUF_OFF"):
+            self.assertNotIn(constant, self.bringup)
+
+    def test_explicit_psp_layout_has_no_hardware_or_privilege_bypass(self):
+        body = self.bringup.split("IOReturn PhxBringup::configurePspLayout(")[1].split("IOReturn PhxBringup::pspRing(")[0]
+        for mutation in ("wreg(", "getVirtualAddress(", "pspRunCmd("):
+            self.assertNotIn(mutation, body)
+        self.assertIn("ringMc || tmrSetUp || fwBufSize || gpuReady()", body)
+        handler = self.bringup.split("IOReturn IOAccelPhxNativeClient::doDbgPspLayout(")[1].split("IOReturn IOAccelPhxNativeClient::doDbgPspRing(")[0]
+        self.assertIn("!owner->debugEnabled()", handler)
+        self.assertIn("!privileged", handler)
+        self.assertIn("shape(a, 0, 4, sizeof(PhxPspLayout), 0)", handler)
+        self.assertEqual((ROOT / "src/PhxPspLayout.h").read_bytes(),
+                         (self.stage / "src/phxbringup/PhxPspLayout.h").read_bytes())
     def test_plugin_uses_only_its_own_radv(self):
         text = (self.stage / "src/nmplugin/nvmtl_vk.c").read_text(encoding="utf-8")
         self.assertTrue('phxRuntimeLibraryPath' in text, 'Plugin-relative path helper is not wired')
