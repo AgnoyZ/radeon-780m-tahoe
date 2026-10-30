@@ -1,6 +1,6 @@
 # 上游研究记录
 
-以下是 2026-10-30 前序研究保留的入口，不构成支持保证。本仓库初始化未重新审计全部源码，也未导入第三方实现。
+以下是固定版本研究入口，不构成支持保证。当前通过 upstream/nullarc 子模块接入该提交；已审计首轮提交/等待和队列选择路径，未完成全面安全审计。许可证缺口见 EXPERIMENTAL.md。
 
 ## NootedRed
 - 仓库：https://github.com/ChefKissInc/NootedRed

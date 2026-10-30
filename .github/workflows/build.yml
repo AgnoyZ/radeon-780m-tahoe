@@ -1,0 +1,46 @@
+name: Build and test experimental 780M sources
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          submodules: true
+          persist-credentials: false
+      - name: Patch integration and artifact rejection tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Execute the policy used by the kernel patch
+        run: |
+          mkdir -p build
+          clang++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -Isrc tests/test_hardware_policy.cpp -o build/test-policy
+          build/test-policy
+  macos-kexts:
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    needs: source-tests
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          submodules: true
+          persist-credentials: false
+      - name: Checkout pinned MacKernelSDK
+        run: |
+          git clone https://github.com/acidanthera/MacKernelSDK.git build-sdk
+          git -C build-sdk checkout --detach 3f750085caa17ec3a7880f11c11bf4f48cd6a164
+      - name: Compile, link, ad-hoc sign and inspect kexts; compile Metal probe
+        run: python3 tools/build_macos.py --sdk build-sdk --out build/ci
+      - name: Preserve private experimental artifacts and upstream license notices
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: experimental-780m-${{ github.sha }}
+          path: build/ci/artifacts
+          retention-days: 7
+          if-no-files-found: error

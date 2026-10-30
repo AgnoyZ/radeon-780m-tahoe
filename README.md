@@ -2,7 +2,7 @@
 
 面向 AMD Radeon 780M 的 macOS Tahoe 实验性驱动适配研发仓库。
 
-> 当前阶段：项目初始化 / 可行性研究。没有可安装驱动，没有本机 GPU 加速成功的结论。
+> 当前阶段：已接入固定版上游源码和下游内核补丁，建立构建与回归测试。尚无完整安装包或本机 GPU 加速成功的结论。
 > 本仓库不是 NootedRed 或 nullarc 官方项目，也不代表与其存在合作关系。
 
 ## 目标与当前环境
@@ -13,14 +13,17 @@
 
 ## 研发方向
 借鉴 NootedRed 的硬件识别、补丁组织与调试方法；优先评估已有 RDNA3 路线是否适合本机，而不是只修改设备 ID。
-nullarc 是候选研究对象；尚未导入、审计、复现或部署它的代码/发行包。
+已通过固定提交子模块接入 nullarc；完成首轮执行路径审计并加入严格执行补丁。尚未部署驱动或完成全部安全/兼容性审计。
 先验证 GPU 初始化和实际命令结果，再推进内屏、Metal 与 WindowServer，最后做稳定性和电源管理。
 任何成功状态均须有本机测试证据，不能以显卡名称、显存数字或单个注册表节点作为加速验收。
 
 ## 仓库结构
 - `docs/ROADMAP.md`：阶段目标和验收条件。
 - `docs/UPSTREAM.md`：上游研究入口、版本和许可证边界。
-- `src/README.md`：代码接入规则；目前没有驱动实现。
+- `upstream/nullarc`：固定提交的上游实现，保留原许可证。
+- `patches/`、`src/PhxHardwarePolicy.hpp`：实际内核补丁与共享硬件策略。
+- `tools/`、`tests/`：隔离构建、产物校验与真实 Metal 计算探针。
+- `docs/BUILD.md`、`docs/IMPLEMENTATION-STATUS.md`：构建方法与未完成项。
 - `AGENTS.md`：隐私、安全、回退和 GitHub 同步要求。
 
 本机 EFI 配置继续由独立私有仓库 `AgnoyZ/thinkbook-16-g6-ahp-hackintosh` 管理，本仓库不替换它。

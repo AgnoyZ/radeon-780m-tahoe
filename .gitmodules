@@ -1,0 +1,3 @@
+[submodule "upstream/nullarc"]
+	path = upstream/nullarc
+	url = https://github.com/luuumi-dev/nullarc.git

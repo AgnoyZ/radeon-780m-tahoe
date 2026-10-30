@@ -1,0 +1,20 @@
+{
+  "nullarc": {
+    "url": "https://github.com/luuumi-dev/nullarc.git",
+    "commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+    "path": "upstream/nullarc"
+  },
+  "MacKernelSDK": {
+    "url": "https://github.com/acidanthera/MacKernelSDK.git",
+    "commit": "3f750085caa17ec3a7880f11c11bf4f48cd6a164"
+  },
+  "patches": [
+    "patches/0001-strict-hardware-execution.patch"
+  ],
+  "target": {
+    "darwin_major": 25,
+    "vendor_id": "1002",
+    "device_id": "1900",
+    "architecture": "x86_64"
+  }
+}

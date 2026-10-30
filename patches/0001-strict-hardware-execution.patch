@@ -1,0 +1,146 @@
+--- a/src/phxbringup/PhxBringup.cpp
++++ b/src/phxbringup/PhxBringup.cpp
+@@ -5,7 +5,7 @@
+ //  and answers ABI v1 selectors 0..8 with the same rules as Mesa's in-process mock kext
+ //  (src/amd/common/darwin/ac_darwin_mock.c): buffers are kernel/user shared system memory,
+ //  GPU VA mappings are bookkeeping only, and Submit retires at once without touching the GPU.
+-//  E1 proves the IOKit transport end to end; E3/E4 put the GPU behind the same calls.
++//  Historical E1 description above: this downstream patch removes mock Submit/Wait success.
+ //
+ //  Boot-arg -phxbringupoff disables it. ReadRegs (MMIO read) is root-only; nothing else touches hardware.
+ //
+@@ -21,6 +21,8 @@
+ #include <sys/sysctl.h>
+ 
+ #include "PhxNativeABI.h"
++#include <libkern/version.h>
++#include "PhxHardwarePolicy.hpp"
+ 
+ #define PHX_KEXT_BUILD 32u
+ 
+@@ -271,6 +273,15 @@
+     int dummy = 0;
+     if (PE_parse_boot_argn("-phxbringupoff", &dummy, sizeof(dummy)))
+         return false;
++    int optIn = 0;
++    const bool optedIn = PE_parse_boot_argn("phx780m", &optIn, sizeof(optIn)) && optIn == 1;
++    IOPCIDevice *candidate = OSDynamicCast(IOPCIDevice, provider);
++    if (!candidate || !phx780m::allowDevice(version_major,
++            candidate->configRead16(kIOPCIConfigVendorID),
++            candidate->configRead16(kIOPCIConfigDeviceID), optedIn)) {
++        IOLog("PhxBringup: 780M research gate declined (requires Darwin 25, 1002:1900, phx780m=1)\n");
++        return false;
++    }
+     if (!IOService::start(provider))
+         return false;
+     pci = OSDynamicCast(IOPCIDevice, provider);
+@@ -304,6 +315,7 @@
+             hdpFlushDword = remap >> 2;
+         setProperty("phx-hdp-flush-dword", hdpFlushDword, 32);
+     }
++    setProperty("phx-780m-policy", "strict-execution-v1");
+     setProperty("phx-build", PHX_KEXT_BUILD, 32);
+     setProperty("phx-stage", "E3");
+     setProperty("phx-debug", debug);
+@@ -764,11 +776,11 @@
+ }
+ 
+ IOReturn PhxBringup::gpuSubmit(uint32_t handle, bool gfx, const uint64_t *ibVa, const uint32_t *ibDw, uint32_t n, uint64_t *seqOut) {
+-    // graphics IBs go to the gfx queue and compute IBs to the compute queue; with one of them missing, the other runs both
+-    GpuQueue *qp = gfx ? (gq[1].ready ? &gq[1] : &gq[0]) : (gq[0].ready ? &gq[0] : &gq[1]);
+-    if (!qp->ready || !vmCtx(handle))
++    // Do not run graphics packets on a compute queue (or silently substitute the other engine).
++    const int queue = phx780m::queueIndex(gfx, gq[0].ready, gq[1].ready);
++    if (queue < 0 || !vmCtx(handle))
+         return kIOReturnNotReady;
+-    GpuQueue &q = *qp;
++    GpuQueue &q = gq[queue];
+     const uint32_t need = n * 4 + 8;
+     if (need + 16 > q.ringDw)
+         return kIOReturnBadArgument;
+@@ -1334,7 +1346,7 @@
+     inf.abi_version = PHXN_ABI_VERSION;
+     inf.kext_build = PHX_KEXT_BUILD;
+     inf.reserved[2] = PHXN_ABI_MINOR;
+-    inf.flags = PHXN_INFO_S1B_POSITIVE | PHXN_INFO_NATIVE_BOOT;
++    inf.flags = PHXN_INFO_NATIVE_BOOT | (owner->gpuReady() ? PHXN_INFO_S1B_POSITIVE : 0);
+     inf.vmid = PHXN_VMID;
+     inf.gb_addr_config = kGbAddrConfig;
+     inf.gc_version = kGcVersion;
+@@ -1348,7 +1360,7 @@
+     inf.gtt_used = gttUsed;
+     inf.gtt_max_bo = kGttMaxBo;
+     inf.seq_emitted = emitted;
+-    inf.seq_retired = owner->gpuReady() ? owner->gpuRetired() : emitted;
++    inf.seq_retired = owner->gpuReady() ? owner->gpuRetired() : 0;
+     inf.va_low_first = 0x10000;
+     inf.va_low_last = 0x7FFFFFFFFFFFull;
+     inf.va_high_first = 0xFFFF800000000000ull;
+@@ -1628,9 +1640,13 @@
+     if (h.ctx_id == 0 || h.ctx_id > PHXN_MAX_CTX || !ctx[h.ctx_id])
+         return kIOReturnNotFound;
+ 
++    phxn_cs_ib firstIb;
++    bcopy(in + sizeof(h), &firstIb, sizeof(firstIb));
+     for (uint32_t i = 0; i < h.num_ibs; i++) {
+         phxn_cs_ib ib;
+         bcopy(in + sizeof(h) + i * sizeof(ib), &ib, sizeof(ib));
++        if (!phx780m::sameEngine(firstIb.ip_type, ib.ip_type))
++            return kIOReturnUnsupported;
+         if (ib._pad || (ib.ip_type != PHX_AMDGPU_HW_IP_GFX && ib.ip_type != PHX_AMDGPU_HW_IP_COMPUTE) || ib.ip_instance != 0 || ib.ring != 0)
+             return kIOReturnBadArgument;
+         if (ib.ib_bytes == 0 || (ib.ib_bytes & 3) || ib.ib_bytes > 0xFFFFFu * 4)
+@@ -1708,12 +1724,8 @@
+         a->scalarOutput[0] = seq;
+         return kIOReturnSuccess;
+     }
+-    // E1: no GPU behind the call; the submission retires at once, as in the mock.
+-    const uint64_t seq = ++emitted;
+-    if (fb)
+-        bcopy(&seq, fb->kva + h.fence_offset, sizeof(seq));
+-    a->scalarOutput[0] = seq;
+-    return kIOReturnSuccess;
++    // No synthetic fence retirement: success requires a real hardware submission.
++    return kIOReturnNotReady;
+ }
+ 
+ IOReturn IOAccelPhxNativeClient::doDbgSmu(IOExternalMethodArguments *a) {
+@@ -1974,8 +1986,6 @@
+         a->scalarOutput[2] = em;
+         return kIOReturnSuccess;
+     }
+-    a->scalarOutput[0] = 0;   // not busy: E1 retires every submission at once
+-    a->scalarOutput[1] = em;
+-    a->scalarOutput[2] = em;
+-    return kIOReturnSuccess;
+-}
++    // Hardware disappearance is not evidence that the caller's work completed.
++    return kIOReturnNotReady;
++}
+--- a/src/phxaccel/accel/phxfb.cpp
++++ b/src/phxaccel/accel/phxfb.cpp
+@@ -20,6 +20,8 @@
+ #include <sys/sysctl.h>
+ #include "nvrm_vram_abi.h"
+ #include "nvrm_gpuva_abi.h"
++#include <libkern/version.h>
++#include "PhxHardwarePolicy.hpp"
+ 
+ void phxAgdcInstall();   // phxagdc.cpp: the AppleGraphicsDeviceControl that reports this panel (debug.phxagdc)
+ void phxAgdcRemove();
+@@ -461,6 +463,15 @@
+ {
+     char arg[8];
+     if (PE_parse_boot_argn("-phxfboff", arg, sizeof arg)) { PFBLOG("-phxfboff: leaving the firmware framebuffer"); return false; }
++    int optIn = 0;
++    const bool optedIn = PE_parse_boot_argn("phx780m", &optIn, sizeof(optIn)) && optIn == 1;
++    IOPCIDevice *candidate = OSDynamicCast(IOPCIDevice, provider);
++    if (!candidate || !phx780m::allowDevice(version_major,
++            candidate->configRead16(kIOPCIConfigVendorID),
++            candidate->configRead16(kIOPCIConfigDeviceID), optedIn)) {
++        PFBLOG("780M research gate declined; not consuming display boot arming");
++        return false;
++    }
+     if (!takeBootArming()) { PFBLOG("NVRAM phxfb-boot not set: leaving the firmware framebuffer this boot"); return false; }
+     fPCI = OSDynamicCast(IOPCIDevice, provider);
+     if (!fPCI) return false;

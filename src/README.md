@@ -1,5 +1,5 @@
-# Source status
+# Downstream source
 
-No driver implementation is present yet. This directory is not a buildable kext.
+PhxHardwarePolicy.hpp is compiled into the patched PhxBringup and PhxAccel builds. The complete upstream source is pinned in upstream/nullarc; patches are applied to a separate build staging directory, never to the source submodule or the installed EFI.
 
-Add source only after selecting and reviewing an implementation path. Pin upstream revisions, preserve required notices, document local changes, and provide reproducible build and test instructions. Keep unverified experiments separate from confirmed hardware-tested code. Do not add placeholder routines that report successful GPU initialization or acceleration without doing the work.
+This is not a standalone complete graphics driver. See docs/BUILD.md and docs/IMPLEMENTATION-STATUS.md for dependencies, tests, and missing runtime integration.
