@@ -97,6 +97,7 @@ def main():
     smoke = artifacts / "metal-smoke"
     run("xcrun", "clang", "-arch", "x86_64", "-mmacosx-version-min=13.0", "-fobjc-arc", "-fblocks",
         "-Wall", "-Wextra", "-Werror", "-framework", "Foundation", "-framework", "Metal",
+        "-framework", "IOKit", "-I" + str(ROOT / "src"),
         ROOT / "tools/metal_smoke.m", "-o", smoke)
     report["metal-smoke"] = inspect_macho(smoke, 2)
     shutil.copytree(stage / "LICENSES", artifacts / "LICENSES")

@@ -86,7 +86,7 @@ jobs:
           import subprocess
           probe = 'build/ci/artifacts/metal-smoke'
           listing = subprocess.run([probe, '--list'], capture_output=True, text=True, check=True)
-          if '780m' in listing.stdout.lower():
+          if 'target=yes' in listing.stdout:
               raise SystemExit('Unexpected target GPU on hosted CI; do not auto-submit work')
           result = subprocess.run([probe], capture_output=True, text=True, timeout=10)
           print(result.stdout, result.stderr)

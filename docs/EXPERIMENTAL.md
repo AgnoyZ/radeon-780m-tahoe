@@ -7,7 +7,8 @@ These artifacts are research builds for noncommercial development, NOT a complet
 - Do not load/install them yet: the firmware layout, panel, runtime ABI and full userspace stack still require machine-specific review.
 - The build includes source-build paths for the upstream Metal plugin, LGPL AIR translator, native-only Mesa RADV and pinned LLVM AIR bitcode reader/runtime; this is NOT a complete or target-validated runtime. Firmware and boot-time orchestration remain missing. Dropping these kexts into EFI cannot produce a complete working graphics stack.
 - No boot config, NVRAM, OS security setting or disk is changed by the build scripts. No installer is supplied.
-- `metal-smoke --list` lists Metal devices without submitting work. Running `metal-smoke` submits real compute work and can hang an experimental GPU; use only after independently establishing the runtime stack and recovery path.
+- `metal-smoke --list` lists Metal devices and their registry-derived PCI identity without submitting work. Execution requires exactly one verified PCI `1002:1900` Metal device and Darwin 25; a marketing name alone is not accepted. Running `metal-smoke` submits real compute work and can hang an experimental GPU; use only after independently establishing the runtime stack and recovery path.
+- The probe checks six dispatch sizes, alternates output offsets of 0/256 bytes, validates every output against the original input seed, verifies unchanged input and checks output guard regions. Output starts as the bitwise complement of its expected value so a missing write cannot pass. CPU fixtures exercise this same checker in CI but are never evidence of GPU execution.
 - A compute pass does not verify WindowServer, external display, backlight, codec acceleration, sleep or sustained stability.
 
 ## Native validation status
