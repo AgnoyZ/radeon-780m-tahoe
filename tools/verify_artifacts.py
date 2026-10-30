@@ -47,3 +47,16 @@ def inspect_kext(bundle, expected_identifier):
     result = inspect_macho(bundle / "Contents/MacOS" / executable, 11)
     result["bundle_identifier"] = expected_identifier
     return result
+
+def inspect_plugin(bundle, expected_identifier):
+    bundle = Path(bundle)
+    info = plistlib.loads((bundle / "Contents/Info.plist").read_bytes())
+    if info.get("CFBundlePackageType") != "BNDL" or info.get("CFBundleIdentifier") != expected_identifier:
+        raise ValueError("Unexpected Metal plugin identity")
+    if info.get("NSPrincipalClass") != "NVMTLDevice":
+        raise ValueError("Unexpected Metal plugin principal class")
+    if info.get("CFBundleExecutable") != "NVMTLDriver":
+        raise ValueError("Unexpected Metal plugin executable")
+    result = inspect_macho(bundle / "Contents/MacOS/NVMTLDriver", 8)
+    result["bundle_identifier"] = expected_identifier
+    return result

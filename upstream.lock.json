@@ -8,6 +8,11 @@
     "url": "https://github.com/acidanthera/MacKernelSDK.git",
     "commit": "3f750085caa17ec3a7880f11c11bf4f48cd6a164"
   },
+  "Vulkan-Headers": {
+    "url": "https://github.com/KhronosGroup/Vulkan-Headers.git",
+    "commit": "6802bb4733b63ed5efd3adb308a6c885ef180ea1",
+    "tag": "v1.4.363"
+  },
   "patches": [
     "patches/0001-strict-hardware-execution.patch"
   ],

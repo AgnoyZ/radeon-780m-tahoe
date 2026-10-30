@@ -50,6 +50,11 @@ class SourceTests(unittest.TestCase):
     def test_provenance_is_not_hardware_pass(self):
         self.assertFalse(self.provenance["hardware_tested"])
         self.assertEqual(1, len(self.provenance["patches_sha256"]))
+    def test_plugin_source_and_notice_are_staged(self):
+        self.assertTrue((self.stage / "src/nmplugin/NVMTLDevice.m").is_file())
+        self.assertTrue((self.stage / "src/nmplugin/nvmtl_vk.c").is_file())
+        notice = (self.stage / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+        self.assertIn("Required Notice: Copyright (c) 2026 NullMoth Systems", notice)
     def test_reject_path_traversal(self):
         data = io.BytesIO()
         with tarfile.open(fileobj=data, mode="w") as archive:

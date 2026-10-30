@@ -40,7 +40,7 @@ def prepare(destination, root=ROOT):
     verify_checkout(source, lock["nullarc"]["commit"])
     if destination.exists():
         raise RuntimeError("Staging directory already exists; choose a fresh output, do not overwrite")
-    archive = git(source, "archive", lock["nullarc"]["commit"], "src/phxbringup", "src/phxaccel",
+    archive = git(source, "archive", lock["nullarc"]["commit"], "src/phxbringup", "src/phxaccel", "src/nmplugin",
                   "LICENSE", "LICENSES", "THIRD_PARTY_NOTICES.md")
     destination.mkdir(parents=True)
     export_archive(archive, destination)

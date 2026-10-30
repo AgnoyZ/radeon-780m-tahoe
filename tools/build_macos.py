@@ -1,4 +1,4 @@
-"""Build experimental x86_64 kexts and the Metal correctness probe; NEVER install/load them."""
+"""Build experimental x86_64 kexts, Metal plugin and correctness probe; NEVER install/load them."""
 import argparse
 import hashlib
 import json
@@ -9,6 +9,7 @@ import subprocess
 
 from prepare_source import ROOT, git, prepare, verify_checkout
 from verify_artifacts import inspect_kext, inspect_macho
+from build_userspace import build_plugin
 
 def run(*args):
     print("RUN", " ".join(map(str, args)), flush=True)
@@ -17,6 +18,7 @@ def run(*args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sdk", type=Path, required=True)
+    parser.add_argument("--vulkan-headers", type=Path, required=True)
     parser.add_argument("--out", type=Path, default=ROOT / "build/experimental")
     args = parser.parse_args()
     if platform.system() != "Darwin":
@@ -24,6 +26,10 @@ def main():
     sdk = args.sdk.resolve()
     lock = json.loads((ROOT / "upstream.lock.json").read_text())
     verify_checkout(sdk, lock["MacKernelSDK"]["commit"])
+    headers = args.vulkan_headers.resolve()
+    verify_checkout(headers, lock["Vulkan-Headers"]["commit"])
+    if not (headers / "include/vulkan/vulkan.h").is_file():
+        raise RuntimeError("Vulkan-Headers dependency lacks vulkan.h")
     if not (sdk / "Library/x86_64/libkmod.a").is_file():
         raise RuntimeError("SDK lacks the x86_64 kmod library")
     out = args.out.resolve()
@@ -68,6 +74,7 @@ def main():
         run("codesign", "--force", "--sign", "-", bundle)
         run("codesign", "--verify", "--strict", bundle)
         report[component] = inspect_kext(bundle, identifier)
+    report["NVMTLDriver"] = build_plugin(stage, headers, artifacts, run)
     smoke = artifacts / "metal-smoke"
     run("xcrun", "clang", "-arch", "x86_64", "-mmacosx-version-min=13.0", "-fobjc-arc", "-fblocks",
         "-Wall", "-Wextra", "-Werror", "-framework", "Foundation", "-framework", "Metal",
@@ -76,8 +83,14 @@ def main():
     shutil.copytree(stage / "LICENSES", artifacts / "LICENSES")
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         shutil.copy2(stage / name, artifacts / ("UPSTREAM-" + name))
+    header_notices = artifacts / "DEPENDENCY-LICENSES/Vulkan-Headers"
+    header_notices.mkdir(parents=True)
+    shutil.copy2(headers / "LICENSE.md", header_notices / "LICENSE.md")
+    shutil.copytree(headers / "LICENSES", header_notices / "LICENSES")
     shutil.copy2(ROOT / "docs/EXPERIMENTAL.md", artifacts / "READ-BEFORE-USE.md")
-    provenance.update({"sdk_commit": lock["MacKernelSDK"]["commit"], "project_commit": git(ROOT, "rev-parse", "HEAD").decode().strip(),
+    provenance.update({"sdk_commit": lock["MacKernelSDK"]["commit"],
+                       "vulkan_headers_commit": lock["Vulkan-Headers"]["commit"],
+                       "project_commit": git(ROOT, "rev-parse", "HEAD").decode().strip(),
                        "project_dirty": bool(git(ROOT, "status", "--porcelain").strip()),
                        "compiler": subprocess.check_output(["xcrun", "clang", "--version"]).decode(),
                        "host": platform.platform(), "artifacts": report,
