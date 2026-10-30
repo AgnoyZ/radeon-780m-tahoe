@@ -22,7 +22,7 @@
 
 ## Not implemented / not verified
 - Machine-specific firmware carve-out safety, all kernel memory/concurrency paths, panel/power differences and full ABI compatibility audit.
-- Self-contained RADV dependency fix, verified LLVM AIR runtime build, GPU firmware and boot orchestration; runtime integration of the full Metal stack on the target GPU.
+- Verified LLVM AIR runtime build, GPU firmware and boot orchestration; runtime integration of the full Metal stack on the target GPU. RADV's direct system-only dependencies now pass host validation, not target deployment validation.
 - Tahoe installation on the target laptop and actual GPU command completion, Metal rendering, WindowServer integration and long-run stability.
 - Resolved ABI provenance discrepancy noted in EXPERIMENTAL.md; no external redistribution authorization is inferred.
 
@@ -56,5 +56,16 @@ The goal remains a working 780M Tahoe graphics stack. This milestone is a code/b
 - Code commit `a2968730f7b035d8f62867fceeee1472157c5571`, run `41063982777`: both jobs passed after the C11 assertion-header fix. Mesa produced an x86_64 MH_DYLIB of 20,264,560 bytes, SHA-256 `51e7925c2af6110ed71d7e7052f03054766b34bac3db0163f125abc5eb94e4e4`; signing and the actual shared-header transport checks passed.
 - Real ICD dlopen(RTLD_NOW), Vulkan instance creation, Phoenix service policy and empty physical-device enumeration passed in four separate processes: native/no service, rejected mock, rejected host-only and rejected non-Phoenix profile. No VkDevice was created and no GPU work was submitted.
 - **Portability gap found in the successful report:** the dylib links `/usr/local/opt/spirv-tools/lib/libSPIRV-Tools.dylib`. The CI host has that library; a clean target system need not. Host loading therefore does NOT establish a deployable runtime.
-- Follow-up disables Mesa's optional SPIRV-Tools debugging linkage via its supported Meson feature and adds a hard system-only dependency gate. Shader compilation remains enabled and external spirv-val validation remains mandatory. This correction is pending new native validation.
+- Follow-up disables Mesa's optional SPIRV-Tools debugging linkage via its supported Meson feature and adds a hard system-only dependency gate. Shader compilation remains enabled and external spirv-val validation remains mandatory. The correction passed the subsequent RADV phase documented below.
 - Sanitized evidence with the original dependency list: `validation/ci-a296873.json`. GitHub confirms zero retained artifacts. LLVM/real Metal compiler-chain integration was not part of this historical run.
+
+## RADV dependency correction and LLVM configuration failure
+- Run `41067014778`, code `034d0c2ff47260c3483dcc17eb378e4dfa412c25`, verified RADV's direct dependencies contain only IOKit and system libSystem/libz/libc++; the absolute Homebrew SPIRV-Tools dependency is gone. The dylib is 20,264,208 bytes, SHA-256 `bf386fee7ab64d49618c5daf753b74eed28e002bc70aa8e72a638aa26401e915`.
+- Signing, the real shared-header ABI checks and all four actual load/empty-enumeration cases passed. All 16 patch hashes match the previous build. This is not a VkDevice, GPU submission or target-machine integration test.
+- The overall run failed afterward at LLVM configuration because its sparse checkout excludes `llvm/docs`. The same failure occurred in `41065701927`. Commit `dadac3f` explicitly disables documentation; its regression test reproduced the omission before the fix. Actual LLVM compilation and compiler-chain validation still require native CI evidence.
+- Sanitized partial-build evidence: `validation/ci-034d0c2.json`. The overall failure is preserved rather than reported as a full pass; GitHub confirms no retained artifacts.
+
+## Metal compute acceptance probe
+- Commit `e454560` replaces marketing-name matching with Metal registry ID to PCI `1002:1900` verification, refuses ambiguous/unverified identities and permits submission only on Darwin 25.
+- Six real dispatch sizes use alternating 0/256-byte output offsets, unchanged-input checks, guards and independent expected results. Complement initialization rejects missing GPU writes. The checker is shared with synthetic CPU tests; those tests are not GPU evidence.
+- Native Objective-C compilation, sanitizer execution of the new checker and non-target-host refusal remain subject to CI results. No probe has executed on the target laptop.

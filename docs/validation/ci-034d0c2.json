@@ -1,0 +1,147 @@
+{
+  "ci_run_id": 41067014778,
+  "ci_overall_conclusion": "failure",
+  "radv": {
+    "project_commit": "034d0c2ff47260c3483dcc17eb378e4dfa412c25",
+    "mesa_commit": "f5cb8ee032adabef599ae892ec4e42d796b84da9",
+    "cobalt_commit": "d6c9aedf8e6526a39e349b5886cbc8c7ddf77f65",
+    "nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+    "patches": [
+      {
+        "component": "Cobalt64",
+        "name": "0001-radv-Darwin-macOS-backend-with-canned-gfx1201-device.patch",
+        "sha256": "c70e5b13179edf09c105524d7b36351f5aa9db35f6fffdb91723744ff019679d"
+      },
+      {
+        "component": "Cobalt64",
+        "name": "0002-radv-Darwin-native-backend-Mesa-half-of-the-Navi48-k.patch",
+        "sha256": "8dfc56cec7369c8337e930cc7a0000099425fd891a0c88fd810b7062de9cb480"
+      },
+      {
+        "component": "Cobalt64",
+        "name": "0003-radv-Darwin-scanout-API-on-the-N48N-connection-ABI-1.patch",
+        "sha256": "9cf1c92d436255b3fbb3493f1f602e99e888c0f515fb7fea5631b5da37f6f73d"
+      },
+      {
+        "component": "Cobalt64",
+        "name": "0004-darwin-host-pointer-import-userptr-via-N48N-BoImport.patch",
+        "sha256": "e03062531ba33986507f52635f6b9c1f2c09301108bf06b82223aca2d4ab7807"
+      },
+      {
+        "component": "Cobalt64",
+        "name": "0005-radv-amdgpu-cs_grow-failure-paths-return-instead-of-.patch",
+        "sha256": "f01262151341e94c2c61c4164e661203dfe9a42d87567bb836441ae0095d8fa7"
+      },
+      {
+        "component": "Cobalt64",
+        "name": "0006-radv-darwin-report-the-kext-s-per-session-VRAM-budge.patch",
+        "sha256": "5b9933b1e88bbd310ae5b59cf4f01da000917385154b738bd3b9d53e7c205dcf"
+      },
+      {
+        "component": "Cobalt64",
+        "name": "0007-radv-darwin-take-GB_ADDR_CONFIG-from-QueryInfo-ReadR.patch",
+        "sha256": "8383181e4b3ab9bdbbefc28a4f424e4805d7c17d19366c342abaccf1a8a751f3"
+      },
+      {
+        "component": "Cobalt64",
+        "name": "0008-radv-darwin-radv_darwin_set_service_class-Navi48Brin.patch",
+        "sha256": "550e5a8fb45e2efe7514c4076d9bfcbad01b29e9e59334eb0c2263327572cfc6"
+      },
+      {
+        "component": "Cobalt64",
+        "name": "0009-radv-darwin-radv_darwin_n48n_call-selectors-22.26-on.patch",
+        "sha256": "07e6fd710ea0d06f3fa44dd108d77315c2f22825253021e79d054790d7f74701"
+      },
+      {
+        "component": "radv-phoenix",
+        "name": "0001-radv-darwin-selectable-canned-device-default-phoenix.patch",
+        "sha256": "b066c2b60bb58d075c8dfc647dc510e7a02449bb370c8dbf1a9a9f96f77a5532"
+      },
+      {
+        "component": "radv-phoenix",
+        "name": "0002-radv-darwin-report-Radeon-780M-identity-for-the-phoe.patch",
+        "sha256": "5a6874b77c876296ea6cdca1f6cdc01c7654d93fd8651b02e807688e720369e6"
+      },
+      {
+        "component": "radv-phoenix",
+        "name": "0003-radv-darwin-open-the-PhxBringup-service-by-default.patch",
+        "sha256": "ef19977422a94a2a633ddec32cb236f9e60f6f1536691f7d0f82c5f3c3640aa1"
+      },
+      {
+        "component": "radv-phoenix",
+        "name": "0004-radv-darwin-AMDGPU_INFO_TIMESTAMP-from-SMUIO-GOLDEN_TSC.patch",
+        "sha256": "7838c16102c49c3b2e7f1cef143cb316166e08a4cc95d88ab0bbfaae72986a2b"
+      },
+      {
+        "component": "radv-phoenix",
+        "name": "0005-radv-darwin-reach-PhxBringup-through-the-accelerator.patch",
+        "sha256": "058a0a3bc9ec8679bd3ad940aa64d5a7e4024dd0732aa1afcc758a134dfc137a"
+      },
+      {
+        "component": "radv-phoenix",
+        "name": "0006-radv-unroll-nested-loops-without-a-full-optimization.patch",
+        "sha256": "1d0105993888b0ce9283cbf6ae6eeee3612a47deb7bc7482f896a58edac7e4c0"
+      },
+      {
+        "component": "downstream",
+        "name": "0001-native-phoenix-only.patch",
+        "sha256": "0e91433a8c44dfd2aaf0ca3db1b994427f946daafee053ef75d12241381dedff"
+      }
+    ],
+    "architecture": "x86_64",
+    "macho_type": 6,
+    "sha256": "bf386fee7ab64d49618c5daf753b74eed28e002bc70aa8e72a638aa26401e915",
+    "bytes": 20264208,
+    "dependencies": [
+      "/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit",
+      "/usr/lib/libSystem.B.dylib",
+      "/usr/lib/libz.1.dylib",
+      "/usr/lib/libc++.1.dylib"
+    ],
+    "runtime_dependency_policy": "system-only",
+    "runtime_tests": {
+      "native": {
+        "runtime_loaded": true,
+        "physical_devices": 0,
+        "gpu_submitted": false
+      },
+      "reject_mock": {
+        "runtime_loaded": true,
+        "physical_devices": 0,
+        "gpu_submitted": false
+      },
+      "reject_host_only": {
+        "runtime_loaded": true,
+        "physical_devices": 0,
+        "gpu_submitted": false
+      },
+      "reject_other_gpu": {
+        "runtime_loaded": true,
+        "physical_devices": 0,
+        "gpu_submitted": false
+      }
+    },
+    "native_transport_layout_verified": true,
+    "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)\nTarget: x86_64-apple-darwin24.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+    "host": "macOS-15.7.9-x86_64-i386-64bit-Mach-O",
+    "meson_version": "1.9.1",
+    "ninja_version": "1.13.0.git.kitware.jobserver-pipe-1",
+    "hardware_tested": false,
+    "deployment_performed": false,
+    "metal_stack_complete": false
+  },
+  "subsequent_failure": {
+    "component": "LLVM AIR runtime",
+    "phase": "CMake configuration",
+    "message": "add_subdirectory given source \"docs\" which is not an existing directory.",
+    "fix_commit": "dadac3f100b60103f84b37028ae526addc792631",
+    "fix": "Explicit LLVM_INCLUDE_DOCS=OFF for the sparse source checkout",
+    "fix_native_verified": false
+  },
+  "retained_binary_artifacts": false,
+  "limitations": [
+    "Partial build evidence from a failed overall run, not a complete build pass.",
+    "No VkDevice, GPU submission, Tahoe target execution or full Metal plugin integration.",
+    "System-only direct dependencies and host loading do not establish target deployability."
+  ]
+}
