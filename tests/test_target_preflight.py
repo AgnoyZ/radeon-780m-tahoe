@@ -18,10 +18,10 @@ def inventory(**overrides):
         "pci": {
             "selection": "single_registry_match",
             "target_candidates": [{"registry_pci_id": "1002:1900", "assigned_ranges": [{"reported_base": "0x1000"}]}],
+            "physical_identity_verified": False,
+            "reserved_region_ownership_verified": False,
         },
         "safe_to_initialize": False,
-        "physical_identity_verified": False,
-        "reserved_region_ownership_verified": False,
         "gpu_work_submitted": False,
         "hardware_executed": False,
     }

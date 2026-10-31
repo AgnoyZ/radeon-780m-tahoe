@@ -65,14 +65,20 @@ def evaluate(inventory):
         "passed": isinstance(ranges, list) and bool(ranges),
         "observed": {"range_count": len(ranges) if isinstance(ranges, list) else None},
     })
-    unsafe_flags = ("safe_to_initialize", "physical_identity_verified",
-                    "reserved_region_ownership_verified", "gpu_work_submitted",
-                    "hardware_executed")
-    state_safe = all(inventory.get(key) is False for key in unsafe_flags)
+    # The collector keeps identity/ownership flags under `pci`, while execution
+    # flags are report-level fields. Treat missing or true values as unsafe.
+    unsafe_flags = {
+        "safe_to_initialize": inventory.get("safe_to_initialize"),
+        "physical_identity_verified": pci.get("physical_identity_verified"),
+        "reserved_region_ownership_verified": pci.get("reserved_region_ownership_verified"),
+        "gpu_work_submitted": inventory.get("gpu_work_submitted"),
+        "hardware_executed": inventory.get("hardware_executed"),
+    }
+    state_safe = all(value is False for value in unsafe_flags.values())
     checks.append({
         "name": "inventory_has_no_positive_execution_claims",
         "passed": state_safe,
-        "observed": {key: inventory.get(key) for key in unsafe_flags},
+        "observed": unsafe_flags,
     })
     identity_ok = all(check["passed"] for check in checks[:2])
     check_allowed = identity_ok and checks[2]["passed"] and checks[3]["passed"]
