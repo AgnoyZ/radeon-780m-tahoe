@@ -40,6 +40,8 @@ jobs:
         run: python3 tools/test_context_retirement.py --out build/context-retirement-tests
       - name: Exercise deferred BO release and checked mapping without hardware
         run: python3 tools/test_bo_retirement.py --out build/bo-retirement-tests
+      - name: Exercise serialized queue retirement and submission without hardware
+        run: python3 tools/test_queue_retirement.py --out build/queue-retirement-tests
       - name: Fault-inject authenticated firmware control without hardware
         run: python3 tools/test_firmware_control.py --out build/firmware-control-tests
       - name: Exercise complete firmware sequence with synthetic inputs

@@ -152,6 +152,7 @@ int main(int argc, char **argv) {
         const auto &q = p.gq[p.target];
         assert(q.ready && q.gfx == (p.target == 1) && q.ringOff == input[0] && q.ringDw == input[1]);
         assert(q.wbOff == input[2] && q.dbByte == input[3] && q.wptr == input[4] && q.doneEnd == input[4]);
+        assert(q.retiredSeq == seq);
         assert(q.fenceOff == (input[5] & ~1ull) && q.head == 0 && q.tail == 0);
         for (unsigned i = 0; i < 64; ++i) assert(q.fseq[i] == 0 && q.fend[i] == 0);
         const unsigned other = p.target ^ 1;

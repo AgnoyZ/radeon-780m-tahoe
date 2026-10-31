@@ -1,0 +1,188 @@
+--- a/src/phxbringup/PhxBringup.cpp
++++ b/src/phxbringup/PhxBringup.cpp
+@@ -184,15 +184,17 @@
+     // submissions in order (sequence, ring position after it).
+     struct GpuQueue {
+         bool ready, gfx;
+         uint32_t ringOff, ringDw, wbOff, fenceOff;
+-        uint64_t dbByte, wptr, doneEnd;
++        uint64_t dbByte, wptr, doneEnd, retiredSeq;
+         uint64_t fseq[64], fend[64];
+         volatile uint32_t head, tail;
+     };
+     GpuQueue gq[2]{};
+     uint64_t gSeq{0};
+     uint64_t queueFence(const GpuQueue &q) const;
++    bool queueProgress(const GpuQueue &q, uint64_t *done) const;
++    uint64_t gpuRetiredLocked() const;
+     IOLock *gpuLock{nullptr};
+     // One GPUVM context (page tables) per client, and the eight hardware VMIDs lent to contexts at submission time,
+     // as amdgpu does: a fixed VMID per client capped Metal at eight processes, and with every app allowed Metal the
+     // ninth got no device (2026-10-20). A context's handle is its index + 1.
+@@ -703,9 +705,9 @@
+         return c.hw;
+     }
+     int pick = -1;
+     for (int spin = 0; pick < 0; spin++) {
+-        const uint64_t done = gpuRetired();
++        const uint64_t done = gpuRetiredLocked();
+         uint64_t oldest = ~0ull;
+         for (uint32_t i = 0; i < kNumUserVmids; i++) {
+             if (hwv[i].faulted) continue;
+             if (hwv[i].ctx && (hwv[i].ctx > kMaxCtx || !vm[hwv[i].ctx - 1].busy ||
+@@ -778,9 +780,9 @@
+ // gpuLock held. Closing contexts cannot accept new work. Never infer completion from lost hardware.
+ void PhxBringup::reapContextsLocked() {
+     if (quarantinedBuffers) return;
+     const bool observable = fbAper && mmio && (gq[0].ready || gq[1].ready);
+-    const uint64_t done = observable ? gpuRetired() : 0;
++    const uint64_t done = observable ? gpuRetiredLocked() : 0;
+     for (uint32_t i = 0; i < kMaxCtx; ++i) {
+         VmCtx &c = vm[i];
+         if (!c.busy || !c.closing || c.retireSeq > done || (c.retireSeq && !observable) || !c.hw)
+             continue;
+@@ -874,8 +876,9 @@
+         next.wbOff = static_cast<uint32_t>(wbOff);
+         next.fenceOff = static_cast<uint32_t>(fenceOff);
+         next.dbByte = dbByte;
+         next.wptr = next.doneEnd = wptr;
++        next.retiredSeq = gSeq;
+         volatile uint32_t *fence = reinterpret_cast<volatile uint32_t *>(fbAper->getVirtualAddress() + fenceOff);
+         fence[0] = static_cast<uint32_t>(gSeq);
+         fence[1] = static_cast<uint32_t>(gSeq >> 32);
+         hdpFlush();
+@@ -921,9 +924,9 @@
+ IOReturn PhxBringup::vmIdleLocked(uint32_t handle, bool repair) {
+     VmCtx *c = vmCtx(handle);
+     if (!c || !gpuReady() || !mmio || !fbAper || !vmOwnershipKnown(repair ? c->hw : 0))
+         return kIOReturnNotReady;
+-    if (c->lastSeq && gpuRetired() < c->lastSeq) return kIOReturnBusy;
++    if (c->lastSeq && gpuRetiredLocked() < c->lastSeq) return kIOReturnBusy;
+     if (c->hw && !vmBindingValid(c->hw, c->phys)) {
+         hwv[c->hw - kFirstUserVmid].faulted = true;
+         return kIOReturnNotReady;
+     }
+@@ -1013,55 +1016,96 @@
+     *reinterpret_cast<volatile uint32_t *>(fbAper->getVirtualAddress() + q.ringOff + slot * 4) = value;
+ }
+ 
+ uint64_t PhxBringup::queueFence(const GpuQueue &q) const {
+-    const volatile uint32_t *f = reinterpret_cast<const volatile uint32_t *>(fbAper->getVirtualAddress() + q.fenceOff);
+-    return static_cast<uint64_t>(f[0]) | (static_cast<uint64_t>(f[1]) << 32);
+-}
+-
+-// Everything up to the returned sequence has finished: the oldest submission still running on any queue, minus one.
+-// Lock-free reader: an entry is written before `tail` moves past it.
+-uint64_t PhxBringup::gpuRetired() const {
+-    if (!fbAper && (gq[0].ready || gq[1].ready)) return 0;
+-    uint64_t r = gSeq;
++    // Adoption requires an aligned eight-byte location; issue one native 64-bit observation.
++    return *reinterpret_cast<const volatile uint64_t *>(fbAper->getVirtualAddress() + q.fenceOff);
++}
++
++// gpuLock held. Reject impossible observations before retiring history or publishing more work.
++bool PhxBringup::queueProgress(const GpuQueue &q, uint64_t *doneOut) const {
++    if (!doneOut || !fbAper || !q.ready || (q.fenceOff & 7) ||
++        q.tail - q.head > 63 || q.retiredSeq > gSeq) return false;
++    const uint64_t done = queueFence(q);
++    if (done == UINT64_MAX || done < q.retiredSeq || done > gSeq) return false;
++    uint64_t previous = q.retiredSeq;
++    bool observed = done == q.retiredSeq;
++    const uint32_t count = q.tail - q.head;
++    for (uint32_t i = 0; i < count; ++i) {
++        const uint64_t seq = q.fseq[(q.head + i) & 63];
++        if (!seq || seq <= previous || seq > gSeq) return false;
++        if (seq == done) observed = true;
++        previous = seq;
++    }
++    if (!observed) return false;
++    *doneOut = done;
++    return true;
++}
++
++// gpuLock held: queue entries, sequence and history indices belong to one serialized snapshot.
++uint64_t PhxBringup::gpuRetiredLocked() const {
++    if (!fbAper || !mmio || (!gq[0].ready && !gq[1].ready)) return 0;
++    uint64_t retired = gSeq;
+     for (const GpuQueue &q : gq) {
+-        if (!q.ready)
+-            continue;
+-        const uint64_t done = queueFence(q);
+-        if (done > gSeq) return 0;
+-        const uint32_t tail = q.tail;
+-        for (uint32_t i = q.head; i != tail; i++) {
+-            if (q.fseq[i & 63] > done) {
+-                if (q.fseq[i & 63] - 1 < r)
+-                    r = q.fseq[i & 63] - 1;
++        if (!q.ready) continue;
++        uint64_t done = 0;
++        if (!queueProgress(q, &done)) return 0;
++        const uint32_t count = q.tail - q.head;
++        for (uint32_t i = 0; i < count; ++i) {
++            const uint64_t seq = q.fseq[(q.head + i) & 63];
++            if (seq > done) {
++                if (seq - 1 < retired) retired = seq - 1;
+                 break;
+             }
+         }
+     }
+-    return r;
++    return retired;
++}
++
++uint64_t PhxBringup::gpuRetired() const {
++    if (!gpuLock) return 0;
++    IOLockLock(gpuLock);
++    const uint64_t retired = gpuRetiredLocked();
++    IOLockUnlock(gpuLock);
++    return retired;
+ }
+ 
+ IOReturn PhxBringup::gpuSubmit(uint32_t handle, bool gfx, const uint64_t *ibVa, const uint32_t *ibDw, uint32_t n, uint64_t *seqOut) {
+-    // Do not run graphics packets on a compute queue (or silently substitute the other engine).
++    if (!seqOut || !ibVa || !ibDw || !n || n > PHXN_MAX_IBS) return kIOReturnBadArgument;
++    if (!gpuLock) return kIOReturnNotReady;
++    IOLockLock(gpuLock);
++    // Queue selection and context lookup share the lock with adoption, stop and retirement.
+     const int queue = phx780m::queueIndex(gfx, gq[0].ready, gq[1].ready);
+-    if (queue < 0 || !vmCtx(handle))
+-        return kIOReturnNotReady;
++    if (stopping || queue < 0 || !vmCtx(handle) || !fbAper || !mmio || !doorbellMap) {
++        IOLockUnlock(gpuLock); return kIOReturnNotReady;
++    }
+     GpuQueue &q = gq[queue];
+     const uint32_t need = n * 4 + 8;
+-    if (need + 16 > q.ringDw)
+-        return kIOReturnBadArgument;
+-    IOLockLock(gpuLock);
+-    if (!vmCtx(handle)) { IOLockUnlock(gpuLock); return kIOReturnNotReady; }
++    if (q.ringDw < need + 16 || (q.ringDw & (q.ringDw - 1))) {
++        IOLockUnlock(gpuLock); return kIOReturnBadArgument;
++    }
+     reapContextsLocked();
+     if (gSeq == UINT64_MAX || q.wptr > UINT64_MAX - need) {
+         IOLockUnlock(gpuLock);
+         return kIOReturnNoResources;
+     }
+     // Ring space and the 64-entry history: retire finished entries, wait for the oldest one if needed (bounded, ~2 s).
+     for (int spin = 0;; spin++) {
+-        const uint64_t done = queueFence(q);
++        uint64_t done = 0;
++        if (!queueProgress(q, &done) || q.doneEnd > q.wptr) {
++            IOLockUnlock(gpuLock); return kIOReturnBusy;
++        }
++        uint64_t end = q.doneEnd;
++        const uint32_t count = q.tail - q.head;
++        for (uint32_t i = 0; i < count; ++i) {
++            const uint64_t next = q.fend[(q.head + i) & 63];
++            if (next <= end || next > q.wptr) { IOLockUnlock(gpuLock); return kIOReturnBusy; }
++            end = next;
++        }
++        if (end != q.wptr) { IOLockUnlock(gpuLock); return kIOReturnBusy; }
+         while (q.head != q.tail && q.fseq[q.head & 63] <= done) {
+             q.doneEnd = q.fend[q.head & 63];
++            q.retiredSeq = q.fseq[q.head & 63];
+             q.head++;
+         }
+         if (q.tail - q.head < 63 && q.wptr + need - q.doneEnd <= q.ringDw - 16)
+             break;

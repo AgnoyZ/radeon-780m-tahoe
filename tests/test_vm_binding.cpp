@@ -1,5 +1,6 @@
 // Actual staged method bodies; only IOKit/MMIO/retirement observations are faked.
 #include "PhxHardwarePolicy.hpp"
+#include "PhxNativeABI.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -68,7 +69,8 @@ public:
     void hdpFlush() { assert(mutex); ++flushes; }
     void reapContextsLocked() { assert(mutex); }
     uint64_t queueFence(const GpuQueue &) const { return gSeq; }
-    uint64_t gpuRetired() const { assert(mutex); ++retireReads; return done; }
+    bool queueProgress(const GpuQueue &, uint64_t *value) const { assert(mutex); *value = gSeq; return true; }
+    uint64_t gpuRetiredLocked() const { assert(mutex); ++retireReads; return done; }
     bool vmFlushTlb(uint32_t) const;
     bool vmBindingValid(uint32_t, uint64_t) const;
     uint32_t vmBind(uint32_t);

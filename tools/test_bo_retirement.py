@@ -12,7 +12,7 @@ from prepare_source import ROOT, prepare
 from test_context_retirement import extract_source as extract_retirement
 
 OWNER_METHODS = ('vmOwnershipKnown', 'vmIdleLocked', 'vmCanReclaim', 'vmMap', 'vmUnmap',
-                 'vmFlushTlb', 'vmBindingValid', 'gpuRetired', 'queueFence')
+                 'vmFlushTlb', 'vmBindingValid', 'gpuRetired', 'gpuRetiredLocked', 'queueProgress', 'queueFence')
 CLIENT_METHODS = ('hasPending', 'reapPending', 'doBoFree', 'boRelease', 'findBo',
                   'doGemVa', 'ibCovered', 'doSubmit')
 CASES = (

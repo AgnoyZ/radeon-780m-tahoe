@@ -82,7 +82,7 @@ public:
         c.pages = kPtChunks * kPtChunkPages; c.used = 17; c.lastSeq = 5;
         c.chunk[0] = &root; c.chunk[1] = &child;
         hwv[0].ctx = 1; hwv[0].lastSeq = 5;
-        gq[0].ready = true; gq[0].fenceOff = 0x100; gq[0].tail = 1; gq[0].fseq[0] = 5;
+        gq[0].ready = true; gq[0].fenceOff = 0x100; gq[0].tail = 1; gq[0].fseq[0] = 5; gq[0].retiredSeq = 4;
         aperture.words[0x100 / 8] = 4; regs[kRegCtx0Cntl + 8] = 0x01fffe07;
     }
     void wreg(uint32_t reg, uint32_t value) const {
@@ -110,6 +110,8 @@ public:
     void reapContexts(); void reapContextsLocked();
     uint32_t vmidAlloc();
     uint64_t queueFence(const GpuQueue &) const;
+    bool queueProgress(const GpuQueue &, uint64_t *) const;
+    uint64_t gpuRetiredLocked() const;
     uint64_t gpuRetired() const;
     void stop(IOService *);
 };
@@ -271,8 +273,8 @@ int main(int argc, char **argv) {
             if (test == "invalid-pages") p.vm[0].used = p.vm[0].pages + 1;
             if (test == "missing-chunk") p.vm[0].chunk[1] = nullptr;
             if (test == "two-queues-pending" || test == "two-queues-complete") {
-                p.gq[0].fseq[0] = 4; p.aperture.words[0x100 / 8] = 4;
-                p.gq[1].ready = true; p.gq[1].tail = 1; p.gq[1].fseq[0] = 5; p.gq[1].fenceOff = 0x108;
+                p.gq[0].fseq[0] = 4; p.gq[0].retiredSeq = 3; p.aperture.words[0x100 / 8] = 4;
+                p.gq[1].ready = true; p.gq[1].tail = 1; p.gq[1].fseq[0] = 5; p.gq[1].fenceOff = 0x108; p.gq[1].retiredSeq = 4;
                 p.aperture.words[0x108 / 8] = test == "two-queues-complete" ? 5 : 4;
             }
             if (test == "empty-buffer-container") { buffers->entries[1] = PhxClientBo{}; buffers->entries[2] = PhxClientBo{}; }

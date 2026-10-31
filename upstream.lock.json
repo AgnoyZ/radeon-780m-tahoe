@@ -61,7 +61,8 @@
     "patches/0017-checked-queue-adoption.patch",
     "patches/0018-checked-vmid-binding.patch",
     "patches/0019-deferred-client-context-retirement.patch",
-    "patches/0020-deferred-bo-release-and-checked-unmap.patch"
+    "patches/0020-deferred-bo-release-and-checked-unmap.patch",
+    "patches/0021-serialized-queue-retirement.patch"
   ],
   "target": {
     "darwin_major": 25,

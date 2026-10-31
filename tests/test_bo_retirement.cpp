@@ -64,7 +64,7 @@ public:
     PhxBringup() {
         vm[0].busy = true; vm[0].hw = 8; vm[0].phys = 0x200000; vm[0].lastSeq = 5;
         hwv[0].ctx = 1; hwv[0].lastSeq = 5;
-        gq[0].ready = true; gq[0].fenceOff = 0x100; gq[0].tail = 1; gq[0].fseq[0] = 5;
+        gq[0].ready = true; gq[0].fenceOff = 0x100; gq[0].tail = 1; gq[0].fseq[0] = 5; gq[0].retiredSeq = 4;
         aperture.words[0x100 / 8] = 5;
         regs[kRegCtx0BaseLo + 16] = 0x200003; regs[kRegCtx0BaseLo + 17] = 0;
         regs[kRegCtx0Cntl + 8] = 0x01fffe07;
@@ -99,6 +99,8 @@ public:
     bool vmFlushTlb(uint32_t) const;
     bool vmBindingValid(uint32_t, uint64_t) const;
     uint64_t queueFence(const GpuQueue &) const;
+    bool queueProgress(const GpuQueue &, uint64_t *) const;
+    uint64_t gpuRetiredLocked() const;
     uint64_t gpuRetired() const;
 };
 class IOAccelPhxNativeClient {

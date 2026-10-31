@@ -12,7 +12,7 @@ from prepare_source import ROOT, prepare
 from test_vm_binding import extract_source as extract_vm
 
 OWNER_METHODS = ('vmOwnershipKnown', 'vmFlushTlb', 'deferClient', 'reapContexts', 'reapContextsLocked',
-                 'vmidAlloc', 'queueFence', 'gpuRetired', 'stop')
+                 'vmidAlloc', 'queueFence', 'queueProgress', 'gpuRetiredLocked', 'gpuRetired', 'stop')
 CLIENT_METHODS = ('boRelease', 'freeAll', 'closeResources', 'clientClose', 'free',
                   'findBo', 'clientMemoryForType', 'doWaitSeq')
 CASES = (
