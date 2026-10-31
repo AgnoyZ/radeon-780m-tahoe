@@ -58,7 +58,8 @@
     "patches/0014-profile-mes-start.patch",
     "patches/0015-explicit-scheduler-queue.patch",
     "patches/0016-explicit-compute-ring-probe.patch",
-    "patches/0017-checked-queue-adoption.patch"
+    "patches/0017-checked-queue-adoption.patch",
+    "patches/0018-checked-vmid-binding.patch"
   ],
   "target": {
     "darwin_major": 25,

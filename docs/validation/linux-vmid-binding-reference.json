@@ -1,0 +1,41 @@
+{
+  "source_repository": "torvalds/linux",
+  "source_commit": "7d0a66e4bb9081d75c82ec4957c50034cb0ea449",
+  "files": [
+    {
+      "path": "drivers/gpu/drm/amd/amdgpu/gfxhub_v3_0.c",
+      "sha256": "bcd2f578ad0c7eb3ae84befc75efbff48b0bae0bd46dc95f1e4e6e1133e8d76d",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/amdgpu/gmc_v11_0.c",
+      "sha256": "718641737c3ee33bb381dd20904ec299cbcb2502abcce80eb65dede36465858a",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/include/asic_reg/gc/gc_11_0_0_sh_mask.h",
+      "sha256": "83dd0060886da2927e3f722b992af208e4d41999b0740123a770a6561f060c94",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/include/asic_reg/gc/gc_11_0_0_offset.h",
+      "sha256": "a2394677509a3415a9e6307d876cae9cd654a99275ab40b3027d983da26801f2",
+      "license_notice": "AMD MIT-style notice inspected"
+    }
+  ],
+  "checked_fields": {
+    "per_vmid_mask": "0x0000ffff",
+    "flush_type_mask": "0x00070000",
+    "invalidate_l2_ptes": "0x00080000",
+    "invalidate_l2_pde0": "0x00100000",
+    "invalidate_l2_pde1": "0x00200000",
+    "invalidate_l2_pde2": "0x00400000",
+    "invalidate_l1_ptes": "0x00800000",
+    "legacy_flags": "0x00f80000",
+    "engine_17_request_relative": "0x16bc",
+    "engine_17_ack_relative": "0x16ce"
+  },
+  "implementation": "Independently written validation and error propagation around pinned nullarc binding. No complete Linux function body or header copied.",
+  "limitation": "Linux uses firmware-mediated invalidation when KIQ/MES is ready. The current direct-MMIO path, power-state behavior and target translation correctness are not hardware-verified. Register ACK checks alone do not establish full protocol or lifetime safety.",
+  "hardware_executed": false
+}
