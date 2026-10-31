@@ -56,7 +56,7 @@ class IbDebugRunnerTests(unittest.TestCase):
                 row = expected_result(case, variant)
                 self.assertEqual(row, check_result(subprocess.CompletedProcess([], 0, json.dumps(row), ''), case, variant))
         self.assertEqual(64, expected_result('multi-max', 'low')['log_rows'])
-        self.assertEqual(2, expected_result('cross-97', 'upper')['log_rows'])
+        self.assertEqual(12, expected_result('cross-97', 'upper')['log_rows'])
         self.assertEqual(1, expected_result('cross-1', 'low')['prefix_words'])
         self.assertEqual(1, expected_result('missing-md', 'low')['submissions'])
         with self.assertRaises(ValueError): expected_result('missing', 'low')

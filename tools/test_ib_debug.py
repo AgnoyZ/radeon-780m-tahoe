@@ -22,7 +22,7 @@ CASES = tuple(f'cross-{n}' for n in CROSS_PREFIXES) + tuple(f'length-{n}' for n 
 def expected_result(case, variant):
     if case not in CASES or variant not in ('low', 'upper'): raise ValueError('Unknown IB diagnostic scenario')
     ibs = 64 if case == 'multi-max' else 2 if case == 'multi-two' else 1
-    if case.startswith('cross-'): words = min(96, int(case.split('-')[1]), 16)
+    if case.startswith('cross-'): words = min(96, int(case.split('-')[1]))
     elif case.startswith('length-'): words = min(96, int(case.split('-')[1]))
     elif case in ('offset-map', 'multi-two', 'multi-max', 'graphics', 'emission-last', 'opaque-peer', 'descriptor-prefix', 'bo-prefix'):
         words = 1
@@ -36,7 +36,7 @@ def check_result(result, case, variant):
     row = json.loads(result.stdout)
     expected = expected_result(case, variant)
     if row != expected or any(type(row[key]) is not type(value) for key, value in expected.items()):
-        raise RuntimeError('IB debug result/count/type mismatch')
+        raise RuntimeError(f'IB debug result/count/type mismatch for {case}/{variant}: {row!r}, expected {expected!r}')
     return row
 
 
