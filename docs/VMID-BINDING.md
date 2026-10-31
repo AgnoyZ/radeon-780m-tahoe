@@ -76,8 +76,9 @@ or a target GPUVM/shader/lifetime pass.
 
 The subsequent whole-client retirement implementation in
 `CONTEXT-RETIREMENT.md` replaces the `vmidFree` and client-close behavior described
-in this original audit. Individual BO-free/unmap and complete device teardown
-remain open; the historical diagnosis below explains why ownership transfer
+in this original audit. `BO-RETIREMENT.md` extends ownership to individual BO-free
+and checked map/unmap. Complete device teardown remains open; the historical
+diagnosis below explains why ownership transfer
 was required.
 
 This is submission-time binding validation, not a complete GPUVM lifetime fix.

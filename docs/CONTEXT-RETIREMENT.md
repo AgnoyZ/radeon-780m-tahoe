@@ -124,5 +124,6 @@ No existing EFI, OS installation, BIOS, NVRAM or security setting is changed.
 Patch 0020 extends deferred ownership to individual BO free and checked map/unmap;
 see BO-RETIREMENT.md. The whole-context harness now also tests transferring
 pending-free normal and host BOs, retaining them while work is pending and
-releasing once after retirement. The 54-case result above is historical; this
-additional case requires new CI evidence.
+releasing once after retirement. Run `41159691075`, code `da5c999`, passed the
+expanded 55-case context suite and 82 individual BO cases under ASan/UBSan.
+See `validation/ci-da5c999-bo-retirement.json`; this is host evidence only.

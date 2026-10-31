@@ -65,9 +65,14 @@ handles, user-fence cleanup, malformed spans, PTE collisions, partial rollback,
 changed physical segments and submission blocking/resumption. The existing
 context-retirement harness additionally exercises closing with pending-free BOs.
 
-Windows passed all 176 Python integration/runner checks and Python syntax compilation. Linux CI is configured
-to compile and execute these actual method bodies under ASan/UBSan; passing
-results must be recorded separately after observation. Intel macOS compilation
+Windows passed all 176 Python integration/runner checks and Python syntax compilation.
+Run `41159691075`, code `da5c999`, passed the Linux source job: all 82 actual-method
+BO cases, 55 context-retirement cases, 71 VM-binding/submission cases and 73
+queue-adoption cases passed under ASan/UBSan alongside existing regressions.
+Independently checked the actual method/declaration hashes, exact outcomes,
+1455 CLI operation-count dictionaries and all 20 patch plus seven shared-header
+hashes against exact Git objects. See `validation/ci-da5c999-bo-retirement.json`.
+Native macOS job `124414639905` remains in progress. Intel macOS compilation
 and actual target execution are separate gates. The harness does not execute
 real page wiring, the kernel allocator, DMA, concurrent clients or actual GPU
 commands, and does not validate Tahoe, Metal, scanout or reset/unload.
