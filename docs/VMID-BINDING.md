@@ -63,6 +63,15 @@ compares memory and doorbell snapshots and requires unchanged publication state.
 Windows runs Python integration/runner tests only; native results are recorded
 separately after CI completes.
 
+Run `41156152909` / code `babba67` completed its Linux source job successfully:
+165 Python tests and all 68 actual-method VM binding/submission sanitizer cases
+passed, along with the 72 adoption cases and all earlier regression suites.
+The five method hashes, extracted declarations, all binding/adoption outcomes,
+1455 CLI operation-count dictionaries and 25 patch/header input hashes were
+independently checked. See `validation/ci-babba67-vm-binding.json`. The macOS
+job `124403616486` remains in progress; these results are not a native kext build
+or a target GPUVM/shader/lifetime pass.
+
 ## Unresolved lifetime issues
 
 This is submission-time binding validation, not a complete GPUVM lifetime fix.
