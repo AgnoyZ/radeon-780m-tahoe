@@ -118,3 +118,11 @@ wiring, device-wide quiescence or concurrency-stress pass is claimed.
   execution, display output and Metal/WindowServer acceleration remain unverified.
 
 No existing EFI, OS installation, BIOS, NVRAM or security setting is changed.
+
+## Individual BO follow-on
+
+Patch 0020 extends deferred ownership to individual BO free and checked map/unmap;
+see BO-RETIREMENT.md. The whole-context harness now also tests transferring
+pending-free normal and host BOs, retaining them while work is pending and
+releasing once after retirement. The 54-case result above is historical; this
+additional case requires new CI evidence.

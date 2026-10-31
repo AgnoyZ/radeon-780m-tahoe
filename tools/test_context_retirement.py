@@ -11,7 +11,7 @@ import subprocess
 from prepare_source import ROOT, prepare
 from test_vm_binding import extract_source as extract_vm
 
-OWNER_METHODS = ('vmFlushTlb', 'deferClient', 'reapContexts', 'reapContextsLocked',
+OWNER_METHODS = ('vmOwnershipKnown', 'vmFlushTlb', 'deferClient', 'reapContexts', 'reapContextsLocked',
                  'vmidAlloc', 'queueFence', 'gpuRetired', 'stop')
 CLIENT_METHODS = ('boRelease', 'freeAll', 'closeResources', 'clientClose', 'free',
                   'findBo', 'clientMemoryForType', 'doWaitSeq')
@@ -26,7 +26,7 @@ CASES = (
     'client-close-then-free', 'client-repeat-close', 'client-no-vmid', 'client-memory-after-close',
     'wait-after-close', 'close-during-wait', 'stop-active', 'stop-pending', 'stop-faulted', 'stop-orphan',
     'stop-cold', 'stop-repeat', 'host-pins-preserved', 'mixed-buffer-release', 'empty-buffer-container',
-    'alloc-stopping-after-lock', 'unbound-peer-invalid-hardware',
+    'alloc-stopping-after-lock', 'unbound-peer-invalid-hardware', 'client-pending-bo-close',
 )
 
 

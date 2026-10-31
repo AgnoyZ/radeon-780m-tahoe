@@ -104,6 +104,7 @@ public:
     uint64_t ptTablePhys(VmCtx &, uint32_t) { return 0; }
     void clearRing() { ++clears; }
     void releaseSession() { ++sessionReleases; }
+    bool vmOwnershipKnown(uint32_t) const;
     bool vmFlushTlb(uint32_t) const;
     void deferClient(uint32_t, uint64_t, PhxRetiredBuffers *);
     void reapContexts(); void reapContextsLocked();
@@ -124,6 +125,7 @@ public:
     uint32_t pendFenceHandle{0}, pendFenceOffset{0}; uint64_t pendFenceSeq{0};
     unsigned flushCalls{0};
     IOAccelPhxNativeClient(PhxBringup &p, PhxRetiredBuffers *storage) : owner(&p), bufferStorage(storage), bos(storage->entries) {}
+    void reapPending() { assert(mutex); }
     void flushBos() { assert(!closed && bos); ++flushCalls; }
     void boRelease(Bo &); void freeAll(); void closeResources(); IOReturn clientClose(); void free();
     Bo *findBo(uint32_t);
@@ -180,6 +182,7 @@ int main(int argc, char **argv) {
     const bool clientCase = test.rfind("client-", 0) == 0 || test == "wait-after-close" || test == "close-during-wait";
     if (clientCase) {
         IOAccelPhxNativeClient c(p, buffers);
+        if (test == "client-pending-bo-close") { c.bos[1].pendingFree = true; c.bos[2].pendingFree = true; }
         if (test == "client-no-vmid") c.vmid = 0;
         if (test == "client-close-complete") p.aperture.words[0x100 / 8] = 5;
         if (test == "close-during-wait") {
@@ -203,7 +206,14 @@ int main(int argc, char **argv) {
                 assert(normal.releases == 1 && host.completes == 1 && host.releases == 1);
                 assert(!p.vm[0].closing && !lineFlushes); c.free(); assert(frees == 1);
             } else if (test == "client-close-complete") reclaimed(p, normal, host);
-            else retained(p, normal, host);
+            else {
+                retained(p, normal, host);
+                if (test == "client-pending-bo-close") {
+                    assert(p.vm[0].retiredBuffers->entries[1].pendingFree);
+                    assert(p.vm[0].retiredBuffers->entries[2].pendingFree);
+                    p.aperture.words[0x100 / 8] = 5; p.reapContexts(); reclaimed(p, normal, host);
+                }
+            }
         }
         assert(c.closed && c.mutex == 0 && p.mutex == 0 && p.sessionReleases == 1);
         if (test != "client-no-vmid") assert(!c.bos && !c.bufferStorage && !c.vmid);
