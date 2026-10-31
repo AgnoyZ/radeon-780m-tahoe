@@ -28,7 +28,7 @@ def expected_result(case, variant):
         words = 1
     else: words = 0
     return {'case': case, 'variant': variant, 'log_rows': ((words + 7) // 8) * ibs,
-            'prefix_words': words, 'ibs': ibs, 'submissions': 1, 'passed': True, 'hardware_executed': False}
+            'prefix_words': words, 'ibs': ibs, 'submissions': int(case != 'missing-md'), 'passed': True, 'hardware_executed': False}
 
 
 def check_result(result, case, variant):
