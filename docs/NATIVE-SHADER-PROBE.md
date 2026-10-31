@@ -82,8 +82,18 @@ identity/refusal paths, every reference shader word, IB word and output word,
 padding/guard/canary corruptions in both passes, timeouts and cleanup failures.
 GPU writes are explicitly supplied by the harness after WAITSEQ; it has no ISA
 interpreter and performs no real GPUVM translation. These are control-flow and
-acceptance-checker tests, not GPU execution evidence. Native compilation and
-POSIX scenario results for this revision remain pending until CI is audited.
+acceptance-checker tests, not GPU execution evidence. Code `4d71c0c`, run
+`41170563119`, passed all 226 Linux Python tests without skips, all 1970
+native-probe ASan/UBSan scenarios and the existing 1830 raw-ring shader
+scenarios plus earlier kernel/VM/queue/firmware regressions. Every native
+event transcript, exact C++/ABI/header hashes, eight runner outcomes and
+33 patch/header input hashes were independently checked; see
+`validation/ci-4d71c0c-native-shader.json`. Native job `124447999039`
+preflight completed successfully, which requires real-framework C++17
+compilation and check-only refusal 4. This is an observed step result;
+the full native build and detailed binary/hash reports remain unverified.
+No probe has executed GPU work on the target laptop.
+
 The first source CI (`41170266892`, code `6cea778`) compiled the actual C++
 probe but failed its test accounting for a parsed wrong vendor: the identity
 expression reads both properties before comparing values. Malformed vendor
