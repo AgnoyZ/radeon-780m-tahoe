@@ -18,6 +18,11 @@ The macOS preflight compiles the real-framework executable and executes only
 its non-target `--check` refusal. Local full builds also package
 `native-shader-probe` beside `metal-smoke`. No target dispatch is automated.
 
+`python3 tools/test_ib_debug.py --out build/ib-debug-tests` on POSIX Clang++
+reproduces the previous actual debug-read overrun in an isolated source tree,
+then checks the corrected native-submit diagnostics under ASan/UBSan. It uses
+synthetic BO allocations and fake downstream submission; see IB-DEBUG-BOUNDS.md.
+
 With clang++ installed:
 
 ```sh

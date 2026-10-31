@@ -2,6 +2,7 @@
 #include "PhxNativeABI.h"
 #include "PhxHardwarePolicy.hpp"
 #include <cassert>
+#include <cstdarg>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -38,7 +39,12 @@ static void flushLine(void *address) {
     (void)address;
 #endif
 }
-static void IOLog(const char *, ...) {}
+static void (*logHook)(const char *, va_list) = nullptr;
+static void IOLog(const char *format, ...) {
+    va_list arguments; va_start(arguments, format);
+    if (logHook) logHook(format, arguments);
+    va_end(arguments);
+}
 struct IOMemoryDescriptor {
     uint64_t length{8192}, physical{0x400000}, segmentLength{4096};
     unsigned calls{0}, badCall{0}, releases{0}, completes{0};
@@ -106,6 +112,10 @@ public:
     std::map<uint64_t, uint64_t> leaves;
     unsigned allocations{0}, failAllocation{0}, writes{0}, submissions{0};
     bool timeout{false}, allOnes{false}, failVmid{false};
+    bool debug{false};
+    std::vector<uint64_t> expectedSubmitVa{0x30000};
+    std::vector<uint32_t> expectedSubmitDw{4};
+    bool expectedSubmitGfx{false};
     PhxBringup() {
         vm[0].busy = true; vm[0].hw = 8; vm[0].phys = 0x200000; vm[0].lastSeq = 5;
 #ifdef PHX_REAL_PAGE_TABLES
@@ -146,9 +156,10 @@ public:
     }
 #endif
     uint32_t vmidAlloc() { return failVmid ? 0 : 1; }
-    bool debugEnabled() const { return false; }
+    bool debugEnabled() const { return debug; }
     IOReturn gpuSubmit(uint32_t handle, bool gfx, const uint64_t *va, const uint32_t *dw, uint32_t n, uint64_t *seq) {
-        assert(handle == 1 && !gfx && n == 1 && va[0] == 0x30000 && dw[0] == 4);
+        assert(handle == 1 && gfx == expectedSubmitGfx && n == expectedSubmitVa.size() && n == expectedSubmitDw.size());
+        for (uint32_t i = 0; i < n; ++i) assert(va[i] == expectedSubmitVa[i] && dw[i] == expectedSubmitDw[i]);
         ++submissions; *seq = ++gSeq; vm[0].lastSeq = *seq; return kIOReturnSuccess;
     }
     bool vmOwnershipKnown(uint32_t) const;

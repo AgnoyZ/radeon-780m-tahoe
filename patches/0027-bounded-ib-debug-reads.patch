@@ -1,0 +1,35 @@
+--- a/src/phxbringup/PhxBringup.cpp
++++ b/src/phxbringup/PhxBringup.cpp
+@@ -2310,11 +2310,27 @@
+             for (uint32_t i = 0; i < h.num_ibs; i++) {
+                 for (int m = 0; m < kMaxMaps; m++) {
+-                    if (!maps[m].used || va[i] < maps[m].va || va[i] >= maps[m].va + maps[m].size)
++                    const Map &mp = maps[m];
++                    if (!mp.used || mp.pending || !(mp.flags & PHX_AMDGPU_VM_PAGE_EXECUTABLE) ||
++                        va[i] < mp.va || va[i] - mp.va >= mp.size)
+                         continue;
+-                    Bo *bo = findBo(maps[m].handle);
+-                    if (!bo || !bo->kva)
++                    Bo *bo = findBo(mp.handle);
++                    if (!bo || !bo->kva || !bo->md)
+                         break;
+-                    const uint32_t *d = reinterpret_cast<const uint32_t *>(bo->kva + maps[m].off + (va[i] - maps[m].va));
+-                    const uint32_t cnt = dw[i] < 96 ? dw[i] : 96;
++                    const uint64_t relative = va[i] - mp.va;
++                    if (!phx780m::rangeWithin(mp.off, relative, bo->size)) break;
++                    const uint64_t offset = mp.off + relative;
++                    const uint64_t descriptorBytes = bo->md->getLength();
++                    if (offset > descriptorBytes) break;
++                    uint64_t available = mp.size - relative;
++                    if (available > bo->size - offset) available = bo->size - offset;
++                    if (available > descriptorBytes - offset) available = descriptorBytes - offset;
++                    uint32_t cnt = dw[i] < 96 ? dw[i] : 96;
++                    if (cnt > available / 4) cnt = static_cast<uint32_t>(available / 4);
++                    const uintptr_t base = reinterpret_cast<uintptr_t>(bo->kva);
++                    if (!cnt || offset > UINTPTR_MAX - base) break;
++                    const uintptr_t address = base + offset;
++                    if ((address & 3) || static_cast<uint64_t>(cnt) * 4 > UINTPTR_MAX - address) break;
++                    // A valid IB can span adjacent BO mappings; log only this CPU-visible prefix.
++                    const uint32_t *d = reinterpret_cast<const uint32_t *>(address);
+                     for (uint32_t j = 0; j < cnt; j += 8)
+                         IOLog("PhxIB %u.%u +%02x: %08x %08x %08x %08x %08x %08x %08x %08x\n", (unsigned)(emitted + 1), i, j,
