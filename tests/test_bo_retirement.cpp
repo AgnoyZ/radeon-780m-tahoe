@@ -3,7 +3,9 @@
 #include "PhxHardwarePolicy.hpp"
 #include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -18,10 +20,24 @@ enum { kIOReturnSuccess, kIOReturnNotReady, kIOReturnBadArgument, kIOReturnNotFo
        kIOReturnExclusiveAccess, kIOReturnUnsupported, kIOReturnNoResources };
 static constexpr unsigned kIOMemoryMapperNone = 0;
 static unsigned flushes = 0, delays = 0;
+#ifdef PHX_REAL_PAGE_TABLES
+struct IOMemoryDescriptor;
+static std::function<void(IOMemoryDescriptor &, uint64_t)> segmentHook;
+static std::function<void(void *)> flushHook;
+static constexpr unsigned kIODirectionInOut = 3, kIOMemoryPhysicallyContiguous = 0x10;
+static void *kernel_task = reinterpret_cast<void *>(1);
+#endif
 static void IOLockLock(int *p) { assert(p && !*p); *p = 1; }
 static void IOLockUnlock(int *p) { assert(p && *p); *p = 0; }
 static void IODelay(unsigned us) { assert(us == 1); ++delays; }
-static void flushLine(void *) { ++flushes; }
+static void flushLine(void *address) {
+    ++flushes;
+#ifdef PHX_REAL_PAGE_TABLES
+    if (flushHook) flushHook(address);
+#else
+    (void)address;
+#endif
+}
 static void IOLog(const char *, ...) {}
 struct IOMemoryDescriptor {
     uint64_t length{8192}, physical{0x400000}, segmentLength{4096};
@@ -29,13 +45,33 @@ struct IOMemoryDescriptor {
     uint64_t getLength() const { return length; }
     uint64_t getPhysicalSegment(uint64_t off, IOByteCount *lengthOut, unsigned options) {
         assert(options == kIOMemoryMapperNone); ++calls; *lengthOut = segmentLength;
+#ifdef PHX_REAL_PAGE_TABLES
+        if (segmentHook) segmentHook(*this, off);
+#endif
         if (badCall && calls == badCall) return 0;
         return physical ? physical + off : 0;
     }
     void release() { assert(!releases); ++releases; }
     void complete() { assert(!completes); ++completes; }
 };
+#ifdef PHX_REAL_PAGE_TABLES
+struct IOBufferMemoryDescriptor : IOMemoryDescriptor {
+    void *storage{nullptr}, *cpu{nullptr};
+    explicit IOBufferMemoryDescriptor(uint64_t pa) {
+        assert(posix_memalign(&storage, 4096, 65536) == 0);
+        cpu = storage; std::memset(storage, 0xa5, 65536);
+        length = segmentLength = 65536; physical = pa;
+    }
+    ~IOBufferMemoryDescriptor() { std::free(storage); }
+    void *getBytesNoCopy() const { return cpu; }
+    static IOBufferMemoryDescriptor *inTaskWithPhysicalMask(void *, unsigned, uint32_t, uint64_t);
+};
+static std::vector<std::unique_ptr<IOBufferMemoryDescriptor>> pageDescriptors;
+static uint64_t nextPagePhysical = 0x200000;
+static unsigned pageAllocationFailures = 0;
+#else
 struct IOBufferMemoryDescriptor : IOMemoryDescriptor {};
+#endif
 struct FakeMap {
     std::vector<uint64_t> words = std::vector<uint64_t>(128, 0);
     uintptr_t getVirtualAddress() { return reinterpret_cast<uintptr_t>(words.data()); }
@@ -48,6 +84,15 @@ struct IOExternalMethodArguments {
 };
 #include "bo-shared.inc"
 #include "bo-constants.inc"
+#ifdef PHX_REAL_PAGE_TABLES
+IOBufferMemoryDescriptor *IOBufferMemoryDescriptor::inTaskWithPhysicalMask(void *task, unsigned flags, uint32_t size, uint64_t mask) {
+    assert(task == kernel_task && flags == (kIODirectionInOut | kIOMemoryPhysicallyContiguous));
+    assert(size == 65536 && mask == kPtAddrMask);
+    if (pageAllocationFailures) { --pageAllocationFailures; return nullptr; }
+    pageDescriptors.emplace_back(new IOBufferMemoryDescriptor(nextPagePhysical)); nextPagePhysical += 0x20000;
+    return pageDescriptors.back().get();
+}
+#endif
 class PhxBringup {
 public:
 #include "bo-structures.inc"
@@ -63,6 +108,11 @@ public:
     bool timeout{false}, allOnes{false}, failVmid{false};
     PhxBringup() {
         vm[0].busy = true; vm[0].hw = 8; vm[0].phys = 0x200000; vm[0].lastSeq = 5;
+#ifdef PHX_REAL_PAGE_TABLES
+        vm[0].phys = 0;
+        vm[0].phys = ptTablePhys(vm[0], 0); assert(vm[0].phys);
+        vm[0].pages = kPtChunks * kPtChunkPages; vm[0].used = 1;
+#endif
         hwv[0].ctx = 1; hwv[0].lastSeq = 5;
         gq[0].ready = true; gq[0].fenceOff = 0x100; gq[0].tail = 1; gq[0].fseq[0] = 5; gq[0].retiredSeq = 4;
         aperture.words[0x100 / 8] = 5;
@@ -80,11 +130,21 @@ public:
         if (reg == kRegInvEng17Ack) return allOnes ? UINT32_MAX : timeout ? 0 : (1u << 8);
         const auto it = regs.find(reg); return it == regs.end() ? 0 : it->second;
     }
-    uint64_t *vmPte(VmCtx &c, uint64_t va, bool alloc) {
+#ifdef PHX_REAL_PAGE_TABLES
+    uint64_t *ptTable(const VmCtx &, uint64_t) const;
+    uint64_t ptTablePhys(VmCtx &, uint32_t);
+    uint64_t *vmPte(VmCtx &, uint64_t, bool, IOReturn * = nullptr);
+#else
+    uint64_t *vmPte(VmCtx &c, uint64_t va, bool alloc, IOReturn *status = nullptr) {
         assert(mutex && &c == &vm[0]);
-        if (alloc) { if (++allocations == failAllocation) return nullptr; return &leaves[va]; }
+        if (status) *status = kIOReturnSuccess;
+        if (alloc) {
+            if (++allocations == failAllocation) { if (status) *status = kIOReturnNoMemory; return nullptr; }
+            return &leaves[va];
+        }
         auto it = leaves.find(va); return it == leaves.end() ? nullptr : &it->second;
     }
+#endif
     uint32_t vmidAlloc() { return failVmid ? 0 : 1; }
     bool debugEnabled() const { return false; }
     IOReturn gpuSubmit(uint32_t handle, bool gfx, const uint64_t *va, const uint32_t *dw, uint32_t n, uint64_t *seq) {
@@ -128,6 +188,9 @@ public:
     IOReturn doSubmit(IOExternalMethodArguments *);
 };
 #include "bo-methods.inc"
+#ifdef PHX_REAL_PAGE_TABLES
+#include "walk-methods.inc"
+#endif
 
 static IOReturn freeBo(IOAccelPhxNativeClient &c, uint64_t h = 1) {
     IOExternalMethodArguments a; a.scalarInputCount = 1; a.scalarInput[0] = h;
@@ -142,10 +205,12 @@ static IOReturn gemCall(IOAccelPhxNativeClient &c, const phxn_gem_va &v) {
     IOExternalMethodArguments a; a.structureInput = &v; a.structureInputSize = sizeof(v);
     return c.doGemVa(&a);
 }
+#ifndef PHX_REAL_PAGE_TABLES
 static void mapped(PhxBringup &p, IOAccelPhxNativeClient &c, unsigned i = 0, uint64_t va = 0x10000, uint32_t handle = 1) {
     c.maps[i] = {true, handle, va, 8192, 0, PHX_AMDGPU_VM_PAGE_EXECUTABLE, false};
     p.leaves[va] = 0x400000 | kPteSysFlags; p.leaves[va + 4096] = 0x401000 | kPteSysFlags;
 }
+#endif
 static void retained(const IOAccelPhxNativeClient &c, const IOMemoryDescriptor &md) {
     assert(c.bos[1].md == &md && c.bos[1].pendingFree && !md.releases && !md.completes);
     assert(c.gttUsed == 8192);
@@ -154,6 +219,7 @@ static void released(const IOAccelPhxNativeClient &c, const IOMemoryDescriptor &
     assert(!c.bos[1].md && !c.bos[1].pendingFree && md.releases == 1 && md.completes == unsigned(host));
     assert(c.gttUsed == 0 && c.hostUsed == 0 && c.visUsed == 0 && c.hiUsed == 0);
 }
+#ifndef PHX_NO_BO_TEST_MAIN
 int main(int argc, char **argv) {
     assert(argc == 2); const std::string test = argv[1]; PhxBringup p; IOAccelPhxNativeClient c(p);
     IOMemoryDescriptor md, ib;
@@ -338,3 +404,4 @@ int main(int argc, char **argv) {
     assert(!p.mutex);
     std::cout << "{\"case\":\"" << test << "\",\"passed\":true,\"hardware_executed\":false}\n";
 }
+#endif

@@ -1,0 +1,160 @@
+--- a/src/phxbringup/PhxBringup.cpp
++++ b/src/phxbringup/PhxBringup.cpp
+@@ -228,7 +228,7 @@
+     VmCtx *vmCtx(uint32_t handle) { return !stopping && handle && handle <= kMaxCtx && vm[handle - 1].busy && !vm[handle - 1].closing ? &vm[handle - 1] : nullptr; }
+     uint64_t *ptTable(const VmCtx &c, uint64_t phys) const;
+     uint64_t ptTablePhys(VmCtx &c, uint32_t i);
+-    uint64_t *vmPte(VmCtx &c, uint64_t va, bool alloc);
++    uint64_t *vmPte(VmCtx &c, uint64_t va, bool alloc, IOReturn *status = nullptr);
+     bool vmFlushTlb(uint32_t vmid) const;
+     bool vmBindingValid(uint32_t vmid, uint64_t physical) const;
+     bool vmOwnershipKnown(uint32_t repairing) const;
+@@ -655,7 +655,9 @@
+     return base + static_cast<uint64_t>(i % kPtChunkPages) * 4096;
+ }
+ 
+-uint64_t *PhxBringup::vmPte(VmCtx &c, uint64_t va, bool alloc) {
++// Null + Success is an absent branch; malformed storage/entries are VMError, allocation failure is NoMemory.
++uint64_t *PhxBringup::vmPte(VmCtx &c, uint64_t va, bool alloc, IOReturn *status) {
++    if (status) *status = kIOReturnVMError;
+     if ((va >> 48) || !c.phys || c.phys != c.chunkPhys[0]) return nullptr;
+     uint64_t ancestors[4] = {c.phys, 0, 0, 0};
+     uint64_t tbl = c.phys;
+@@ -666,9 +668,10 @@
+         uint64_t *e = t + ((va >> shift) & 511);
+         uint64_t entry = *e;
+         if (!entry) {
+-            if (!alloc || c.used >= c.pages) return nullptr;
++            if (!alloc) { if (status) *status = kIOReturnSuccess; return nullptr; }
++            if (c.used >= c.pages) { if (status) *status = kIOReturnNoMemory; return nullptr; }
+             const uint64_t child = ptTablePhys(c, c.used);
+-            if (!child) return nullptr;
++            if (!child) { if (status) *status = kIOReturnNoMemory; return nullptr; }
+             ++c.used;
+             entry = child | 7;
+             *e = entry;
+@@ -681,6 +684,7 @@
+         ancestors[level + 1] = tbl;
+     }
+     uint64_t *t = ptTable(c, tbl);
++    if (t && status) *status = kIOReturnSuccess;
+     return t ? t + ((va >> 12) & 511) : nullptr;
+ }
+ 
+@@ -1010,32 +1014,53 @@
+     const IOReturn idle = vmIdleLocked(handle, true);
+     if (idle != kIOReturnSuccess) { IOLockUnlock(gpuLock); return idle; }
+     VmCtx &c = vm[handle - 1];
+-    // Reject existing mappings and invalid physical spans before exposing any new leaf.
++    // Validate the whole range before writing; an unreadable tree is not an empty mapping.
+     for (uint64_t p = 0; p < size; p += 4096) {
+         IOByteCount segLen = 0;
+         const addr64_t pa = md->getPhysicalSegment(off + p, &segLen, kIOMemoryMapperNone);
+-        uint64_t *pte = vmPte(c, va + p, false);
+-        if (!pa || (pa & ~kPtAddrMask) || segLen < 4096 || (pte && (*pte & 1))) {
++        IOReturn lookup = kIOReturnVMError;
++        uint64_t *pte = vmPte(c, va + p, false, &lookup);
++        if (lookup != kIOReturnSuccess || (pte && *pte && !(*pte & 1))) {
++            *cleanupRequired = true;
+             IOLockUnlock(gpuLock);
+-            return pte && (*pte & 1) ? kIOReturnExclusiveAccess : kIOReturnVMError;
++            return kIOReturnVMError;
++        }
++        if (!pa || (pa & ~kPtAddrMask) || segLen < 4096 || (pte && *pte)) {
++            IOLockUnlock(gpuLock);
++            return pte && *pte ? kIOReturnExclusiveAccess : kIOReturnVMError;
+         }
+     }
+     IOReturn result = kIOReturnSuccess;
++    bool uncertain = false;
+     uint64_t written = 0;
+     for (; written < size; written += 4096) {
+         IOByteCount segLen = 0;
+         const addr64_t pa = md->getPhysicalSegment(off + written, &segLen, kIOMemoryMapperNone);
+         if (!pa || (pa & ~kPtAddrMask) || segLen < 4096) { result = kIOReturnVMError; break; }
+-        uint64_t *pte = vmPte(c, va + written, true);
+-        if (!pte) { result = kIOReturnNoMemory; break; }
++        IOReturn lookup = kIOReturnVMError;
++        uint64_t *pte = vmPte(c, va + written, true, &lookup);
++        if (!pte || lookup != kIOReturnSuccess) {
++            result = lookup == kIOReturnNoMemory ? kIOReturnNoMemory : kIOReturnVMError;
++            uncertain = result == kIOReturnVMError;
++            if (uncertain) *cleanupRequired = true;
++            break;
++        }
++        // Recheck after allocation too; never overwrite a leaf that became occupied.
++        if (*pte) { result = kIOReturnVMError; uncertain = *cleanupRequired = true; break; }
+         *cleanupRequired = true;
+         *pte = pa | kPteSysFlags;
+         flushLine(pte);
+     }
+     if (result != kIOReturnSuccess) {
+         for (uint64_t p = 0; p < written; p += 4096) {
+-            uint64_t *pte = vmPte(c, va + p, false);
+-            if (pte) { *pte = 0; flushLine(pte); }
++            IOReturn lookup = kIOReturnVMError;
++            uint64_t *pte = vmPte(c, va + p, false, &lookup);
++            IOByteCount segLen = 0;
++            const addr64_t pa = md->getPhysicalSegment(off + p, &segLen, kIOMemoryMapperNone);
++            if (lookup != kIOReturnSuccess || !pte || !pa || (pa & ~kPtAddrMask) || segLen < 4096 ||
++                *pte != (pa | kPteSysFlags)) { uncertain = true; continue; }
++            *pte = 0;
++            flushLine(pte);
+         }
+     }
+     if (c.hw && *cleanupRequired) {
+@@ -1043,6 +1068,7 @@
+         h.faulted = !vmFlushTlb(c.hw);
+         if (h.faulted) { IOLockUnlock(gpuLock); return kIOReturnTimeout; }
+     }
++    if (uncertain) { *cleanupRequired = true; IOLockUnlock(gpuLock); return kIOReturnVMError; }
+     *cleanupRequired = false;
+     IOLockUnlock(gpuLock);
+     return result;
+@@ -1056,9 +1082,26 @@
+     const IOReturn idle = vmIdleLocked(handle, true);
+     if (idle != kIOReturnSuccess) { IOLockUnlock(gpuLock); return idle; }
+     VmCtx &c = vm[handle - 1];
++    // Preflight every page so a malformed later branch cannot silently authorize release.
+     for (uint64_t p = 0; p < size; p += 4096) {
+-        uint64_t *pte = vmPte(c, va + p, false);
+-        if (pte) { *pte = 0; flushLine(pte); }
++        IOReturn lookup = kIOReturnVMError;
++        uint64_t *pte = vmPte(c, va + p, false, &lookup);
++        if (lookup != kIOReturnSuccess || (pte && *pte &&
++            ((!(*pte & kPtAddrMask)) || (*pte & ~kPtAddrMask) != kPteSysFlags))) {
++            IOLockUnlock(gpuLock);
++            return kIOReturnVMError;
++        }
++    }
++    IOReturn result = kIOReturnSuccess;
++    for (uint64_t p = 0; p < size; p += 4096) {
++        IOReturn lookup = kIOReturnVMError;
++        uint64_t *pte = vmPte(c, va + p, false, &lookup);
++        if (lookup != kIOReturnSuccess || (pte && *pte &&
++            ((!(*pte & kPtAddrMask)) || (*pte & ~kPtAddrMask) != kPteSysFlags))) {
++            result = kIOReturnVMError;
++            break;
++        }
++        if (pte && *pte) { *pte = 0; flushLine(pte); }
+     }
+     if (c.hw) {
+         HwVmid &h = hwv[c.hw - kFirstUserVmid];
+@@ -1066,7 +1109,7 @@
+         if (h.faulted) { IOLockUnlock(gpuLock); return kIOReturnTimeout; }
+     }
+     IOLockUnlock(gpuLock);
+-    return kIOReturnSuccess;
++    return result;
+ }
+ 
+ void PhxBringup::ringPut(GpuQueue &q, uint32_t idx, uint32_t value) {
+@@ -2124,7 +2167,7 @@
+             if (!vmid || !owner) return kIOReturnNotReady;
+             const IOReturn r = owner->vmUnmap(vmid, va, v->map_size);
+             if (r == kIOReturnSuccess) maps[i] = Map{};
+-            else if (r == kIOReturnTimeout) maps[i].pending = true;
++            else if (r == kIOReturnTimeout || r == kIOReturnVMError) maps[i].pending = true;
+             return r;
+         }
+     }

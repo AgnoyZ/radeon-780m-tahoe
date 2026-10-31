@@ -44,6 +44,8 @@ jobs:
         run: python3 tools/test_queue_retirement.py --out build/queue-retirement-tests
       - name: Exercise actual page-table allocation and walks without hardware
         run: python3 tools/test_page_tables.py --out build/page-table-tests
+      - name: Exercise actual page walks with map cleanup and BO lifetime without hardware
+        run: python3 tools/test_vm_walk_cleanup.py --out build/vm-walk-cleanup-tests
       - name: Fault-inject authenticated firmware control without hardware
         run: python3 tools/test_firmware_control.py --out build/firmware-control-tests
       - name: Exercise complete firmware sequence with synthetic inputs

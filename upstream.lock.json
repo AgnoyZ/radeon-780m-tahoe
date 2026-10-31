@@ -63,7 +63,8 @@
     "patches/0019-deferred-client-context-retirement.patch",
     "patches/0020-deferred-bo-release-and-checked-unmap.patch",
     "patches/0021-serialized-queue-retirement.patch",
-    "patches/0022-checked-page-table-backing.patch"
+    "patches/0022-checked-page-table-backing.patch",
+    "patches/0023-checked-walk-cleanup.patch"
   ],
   "target": {
     "darwin_major": 25,

@@ -11,6 +11,8 @@
 #include <vector>
 using IOByteCount = uint64_t;
 using addr64_t = uint64_t;
+using IOReturn = int;
+enum { kIOReturnSuccess, kIOReturnVMError, kIOReturnNoMemory };
 static constexpr unsigned kIODirectionInOut = 3, kIOMemoryPhysicallyContiguous = 0x10;
 static constexpr unsigned kIOMemoryMapperNone = 0x800;
 static void *kernel_task = reinterpret_cast<void *>(1);
@@ -65,7 +67,7 @@ public:
     void reapContextsLocked() { assert(mutex); ++reaps; }
     uint64_t *ptTable(const VmCtx &, uint64_t) const;
     uint64_t ptTablePhys(VmCtx &, uint32_t);
-    uint64_t *vmPte(VmCtx &, uint64_t, bool);
+    uint64_t *vmPte(VmCtx &, uint64_t, bool, IOReturn * = nullptr);
     uint32_t vmidAlloc();
 };
 static PhxBringup *active;
