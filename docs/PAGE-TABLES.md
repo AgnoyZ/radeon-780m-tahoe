@@ -61,9 +61,19 @@ directory flags, ancestor cycles and retry after a partially linked walk.
 The Windows suite passed 206 tests (198 executed successfully, eight explicit
 POSIX-only skips). Its runner tests validate source extraction, missing/duplicate rejection,
 strict result parsing, CI wiring and refusal to claim native execution on Windows.
-At implementation time no local POSIX C++ compiler was available. The 98 C++
-cases are **not yet executed or claimed passed**; their CI result must be checked
-after synchronization. Earlier successful native builds predate patch 0022.
+At implementation time no local POSIX C++ compiler was available. Linux source
+job `124429306879` in run `41164585970`, code
+`abca74d1fc256692cdba0346584e2b7478020b60`, subsequently completed successfully.
+All 206 Python tests ran without skips, and all 98 actual-method C++ cases passed
+ASan/UBSan. Their exact outcomes, five actual method/helper hashes, extracted
+constants/context declarations, six runner outcomes and all 22 patch plus seven
+header hashes were independently checked against the staged source and exact Git
+objects. Existing retirement, binding/adoption and CLI regressions also passed;
+see `validation/ci-abca74d-page-tables.json`.
+
+Native macOS job `124429663238` was observed in progress. No full native build of
+patch 0022 is claimed from the Linux results; earlier successful native builds
+predate this patch. No target page-table or hardware result is established.
 
 The harness explicitly fakes IOKit descriptors, physical segments, storage,
 cache flushes, locks, readiness and context reaping. It performs no GPU execution,
