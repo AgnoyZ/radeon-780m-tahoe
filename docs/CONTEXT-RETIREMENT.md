@@ -93,6 +93,15 @@ and stopping refusals; the adoption regression refuses adoption after stop.
 Windows runs Python integration and runner-contract tests only. Native and full
 macOS results must be recorded separately after CI verification.
 
+Run `41157643806` / code `ce3bda5` completed its Linux source job successfully:
+171 Python tests, all 54 retirement/client/stop sanitizer cases, 71 VM binding
+cases, 73 adoption cases and all existing regression suites passed. Method and
+declaration hashes match canonical staged source; exact outcome sets, 1455 CLI
+operation-count dictionaries and 26 patch/header Git-object hashes were checked
+independently. See `validation/ci-ce3bda5-context-retirement.json`. Native macOS
+job `124408136515` remains in progress. No target GPU execution, actual page
+wiring, device-wide quiescence or concurrency-stress pass is claimed.
+
 ## Remaining lifetime and hardware gaps
 
 - Individual `doBoFree` and explicit GEMVA unmap are not converted to deferred
