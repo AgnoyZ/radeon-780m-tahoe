@@ -1,0 +1,28 @@
+{
+  "review_date": "2026-10-31",
+  "libdrm_version": "2.4.123",
+  "source_archive": "https://dri.freedesktop.org/libdrm/libdrm-2.4.123.tar.xz",
+  "archive_sha256": "a2b98567a149a74b0f50e91e825f9c0315d86e7be9b74394dae8b298caadb79e",
+  "reviewed_libdrm_files_sha256": {
+    "shader_code_gfx11.h": "9d54dd929bf11fea7fcf76d7a8d3afefd994f8b27f63e4c1715a1a83cbdd2d58",
+    "shader_test_util.c": "508253031d9050623ccf1905dfc8aaa677cd25ae4dd613274bcc1624e7ed7c23",
+    "shader_code.h": "e8e0f7a0356e329174cc76c5b6080fd781a37353e83df6c016cff1ec1ced45de"
+  },
+  "copied_source": "Only bufferclear_cs_shader_gfx11[79] is copied, unchanged except its local symbol; the full AMD permission/warranty notice is preserved in the added header. No libdrm implementation bodies, firmware or driver binaries are copied.",
+  "copied_array_license": "AMD 2022 MIT-style permission/warranty notice in shader_code_gfx11.h",
+  "shader_dwords": 79,
+  "shader_little_endian_sha256": "735ea6ea8faa4e398ee231d55e9f80ec5c577346c333533ab2417f9beb2b795c",
+  "packet_basis": "Independently constructed from reviewed amdgpu_dispatch_init_gfx11, write_cumask, write2hw_gfx11 and write_dispatch_cmd. Fixed one 64-thread group, 64 16-byte records, four distinct SGPR patterns. RSRC1 bit 29 cleared as in the GFX11 dispatch helper.",
+  "mesa_commit": "f5cb8ee032adabef599ae892ec4e42d796b84da9",
+  "reviewed_mesa_files_sha256": {
+    "src/amd/common/ac_cmdbuf_cp.c": "15b61489999997e5fe367640afdb0318abefb0b437e2e4a0674d450ee9a5d32a",
+    "src/amd/common/ac_barrier.c": "2a4297714a6c983a297035dd033b149e08216c1a12435ae31bb6a9af15ee6d58",
+    "src/amd/registers/pkt3.json": "aa91f5ad03dbad4c92edd1e18b6b555dd13b2150534fbc434c2ff89f8f7fbba6"
+  },
+  "cache_packet_basis": "MEC ACQUIRE_MEM uses eight words, COHER_SIZE_HI=0xff, no graphics engine/PWS fields. GCR 0xc381 = GLI_ALL | GLK_INV | GLV_INV | GL1_INV | GL2_INV | GL2_WB, using packet JSON bit locations. No Mesa implementation bodies copied.",
+  "release_basis": "Reuse the reviewed existing compute-probe/kernel 64-bit RELEASE_MEM sequence; this remains target-unverified.",
+  "hardware_executed": false,
+  "shader_executed": false,
+  "target_gc_version_verified": false,
+  "limitation": "A licensed reference shader and reviewed packet encodings do not establish exclusive memory/doorbell ownership, target state/power/cache compatibility, VM translation, firmware residency, shader execution or acceleration."
+}

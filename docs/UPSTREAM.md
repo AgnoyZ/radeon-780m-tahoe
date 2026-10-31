@@ -57,3 +57,8 @@
 ## RADV 原生验证后的依赖修复
 - `a296873` / CI `41063982777` 完成实际 dylib 构建、ABI 布局编译检查及四组无设备加载测试，但 otool 报告显示链接了构建机 Homebrew 的 libSPIRV-Tools.dylib，不能作为可直接部署的成品。
 - 固定 Mesa 源码的 `meson.options` 将 spirv-tools 明确列为可选调试 feature（CLC 才强制需要；本构建未启用 CLC）。下游使用 `-Dspirv-tools=disabled` 移除意外运行时链接，同时保留独立 spirv-val 测试，并新增非系统 dylib 依赖拒绝检查。修复本身仍需新的原生 CI 验证。
+
+## GFX11 派发探针的测试着色器
+- 补丁 0025 从官方 libdrm 2.4.123 源码归档的 `tests/amdgpu/shader_code_gfx11.h` 复用 79 个缓冲区清零着色器指令字，保留完整 AMD 2022 MIT 风格许可和免责说明，仅修改本地符号名；不复制固件或驱动二进制。
+- 已核对该数组文件许可，记录归档、参考文件和指令流哈希。派发状态与描述符参考同版 `shader_test_util.c`，缓存包参考固定 Mesa 源；包构造独立实现，不复制这些实现函数。详见 `validation/libdrm-2.4.123-shader-reference.json` 和 `GFX11-SHADER-PROBE.md`。
+- 该许可核查仅覆盖本次新增着色器源码，不代表整个驱动栈的公开二进制发布审计已完成；实机执行仍未验证。

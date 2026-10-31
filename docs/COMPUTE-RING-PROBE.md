@@ -95,3 +95,9 @@ Exclusive memory/doorbell ownership, firmware residency, target topology and
 cache/address semantics still require hardware evidence. Synchronous kernel
 calls can stall beyond the requested polling delays. No deployment, working
 EFI, disk, BIOS, NVRAM or OS-security change is performed.
+
+Patch 0025 adds a separate `shader-probe` command which stages a reviewed
+GFX11 compute shader and emits `DISPATCH_DIRECT`, documented in
+GFX11-SHADER-PROBE.md. It uses a six-page work arena and full output/guard
+checks. The existing five-page `compute-probe` remains the command-processor
+memory-write test described here. Neither path has target execution evidence.

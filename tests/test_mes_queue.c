@@ -14,17 +14,42 @@ static int fake_usleep(useconds_t);
 #ifndef PHX_TEST_COMPUTE
 #define PHX_TEST_COMPUTE 0
 #endif
-static const int compute_mode = PHX_TEST_COMPUTE;
+#ifndef PHX_TEST_SHADER
+#define PHX_TEST_SHADER 0
+#endif
+static const int shader_mode = PHX_TEST_SHADER;
+static const int compute_mode = PHX_TEST_COMPUTE || PHX_TEST_SHADER;
 static const char *fault;
 static struct PhxBootMemory memory;
 static uint64_t arena, va;
 static uint32_t doorbell, registers[0x20000], words[4096];
 static unsigned lookups, opens, hellos, snapshots, reads, writes, vreads, vwrites, bells, sleeps, closes;
 static uint64_t work_arena;
-static uint32_t work_doorbell, work_words[5120], work_registers[0x20000];
+static uint32_t work_doorbell, work_words[6144], work_registers[0x20000];
 static unsigned work_bells, work_writes, work_fence_reads;
 static int is(const char *s) { return !strcmp(fault, s); }
 static int indexed(const char *s, unsigned i) { char name[40]; snprintf(name, sizeof(name), "%s-%u", s, i); return is(name); }
+static void shader_packet_inputs(void) {
+    uint32_t packet[87]; const uint32_t pattern[4] = {1, 2, 3, 4};
+    const uint64_t code = 0x4000010000ull, target = code + 4096, fence = 0x8000020000ull;
+    struct Bad { uint64_t code, target, fence, completion; size_t capacity; };
+    const struct Bad bad[] = {
+        {0, target, fence, 1, 86}, {code + 1, target, fence, 1, 86}, {1ull << 48, target, fence, 1, 86},
+        {(1ull << 48) - 256, target, fence, 1, 86}, {code, 0, fence, 1, 86},
+        {code, target + 1, fence, 1, 86}, {code, (1ull << 48) - 16, fence, 1, 86},
+        {code, code + 4080, fence, 1, 86}, {code, target, 0, 1, 86}, {code, target, fence + 1, 1, 86},
+        {code, target, 1ull << 48, 1, 86}, {code, target, fence, 0, 86}, {code, target, fence, 1, 85}
+    };
+    for (unsigned i = 0; i < sizeof(bad) / sizeof(bad[0]); ++i) {
+        memset(packet, 0xa5, sizeof(packet));
+        assert(!phxGfx11ClearCommands(packet, bad[i].capacity, bad[i].code, bad[i].target, bad[i].fence, bad[i].completion, pattern));
+        for (unsigned j = 0; j < 87; ++j) assert(packet[j] == 0xa5a5a5a5);
+    }
+    assert(!phxGfx11ClearCommands(NULL, 86, code, target, fence, 1, pattern));
+    assert(!phxGfx11ClearCommands(packet, 86, code, target, fence, 1, NULL));
+    assert(phxGfx11ClearCommands(packet, 86, code, target, fence, 1, pattern) == 86);
+    assert(packet[86] == 0xa5a5a5a5);
+}
 static void summary(void) {
     fprintf(stderr, "fake-mes-queue-summary {\"lookups\":%u,\"opens\":%u,\"hellos\":%u,\"snapshots\":%u,"
         "\"reads\":%u,\"writes\":%u,\"vreads\":%u,\"vwrites\":%u,\"bells\":%u,\"sleeps\":%u,\"closes\":%u",
@@ -91,7 +116,7 @@ static void check_packet(void) {
         assert(work_words[2048 + 143] == ((work_doorbell << 2) | (1u << 30)));
         assert(work_words[2048 + 165] == (uint32_t)((va + work_arena + 12288) >> 8));
         assert(work_words[2048 + 166] == (uint32_t)((va + work_arena + 12288) >> 40));
-        for (unsigned i = 3072; i < 5120; ++i) assert(work_words[i] == 0);
+        for (unsigned i = 3072; i < (shader_mode ? 6144u : 5120u); ++i) assert(work_words[i] == 0);
     }
     union MESAPI__QUERY_MES_STATUS fence; memcpy(&fence, pkt + 64, sizeof(fence));
     assert(fence.header.type == MES_API_TYPE_SCHEDULER && fence.header.opcode == MES_SCH_API_QUERY_SCHEDULER_STATUS);
@@ -118,10 +143,10 @@ kern_return_t IOConnectCallScalarMethod(io_connect_t connection, uint32_t select
     if (selector == SEL_DBG_VRAM_WRITE) {
         assert(input_count == 2 && !output && !output_count && reads >= 20);
         assert(!(input[0] & 3) && input[1] <= UINT32_MAX);
-        int work = compute_mode && input[0] >= work_arena && input[0] + 4 <= work_arena + 20480;
+        int work = compute_mode && input[0] >= work_arena && input[0] + 4 <= work_arena + (shader_mode ? 24576 : 20480);
         assert(work || (input[0] >= arena && input[0] + 4 <= arena + 16384));
         if (vwrites < 4096) assert(input[0] == arena + vwrites * 4 && input[1] == 0);
-        if (work && work_writes < 5120) assert(input[0] == work_arena + work_writes * 4 && input[1] == 0);
+        if (work && work_writes < (shader_mode ? 6144u : 5120u)) assert(input[0] == work_arena + work_writes * 4 && input[1] == 0);
         ++vwrites;
         if (indexed("vwrite", vwrites)) return 5;
         if (work) { ++work_writes; work_words[(input[0] - work_arena) / 4] = (uint32_t)input[1]; }
@@ -137,6 +162,54 @@ kern_return_t IOConnectCallScalarMethod(io_connect_t connection, uint32_t select
         registers[input[0]] = (uint32_t)input[1]; output[0] = input[1]; return 0;
     }
     assert(selector == SEL_DBG_DOORBELL && input_count == 3 && !output && !output_count);
+    if (shader_mode && input[0] == (uint64_t)work_doorbell * 4) {
+        assert(bells == 3 && !work_bells && input[1] == 86 && !input[2] && !registers[0xa900]);
+        assert(work_words[1028] == 86 && !work_words[1029]);
+        const uint64_t shader = va + work_arena + 20480, target = va + work_arena + 16400;
+        const uint64_t fence = memory.mcBase + work_arena + 18432;
+        const uint32_t expected[] = {
+            0xc0065800, 0, 0xffffffff, 0xff, 0, 0, 10, 0xc381,
+            0xc0037602, 0x204, 0, 0, 0,
+            0xc0017602, 0x218, 0, 0xc0017602, 0x222, 0,
+            0xc0047602, 0x224, 0, 0, 0, 0, 0xc0017900, 0x22a, 0,
+            0xc0029b02, 0x30000216, 0xffffffff, 0xffffffff,
+            0xc0029b02, 0x30000219, 0xffffffff, 0xffffffff,
+            0xc0027602, 0x20c, (uint32_t)(shader >> 8), (uint32_t)(shader >> 40),
+            0xc0017602, 0x212, 0x400c0041, 0xc0017602, 0x213, 0x90,
+            0xc0017602, 0x207, 64, 0xc0017602, 0x208, 1, 0xc0017602, 0x209, 1,
+            0xc0017602, 0x228, 0x3f0,
+            0xc0047602, 0x240, (uint32_t)target, (uint32_t)(target >> 32) | 0x100000, 64, 0x1003dfac,
+            0xc0047602, 0x244, 0x7800c0de, 0x13579bdf, 0x2468ace0, 0xc001d00d,
+            0xc0017602, 0x215, 0, 0xc0031502, 1, 1, 1, 1,
+            0xc0064900, 0x06603514, 0x40000000, (uint32_t)fence, (uint32_t)(fence >> 32), 1, 0x7800a11c, 0
+        };
+        assert(sizeof(expected) / sizeof(expected[0]) == 86 && !memcmp(work_words, expected, sizeof(expected)));
+        assert(!memcmp(work_words + 5120, phxGfx11ClearShader, sizeof(phxGfx11ClearShader)));
+        for (unsigned i = 5120 + 79; i < 6144; ++i) assert(!work_words[i]);
+        const uint32_t pattern[] = {0x7800c0de, 0x13579bdf, 0x2468ace0, 0xc001d00d};
+        for (unsigned i = 0; i < 4; ++i) {
+            assert(work_words[4096 + i] == (i & 1 ? 0xa55aa55a : 0x5aa55aa5));
+            assert(work_words[4356 + i] == (i & 1 ? 0xa55aa55a : 0x5aa55aa5));
+        }
+        for (unsigned i = 0; i < 256; ++i) assert(work_words[4100 + i] == ~pattern[i & 3]);
+        assert(work_words[4608] == ~1u && work_words[4609] == ~0x7800a11cu);
+        ++work_bells;
+        if (is("work-bell")) return 5;
+        for (unsigned i = 0; i < 256; ++i) {
+            if (!is("work-missing-data")) work_words[4100 + i] = pattern[i & 3];
+            if (indexed("shader-output", i)) work_words[4100 + i] ^= 1;
+        }
+        if (!is("work-timeout")) {
+            work_words[4608] = is("work-fence-low") ? 2 : 1;
+            work_words[4609] = is("work-fence-high") ? 0 : 0x7800a11c;
+        }
+        if (is("work-data-high")) work_words[4101] ^= 1;
+        if (is("work-guard-before")) work_words[4096] ^= 1;
+        if (is("work-guard-after")) work_words[4356] ^= 1;
+        for (unsigned i = 0; i < 4; ++i)
+            if (indexed("shader-guard", i)) work_words[i < 2 ? 4096 + 2 * i : 4356 + 2 * (i - 2)] ^= 1;
+        return 0;
+    }
     if (compute_mode && input[0] == (uint64_t)work_doorbell * 4) {
         assert(bells == 3 && !work_bells && input[1] == 13 && !input[2] && !registers[0xa900]);
         ++work_bells;
@@ -200,19 +273,20 @@ kern_return_t IOConnectCallMethod(io_connect_t connection, uint32_t selector,
             assert(input[0] == offsets[vreads - 1] && !writes && !vwrites);
             value = values[vreads - 1];
             if (indexed("vbad", vreads)) value ^= 1;
-        } else if (compute_mode && vreads <= 12) {
+        } else if (compute_mode && vreads <= (shader_mode ? 13u : 12u)) {
             uint64_t offset = work_arena + (uint64_t)(vreads - 8) * 4096;
             assert(input[0] == 0x700000 + (offset >> 12) * 8 && !writes && !vwrites);
             value = (memory.physicalBase + offset) | 0x71;
             if (indexed("vbad", vreads)) value ^= 1;
         } else {
             assert(bells);
-            int work = compute_mode && input[0] >= work_arena && input[0] + 8 <= work_arena + 20480;
+            int work = compute_mode && input[0] >= work_arena && input[0] + 8 <= work_arena + (shader_mode ? 24576 : 20480);
             assert(work || (input[0] >= arena && input[0] + 8 <= arena + 16384));
             unsigned i = (unsigned)((input[0] - (work ? work_arena : arena)) / 4);
             uint32_t *mem = work ? work_words : words;
             value = mem[i] | ((uint64_t)mem[i + 1] << 32);
-            if (work && i == 4160) {
+            if (shader_mode && work && i >= 5120 && indexed("shader-code", (i - 5120) / 2)) value ^= 1;
+            if (work && i == (shader_mode ? 4608u : 4160u)) {
                 ++work_fence_reads;
                 if (is("work-delayed") && work_fence_reads < 3) value = 0;
                 if (is("work-fence-changed") && work_fence_reads == 2) value ^= 1;
@@ -242,6 +316,7 @@ int main(int argc, char **argv) {
         relocated ? 0x123400000000ull : 0x600000000ull, 0x10000000, 0x10000000, 0x100000, 0,
         {1, 0x100000, 0x200000, 0x100000, 0x400000, 0x100000, {0, 0}}};
     if (is("ok")) {
+        if (shader_mode) shader_packet_inputs();
         struct PhxGartLayout gart = {1, va, 0x1000000, 0x700000, 0x710000};
         struct PhxMesQueueLayout q = {1, 0xffc000, 0x3fffffe};
         assert(phxMesQueueLayoutValid(&q, &gart, &memory));
@@ -271,7 +346,7 @@ int main(int argc, char **argv) {
     registers[0x320b] = is("hqd-active") ? 1 : is("hqd-all-ones") ? UINT32_MAX : 0;
     work_registers[0x320b] = is("work-hqd-active") ? 1 : is("work-hqd-all-ones") ? UINT32_MAX : 0;
     char work_offset[24]; snprintf(work_offset, sizeof(work_offset), "0x%llx", (unsigned long long)work_arena);
-    char *args[] = {"mesboot", compute_mode ? "compute-probe" : "sched-query", relocated ? "0x400000000000" : "0x4000000000", "0x1000000",
+    char *args[] = {"mesboot", shader_mode ? "shader-probe" : compute_mode ? "compute-probe" : "sched-query", relocated ? "0x400000000000" : "0x4000000000", "0x1000000",
         "0x700000", "0x710000", relocated ? "0xa00000" : "0x800000", relocated ? "0x100" : "0x22", work_offset, relocated ? "0x102" : "6"};
     if (is("arg-unaligned")) args[6] = "0x800001";
     if (is("arg-overflow")) args[6] = "18446744073709551616";
@@ -297,5 +372,6 @@ int main(int argc, char **argv) {
     if (is("work-arena-stage")) args[8] = "0x400000";
     if (is("work-arena-unmapped")) args[8] = "0xffc000";
     if (is("work-last-page-overlap")) args[8] = "0x70c000";
+    if (is("work-sixth-page-overlap")) args[8] = "0x70b000";
     return mesboot_reference_main(is("arg-count") ? 2 : compute_mode ? 10 : 8, args);
 }
