@@ -18,6 +18,12 @@
 - 上游参考机结果不等于本 ThinkBook 实测；必须核对系统版本、面板、固件和安全设置要求。
 - 各组件许可证不同，复用前逐项核查 `LICENSE`、`THIRD_PARTY_NOTICES.md` 及依赖许可证。
 
+## NullMoth NVIDIA driver（仅架构参考）
+- 仓库：https://github.com/nullmoth/nvidia-macos-driver
+- 审阅提交：`ceba63c15ba9d81deea7cd1c5dcc4c79497bea8f`。
+- 可参考分层驱动、无设备负向测试、运行库相对路径和回退流程；不能复制 NVIDIA 的内核模块、GSP、BAR/VRAM 地址、boot-args、SMBIOS 或安装脚本到 Radeon 780M。
+- 详细差异和许可证边界见 `NULLMOTH-REFERENCE.md`。
+
 ## 接入要求
 每个引入组件记录上游 URL、提交 SHA/版本、许可证、修改范围和构建方法。
 不未经审计运行上游安装脚本，不提交 Apple 系统组件、原始机器固件或未经确认可分发的二进制。

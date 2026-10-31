@@ -24,6 +24,7 @@
 ## 仓库结构
 - `docs/ROADMAP.md`：阶段目标和验收条件。
 - `docs/UPSTREAM.md`：上游研究入口、版本和许可证边界。
+- `docs/NULLMOTH-REFERENCE.md`：NullMoth NVIDIA 项目的架构参考与不可移植边界。
 - `upstream/nullarc`：固定提交的上游实现，保留原许可证。
 - `patches/`、`src/PhxHardwarePolicy.hpp`：实际内核补丁与共享硬件策略。
 - `tools/`、`tests/`：隔离构建、产物校验与真实 Metal 计算探针。
