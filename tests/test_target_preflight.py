@@ -40,11 +40,14 @@ class TargetPreflightTests(unittest.TestCase):
 
     def test_wrong_system_or_ambiguous_identity_blocks_check(self):
         value = inventory()
-        value["system"]["requested_system_family_matches"] = False
-        self.assertFalse(evaluate(value)["native_probe_check_allowed"])
-        value = inventory()
         value["pci"]["selection"] = "ambiguous"
         value["pci"]["target_candidates"].append(value["pci"]["target_candidates"][0].copy())
+        self.assertFalse(evaluate(value)["native_probe_check_allowed"])
+
+    def test_system_gate_is_derived_not_trusted_from_collector_claim(self):
+        value = inventory()
+        value["system"]["os_version"] = "14.7"
+        value["system"]["requested_system_family_matches"] = True
         self.assertFalse(evaluate(value)["native_probe_check_allowed"])
 
     def test_missing_ranges_blocks_check(self):

@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import stat
 
 
@@ -45,12 +46,20 @@ def evaluate(inventory):
     if not isinstance(candidates, list):
         raise PreflightError("Inventory target candidate list is malformed")
 
+    version = system.get("os_version")
+    darwin = system.get("darwin_release")
+    architecture = system.get("architecture")
+    version_match = re.fullmatch(r"(\d+)(?:\.\d+){1,2}", version or "")
+    darwin_match = re.fullmatch(r"(\d+)(?:\.\d+){2}", darwin or "")
+    derived_target = bool(version_match and darwin_match and architecture == "x86_64"
+                          and int(version_match.group(1)) == 26
+                          and int(darwin_match.group(1)) == 25)
     checks = []
     checks.append({
         "name": "darwin25_x86_64",
-        "passed": system.get("requested_system_family_matches") is True
-        and system.get("architecture") == "x86_64",
-        "observed": {key: system.get(key) for key in ("os_version", "os_build", "darwin_release", "architecture")},
+        "passed": derived_target,
+        "observed": {key: system.get(key) for key in ("os_version", "os_build", "darwin_release", "architecture")}
+        | {"collector_claim": system.get("requested_system_family_matches"), "derived_match": derived_target},
     })
     checks.append({
         "name": "single_radeon_780m_identity",
