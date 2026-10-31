@@ -7,8 +7,9 @@
 #include <string>
 #include <vector>
 using IOReturn = int;
-enum { kIOReturnSuccess, kIOReturnNotReady, kIOReturnBadArgument, kIOReturnBusy };
+enum { kIOReturnSuccess, kIOReturnNotReady, kIOReturnBadArgument, kIOReturnBusy, kIOReturnNoResources };
 struct IOBufferMemoryDescriptor {};
+struct PhxRetiredBuffers;
 static void IOLockLock(int *p) { assert(p && !*p); *p = 1; }
 static void IOLockUnlock(int *p) { assert(p && *p); *p = 0; }
 static void IODelay(unsigned);
@@ -29,6 +30,7 @@ public:
     void *mmio{reinterpret_cast<void *>(1)};
     uint64_t fbMcBase{0x100000000ull}, hwTick{1000}, gSeq{42}, done{0};
     int mutex{0}; int *gpuLock{&mutex};
+    bool stopping{false};
     std::string mode;
     mutable std::map<uint32_t, uint32_t> regs;
     uint32_t badRegister{UINT32_MAX};
@@ -64,6 +66,7 @@ public:
         regs[reg] = value;
     }
     void hdpFlush() { assert(mutex); ++flushes; }
+    void reapContextsLocked() { assert(mutex); }
     uint64_t queueFence(const GpuQueue &) const { return gSeq; }
     uint64_t gpuRetired() const { assert(mutex); ++retireReads; return done; }
     bool vmFlushTlb(uint32_t) const;
@@ -131,6 +134,9 @@ int main(int argc, char **argv) {
         else if (test == "bind-misaligned-root") p.vm[0].phys |= 8;
         else if (test == "bind-high-root" || test == "submit-bad-root") p.vm[0].phys |= 1ull << 48;
         else if (test == "bind-tick-overflow") p.hwTick = UINT64_MAX;
+        else if (test == "submit-sequence-exhausted") p.gSeq = UINT64_MAX;
+        else if (test == "submit-wptr-exhausted") p.gq[0].wptr = p.gq[0].doneEnd = UINT64_MAX - 5;
+        else if (test == "submit-stopping") p.stopping = true;
         else if (test == "bind-cached-low") p.vm[0].hw = 7;
         else if (test == "bind-cached-high") p.vm[0].hw = 16;
         else if (test == "bind-cached-owner") p.hwv[0].ctx = 2;
@@ -154,13 +160,16 @@ int main(int argc, char **argv) {
         const bool retry = test.find("retry-timeout") != std::string::npos;
         if (retry) p.forceTimeout = true;
         const auto memory = p.memory.words, bells = p.bells.words;
+        const auto initialSeq = p.gSeq, initialWptr = p.gq[0].wptr;
         if (test.rfind("submit-", 0) == 0) {
             uint64_t va = 0x400000, seq = UINT64_MAX; uint32_t dw = 4;
             IOReturn result = p.gpuSubmit(1, false, &va, &dw, 1, &seq);
             if (!success) {
-                assert(result == kIOReturnBusy && seq == UINT64_MAX && p.gSeq == 42);
+                const auto expected = test == "submit-stopping" ? kIOReturnNotReady :
+                    test == "submit-sequence-exhausted" || test == "submit-wptr-exhausted" ? kIOReturnNoResources : kIOReturnBusy;
+                assert(result == expected && seq == UINT64_MAX && p.gSeq == initialSeq);
                 assert(p.memory.words == memory && p.bells.words == bells && p.flushes == 0);
-                assert(p.gq[0].tail == 0 && p.gq[0].wptr == 0);
+                assert(p.gq[0].tail == 0 && p.gq[0].wptr == initialWptr);
             }
             if (retry) {
                 const unsigned writes = p.writes; p.forceTimeout = false;
@@ -170,6 +179,7 @@ int main(int argc, char **argv) {
             if (success) {
                 assert(result == kIOReturnSuccess && seq == 43 && p.gSeq == 43 && p.flushes == 2);
                 assert(p.gq[0].tail == 1 && p.gq[0].wptr == 12 && p.hwv[0].lastSeq == 43);
+                assert(p.vm[0].lastSeq == 43);
                 const uint32_t *words = reinterpret_cast<const uint32_t *>(p.memory.words.data()) + 0x4000 / 4;
                 const uint32_t packet[] = {0xc0023f00, 0x400000, 0, 4u | (1u << 23) | (8u << 24),
                     0xc0064900, 0x06603514, 0x40000000, 0x6100, 1, 43, 0, 0};

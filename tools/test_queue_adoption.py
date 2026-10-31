@@ -14,7 +14,7 @@ CASES = (
     'compute', 'graphics', 'second-queue', 'adjacent-regions', 'aperture-end', 'doorbell-end',
     'minimum-ring', 'maximum-ring', 'repeated-compute', 'repeated-graphics', 'live-history',
     'null-input', 'no-aperture', 'no-doorbell', 'no-mmio', 'no-mc-base', 'no-gpu-lock', 'no-smu-lock',
-    'no-layout', 'psp-fault', 'invalid-layout', 'mc-overflow', 'physical-overflow',
+    'no-layout', 'psp-fault', 'stopping', 'invalid-layout', 'mc-overflow', 'physical-overflow',
     'ring-zero', 'ring-small', 'ring-large', 'ring-not-power-two', 'ring-misaligned',
     'wb-misaligned', 'fence-bit1', 'fence-bit2', 'doorbell-misaligned',
     'doorbell-overflow', 'doorbell-overrun', 'ring-wb-overlap', 'ring-fence-overlap', 'wb-fence-overlap',

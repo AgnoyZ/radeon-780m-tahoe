@@ -59,7 +59,8 @@
     "patches/0015-explicit-scheduler-queue.patch",
     "patches/0016-explicit-compute-ring-probe.patch",
     "patches/0017-checked-queue-adoption.patch",
-    "patches/0018-checked-vmid-binding.patch"
+    "patches/0018-checked-vmid-binding.patch",
+    "patches/0019-deferred-client-context-retirement.patch"
   ],
   "target": {
     "darwin_major": 25,

@@ -31,7 +31,7 @@ public:
     FakeLock *gpuLock{&gpuMutex}, *smuLock{&smuMutex};
     uint64_t fbAperLen{0x100000}, fbSize{0x100000}, fbMcBase{0x100000000ull}, fbPhys{0x200000000ull};
     uint64_t gSeq{0x1122334455667788ull};
-    bool pspLayoutConfigured{true}, pspSubmissionFaulted{false};
+    bool pspLayoutConfigured{true}, pspSubmissionFaulted{false}, stopping{false};
     PhxPspLayout pspLayout{PHX_PSP_LAYOUT_VERSION, 0, 0x10000, 0x2000, 0x20000, 0x2000, {0, 0}};
     unsigned flushes{0}, target{0};
     void hdpFlush() { assert(depth == 2 && !gq[target].ready); ++flushes; }
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
         expected = kIOReturnExclusiveAccess; repeated = true;
     }
     else if (test == "null-input") expected = kIOReturnBadArgument;
-    else if (test.rfind("no-", 0) == 0 || test == "psp-fault") {
+    else if (test.rfind("no-", 0) == 0 || test == "psp-fault" || test == "stopping") {
         expected = kIOReturnNotReady;
         if (test == "no-aperture") p.fbAper = nullptr;
         else if (test == "no-doorbell") p.doorbellMap = nullptr;
@@ -83,6 +83,7 @@ int main(int argc, char **argv) {
         else if (test == "no-smu-lock") p.smuLock = nullptr;
         else if (test == "no-layout") p.pspLayoutConfigured = false;
         else if (test == "psp-fault") p.pspSubmissionFaulted = true;
+        else if (test == "stopping") p.stopping = true;
         else assert(false);
     }
     else if (test == "invalid-layout") { p.pspLayout.reserved[0] = 1; expected = kIOReturnBadArgument; }

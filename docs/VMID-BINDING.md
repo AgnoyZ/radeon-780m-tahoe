@@ -74,6 +74,12 @@ or a target GPUVM/shader/lifetime pass.
 
 ## Unresolved lifetime issues
 
+The subsequent whole-client retirement implementation in
+`CONTEXT-RETIREMENT.md` replaces the `vmidFree` and client-close behavior described
+in this original audit. Individual BO-free/unmap and complete device teardown
+remain open; the historical diagnosis below explains why ownership transfer
+was required.
+
 This is submission-time binding validation, not a complete GPUVM lifetime fix.
 `vmMap`, `vmUnmap` and `vmidFree` still discard their invalidation return value.
 The submit path now independently revalidates before emitting work, but it does

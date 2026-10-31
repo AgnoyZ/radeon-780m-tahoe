@@ -21,6 +21,7 @@ CASES = tuple(f'flush-{i}' for i in range(8, 16)) + (
     'bind-timeout', 'bind-cached-timeout', 'bind-retry-timeout', 'bind-all-ones',
     'submit-first', 'submit-cached', 'submit-timeout', 'submit-all-ones', 'submit-bad-root',
     'submit-retry-timeout',
+    'submit-sequence-exhausted', 'submit-wptr-exhausted', 'submit-stopping',
 ) + tuple(f'{mode}-readback-{i}' for mode in ('bind', 'cached', 'submit') for i in range(7))
 
 
