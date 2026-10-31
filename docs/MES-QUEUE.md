@@ -72,9 +72,17 @@ the immediate-success path, write-stage boundaries, HQD readbacks, bad/high-word
 completion tokens, timeout, delay and close failures. Header checks include
 exact-end/adjacent ranges and doorbell field limits.
 
-Local Python checks pass (150); 366 actual-CLI sanitizer cases are wired into
-CI. Exact-revision source and native results are pending and must be recorded
-before claiming a host verification pass for this patch.
+Run `41152736230`, code `4247a6f`, passed 150 Python tests and all 366 actual-CLI
+scheduler cases under ASan/UBSan (183 each for baseline and relocated layouts).
+The same source passed 212 MES-start, 319 GART, 76 kernel-method, 114 firmware
+sequence and 158 GFX-power regression cases. All scheduler/MES/GART operation
+counts and case sets were independently checked, along with actual CLI/kernel
+method hashes and the fifteen-patch/seven-header Git input hashes. See
+`validation/ci-4247a6f-mes-queue.json`.
+
+Native job `124393014457` passed the real-tool compilation/preflight step, as
+observed through job-step metadata. Full native build and artifact hashes are
+not yet verified for this revision. Host tests do not execute a GPU.
 
 ## Remaining work
 
