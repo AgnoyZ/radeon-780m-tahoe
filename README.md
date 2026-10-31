@@ -27,6 +27,7 @@
 - `upstream/nullarc`：固定提交的上游实现，保留原许可证。
 - `patches/`、`src/PhxHardwarePolicy.hpp`：实际内核补丁与共享硬件策略。
 - `tools/`、`tests/`：隔离构建、产物校验与真实 Metal 计算探针。
+- `tools/target_preflight.py`、`docs/TARGET-PREFLIGHT.md`：从私有目标清单生成仅允许 `--check` 的只读门禁。
 - `docs/BUILD.md`、`docs/IMPLEMENTATION-STATUS.md`：构建方法与未完成项。
 - `docs/NATIVE-SHADER-PROBE.md`：经原生 GPUVM/BO/提交接口验收着色器的候选探针，尚未实机验证。
 - `docs/TARGET-INVENTORY.md`：目标机只读元数据采集；不安装驱动、不提交 GPU 工作，报告仅保存在本地。

@@ -1,6 +1,6 @@
 # 研发路线与验收
 
-阶段 1、2 已进入源码审计和构建实现；本机硬件验收均未完成。具体证据与缺口见 IMPLEMENTATION-STATUS.md。
+阶段 1、2 已进入源码审计和构建实现；已增加目标清单到 `native-shader-probe --check` 的只读门禁，本机硬件验收均未完成。具体证据与缺口见 IMPLEMENTATION-STATUS.md。
 
 | 阶段 | 工作 | 验收条件 |
 | --- | --- | --- |
