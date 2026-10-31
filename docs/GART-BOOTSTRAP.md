@@ -102,10 +102,18 @@ overlaps, bad readbacks, failure at all 188 register writes and each read
 boundary, and delayed/wrong/missing invalidation acknowledgement. Its 319 cases
 use fake memory/registers; they do not emulate GPU translation.
 
-Both new header hashes are recorded in source provenance. Local Python tests
-pass (136). Native preflight compiles the real tool without running it; CI
-sanitizer/native results must be recorded for this revision when available.
-Older build passes are not evidence for this new initializer.
+Both new header hashes are recorded in source provenance. Run `41150457274`,
+code `6f03c29`, passed 137 Python tests, all 319 actual-CLI GART cases and all
+76 actual kernel-method cases under ASan/UBSan, plus the existing firmware and
+GFX suites. Every GART operation count was independently rechecked against the
+expected result. Actual CLI/kernel method hashes match the staged implementation;
+all patch and six shared-header hashes match the exact code commit. See
+`validation/ci-6f03c29-gart.json`.
+
+Native job `124385784387` has passed real-tool compilation/preflight without
+executing the initializer. Its full native build remains in progress. No
+target allocation, GPU translation or acceleration result follows from these
+host checks.
 
 Initial source run `41150258701` (`b8f9883`) passed Python and prior suites,
 including all 76 actual kernel-method cases, but stopped in the new GART
