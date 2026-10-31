@@ -67,9 +67,20 @@ remain separate regressions; their historical passes do not validate this patch.
 The Windows Python suite passed 212 tests: 204 executed successfully and eight
 POSIX-only checks explicitly skipped. Source extraction, malformed/duplicate
 source rejection, strict result parsing and actual-walker/CI wiring are covered.
-The new C++ cases are not yet executed at implementation time on this Windows
-host; the source CI result and full native macOS build must be checked after
-synchronization. OS allocation, descriptors, physical segments, cache flushes,
+The C++ cases were not executed on the Windows host. Linux source job
+`124433634668`, run `41166014645`, code
+`298b6fd9cf67458938eef50a3ec10d52b102c383`, subsequently completed successfully.
+All 55 real-walker/map/client cases passed ASan/UBSan, all 212 Python tests ran
+without skips, and the existing 98 page-table, 82 BO, 55 context-retirement,
+68 queue-retirement, 71 VM-binding/submission and 73 adoption cases passed.
+The CLI regressions also passed. Independently checked all new outcomes, all
+25 actual implementation hashes and shared declarations, all six runner
+outcomes, 1455 CLI operation-count dictionaries and all 23 patch plus seven
+header Git hashes. See `validation/ci-298b6fd-walk-cleanup.json`.
+
+Native macOS job `124433975454` was observed in progress. No full native build
+of patch 0023 is established by the Linux source results.
+OS allocation, descriptors, physical segments, cache flushes,
 registers, locks, completion and submission transport remain explicit fakes.
 State changes are fault injection, not proof of a real concurrent hardware race.
 No GPU command, kernel loading, DMA/IOMMU coherence, full page-table graph audit,
