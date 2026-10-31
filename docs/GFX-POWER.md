@@ -94,13 +94,20 @@ interrupted sleeps and malformed register replies. It checks exact operation
 order/counts and verifies snapshots are freed. Fake clocks avoid waiting on
 real wall time; fake registers do not emulate a GPU.
 
-Local Python tests pass (128 tests). Actual C/ASan/UBSan results and native
-compilation must be recorded from CI for this revision before claiming they
-passed. Native execution remains limited to hardware-free verification paths.
+Code `652a6fa`, run `41148387362`, passed the source job: 128 Python tests,
+all 158 GFX power cases under ASan/UBSan, all 114 firmware sequence cases and
+the existing 60 control/69 PSP-method regressions. Exact event order and
+byte/SMU/clock/poll counts were independently rechecked. The actual CLI and
+PSP method hashes match freshly staged LF source; patch and header hashes
+match the code commit's Git objects. See `validation/ci-652a6fa-gfx-power.json`.
+Native job `124378993165` has passed compilation/tool preflight, but the full
+native build is not recorded as complete. Native execution remains
+limited to hardware-free verification paths; no target GFX readiness was observed.
 
 The initial implementation `e873835` passed 157 GFX cases in source job
 `124377804435` (run `41148090561`). Subsequent review found that the all-ones
 case set both CP and RLC to all ones, so CP's nonzero value could hide acceptance
 of RLC all ones alone. The corrected readiness predicate now explicitly rejects
 `UINT32_MAX` RLC data and the suite adds that independent failure. The older
-157-case pass does not verify this correction; a new CI result is required.
+157-case pass does not verify this correction; the later `652a6fa` result above
+does cover the independent all-ones case and its terminal failure behavior.
