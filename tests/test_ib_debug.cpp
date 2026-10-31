@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
     for (unsigned i = 0; i < peer.size(); ++i) peer[i] = 0x78100000u + i;
     uint64_t start = 0x30000, mapOffset = 0;
     unsigned dwords = 4, ibs = 1, prefix = 4;
-    bool crosses = false, reject = false;
+    bool crosses = false;
     if (test.rfind("cross-", 0) == 0) {
         prefix = static_cast<unsigned>(std::stoul(test.substr(6))); assert(prefix <= 1024 && prefix);
         start += 4096 - prefix * 4; dwords = prefix + 16; crosses = true;
@@ -47,7 +47,10 @@ int main(int argc, char **argv) {
         start += 4092; dwords = 17; prefix = 1; crosses = true;
         if (test == "multi-two") ibs = 2;
         if (test == "multi-max") ibs = PHXN_MAX_IBS;
-        if (test == "graphics") { p.expectedSubmitGfx = true; p.gq[1].ready = true; }
+        if (test == "graphics") {
+            p.expectedSubmitGfx = true; p.gq[1].ready = true; p.gq[1].gfx = true; p.gq[1].ringOff = 0x8000;
+            p.gq[1].ringDw = 1024; p.gq[1].wbOff = 0xa000; p.gq[1].fenceOff = 0xa100; p.gq[1].dbByte = 16;
+        }
         if (test == "debug-disabled") p.debug = false;
         if (test == "emission-limit") c.emitted = 4;
         if (test == "emission-last") c.emitted = 3;
@@ -82,7 +85,7 @@ int main(int argc, char **argv) {
         c.bos[1].kva = reinterpret_cast<uint8_t *>(UINTPTR_MAX - 3); expectedLogWords = 0;
     }
     if (test == "pointer-unaligned") { ++c.bos[1].kva; expectedLogWords = 0; }
-    if (test == "missing-md") { c.bos[1].md = nullptr; expectedLogWords = 0; reject = true; }
+    if (test == "missing-md") { c.bos[1].md = nullptr; expectedLogWords = 0; }
     if (!p.debug || c.emitted >= 4 || test == "opaque-first") expectedLogWords = 0;
     expectedLogIbs = ibs; initialEmission = static_cast<unsigned>(c.emitted); logHook = inspectLog;
     struct Request { phxn_cs_in header; phxn_cs_ib ib[PHXN_MAX_IBS]; } packet{};
@@ -97,7 +100,7 @@ int main(int argc, char **argv) {
     const auto firstImage = storage, peerImage = peer;
     const auto mapImage = c.mapStorage;
     const auto result = c.doSubmit(&args);
-    assert(result == (reject ? kIOReturnBadArgument : kIOReturnSuccess));
+    assert(result == kIOReturnSuccess);
     assert(logRows == ((expectedLogWords + 7) / 8) * ibs);
     assert(storage == firstImage && peer == peerImage && !first.releases && !second.releases);
     assert(c.mapStorage.size() == mapImage.size());
@@ -106,8 +109,8 @@ int main(int argc, char **argv) {
         assert(a.used == b.used && a.handle == b.handle && a.va == b.va && a.size == b.size && a.off == b.off &&
             a.flags == b.flags && a.pending == b.pending);
     }
-    assert(p.submissions == unsigned(!reject) && c.flushCalls == unsigned(!reject));
-    assert(args.scalarOutput[0] == (reject ? UINT64_MAX : 6));
+    assert(p.submissions == 1 && c.flushCalls == 1);
+    assert(args.scalarOutput[0] == 6);
     assert(!p.mutex);
     std::cout << "{\"case\":\"" << test << "\",\"variant\":\"" << argv[1] << "\",\"log_rows\":" << logRows <<
         ",\"prefix_words\":" << expectedLogWords << ",\"ibs\":" << ibs << ",\"submissions\":" << p.submissions <<

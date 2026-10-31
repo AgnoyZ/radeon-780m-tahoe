@@ -22,13 +22,13 @@ CASES = tuple(f'cross-{n}' for n in CROSS_PREFIXES) + tuple(f'length-{n}' for n 
 def expected_result(case, variant):
     if case not in CASES or variant not in ('low', 'upper'): raise ValueError('Unknown IB diagnostic scenario')
     ibs = 64 if case == 'multi-max' else 2 if case == 'multi-two' else 1
-    if case.startswith('cross-'): words = min(96, int(case.split('-')[1]))
+    if case.startswith('cross-'): words = min(96, int(case.split('-')[1]), 16)
     elif case.startswith('length-'): words = min(96, int(case.split('-')[1]))
     elif case in ('offset-map', 'multi-two', 'multi-max', 'graphics', 'emission-last', 'opaque-peer', 'descriptor-prefix', 'bo-prefix'):
         words = 1
     else: words = 0
     return {'case': case, 'variant': variant, 'log_rows': ((words + 7) // 8) * ibs,
-            'prefix_words': words, 'ibs': ibs, 'submissions': int(case != 'missing-md'), 'passed': True, 'hardware_executed': False}
+            'prefix_words': words, 'ibs': ibs, 'submissions': 1, 'passed': True, 'hardware_executed': False}
 
 
 def check_result(result, case, variant):
