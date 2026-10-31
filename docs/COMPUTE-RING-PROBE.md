@@ -78,9 +78,18 @@ doorbell, active HQD, every immediate-path register operation, memory-stage
 boundaries, failed MES add completion, missing writes, each fence half, changed
 fence/guards, delayed completion, sleep errors and close errors.
 
-Local Python checks pass (155); 558 compute-mode actual-CLI sanitizer cases are
-wired into CI. Exact-revision sanitizer/native results are pending. None of
-these synthetic tests executes firmware, command processors or shaders.
+Run `41153999930`, code `c239fa2`, passed 155 Python tests and all 558
+compute-mode actual-CLI cases under ASan/UBSan (279 per address-layout variant).
+The same source passed 366 scheduler, 212 MES-start, 319 GART, 76 kernel-method,
+114 firmware-sequence and 158 GFX-power regression cases. All 1455 CLI operation
+counts/case sets, actual CLI/kernel method hashes, and sixteen-patch/seven-header
+Git input hashes were independently checked. See
+`validation/ci-c239fa2-compute-ring.json`.
+
+Native job `124396895811` passed real-tool compilation/preflight according to
+job-step metadata. Full native build and native artifact hashes are not yet
+verified for this revision. None of the synthetic tests executes firmware,
+command processors or shaders.
 
 Exclusive memory/doorbell ownership, firmware residency, target topology and
 cache/address semantics still require hardware evidence. Synchronous kernel
