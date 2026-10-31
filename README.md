@@ -10,7 +10,7 @@
 以上是非目标 Mac 上的编译链与无设备集成验证：没有创建 Metal/Vulkan 设备或提交 GPU 工作。固件、目标机初始化、内屏与 WindowServer 加速仍未验证，不能直接安装使用。详见 `docs/IMPLEMENTATION-STATUS.md` 与 `docs/validation/ci-298b6fd-full.json`。
 
 ## 目标与当前环境
-- 首个目标设备：Lenovo ThinkBook 16 G6+ AHP，Ryzen 7 8845H / Radeon 780M（此前采集 PCI ID：1002:1900）。
+- 首个目标设备也是当前研发笔记本：Lenovo ThinkBook 16 G6+ AHP，Ryzen 7 8845H / Radeon 780M（此前采集 PCI ID：1002:1900）。Windows 上的仓库操作发生在这台机器，但 GPU 实测必须切换到它的 Tahoe 系统后进行。
 - 目标系统：macOS Tahoe；具体版本和 build 在切换后实测登记，不预设已经安装。
 - 当前已知基线：Sonoma Recovery 可启动，内置键盘与触控板移动/实体点击可用；尚无 GPU 加速证据。
 - 目标安装位置：外接 HIKSEMI SSD；不得修改内部 Windows EFI 或分区。

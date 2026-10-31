@@ -12,7 +12,7 @@ python tools/target_preflight.py local/target-inventory-from-recovery-01/invento
 
 The output is `preflight.json` with mode `0600` on POSIX. Existing output is
 refused. The report allows only the non-submitting `native-shader-probe --check`
-step when it observes Intel x86_64 Darwin 25, exactly one `1002:1900` registry
+step when it observes x86_64 Darwin 25 on the target laptop, exactly one `1002:1900` registry
 candidate, nonempty assigned-address metadata, and no positive execution claims
 in the source inventory. Missing, ambiguous, altered or unsafe metadata blocks
 even that check.

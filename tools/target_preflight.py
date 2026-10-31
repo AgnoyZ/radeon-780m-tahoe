@@ -56,7 +56,7 @@ def evaluate(inventory):
                           and int(darwin_match.group(1)) == 25)
     checks = []
     checks.append({
-        "name": "darwin25_x86_64",
+        "name": "target_darwin25_x86_64",
         "passed": derived_target,
         "observed": {key: system.get(key) for key in ("os_version", "os_build", "darwin_release", "architecture")}
         | {"collector_claim": system.get("requested_system_family_matches"), "derived_match": derived_target},
