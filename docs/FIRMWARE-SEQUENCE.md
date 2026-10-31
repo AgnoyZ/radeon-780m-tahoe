@@ -77,6 +77,12 @@ adopt graphics queues, execute a shader or take over the display. It is one
 necessary part of that larger initialization pipeline. Working EFI files and
 security settings are unchanged.
 
+The separate `gfx-power-sequence` command added in patch 0012 extends this
+firmware path with checked SMU interface/version queries, IMU power-up and
+bounded CP/RLC boot-readiness observations. It does not alter this command's
+firmware-only behavior. See `GFX-POWER.md` for its additional prerequisites and
+verification limits.
+
 ## Verification scope
 
 `python tools/firmware_profile.py --check` checks deterministic metadata.

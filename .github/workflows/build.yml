@@ -36,6 +36,8 @@ jobs:
         run: python3 tools/test_firmware_control.py --out build/firmware-control-tests
       - name: Exercise complete firmware sequence with synthetic inputs
         run: python3 tools/test_firmware_sequence.py --out build/firmware-sequence-tests
+      - name: Exercise GFX power and readiness with synthetic inputs
+        run: python3 tools/test_firmware_sequence.py --power --out build/gfx-power-tests
   macos-kexts:
     runs-on: macos-15-intel
     timeout-minutes: 90

@@ -1,0 +1,119 @@
+{
+  "source_repository": "torvalds/linux",
+  "source_commit": "7d0a66e4bb9081d75c82ec4957c50034cb0ea449",
+  "files": [
+    {
+      "path": "drivers/gpu/drm/amd/pm/swsmu/smu13/smu_v13_0_4_ppt.c",
+      "sha256": "f6025d618d556655795d440ae90d32018acdd10cc809045b0237b4aadfd33835",
+      "license_notice": "AMD MIT-style notice inspected",
+      "checked_symbols": []
+    },
+    {
+      "path": "drivers/gpu/drm/amd/pm/swsmu/inc/pmfw_if/smu_v13_0_4_ppsmc.h",
+      "sha256": "6837e9a7974f26bb3c27ab009d4be4e815440f00f3d56cfdabf1a8b03e12b7d5",
+      "license_notice": "AMD MIT-style notice inspected",
+      "checked_symbols": [
+        {
+          "symbol": "PPSMC_Result_OK",
+          "value": 1,
+          "line": 43
+        },
+        {
+          "symbol": "PPSMC_MSG_GetPmfwVersion",
+          "value": 2,
+          "line": 55
+        },
+        {
+          "symbol": "PPSMC_MSG_GetDriverIfVersion",
+          "value": 3,
+          "line": 56
+        },
+        {
+          "symbol": "PPSMC_MSG_EnableGfxImu",
+          "value": 22,
+          "line": 76
+        }
+      ]
+    },
+    {
+      "path": "drivers/gpu/drm/amd/pm/swsmu/inc/pmfw_if/smu13_driver_if_v13_0_4.h",
+      "sha256": "3b0f2ef64e6d297f975f6b1dda57b384bcdcfb58cd9396f4a9fa2474159dd81a",
+      "license_notice": "AMD MIT-style notice inspected",
+      "checked_symbols": [
+        {
+          "symbol": "SMU13_0_4_DRIVER_IF_VERSION",
+          "value": 8,
+          "line": 30
+        }
+      ]
+    },
+    {
+      "path": "drivers/gpu/drm/amd/pm/swsmu/smu13/smu_v13_0.c",
+      "sha256": "b07a78a0c46519057b688d1aedcdcca0295496500dd00b77595729125503aab6",
+      "license_notice": "AMD MIT-style notice inspected",
+      "checked_symbols": [
+        {
+          "symbol": "ENABLE_IMU_ARG_GFXOFF_ENABLE",
+          "value": 1,
+          "line": 86
+        }
+      ]
+    },
+    {
+      "path": "drivers/gpu/drm/amd/amdgpu/gfx_v11_0.c",
+      "sha256": "6b3dc555a2587666b46cdade8141966f49eaca71b40ad53b0a45b8624e5aeec9",
+      "license_notice": "AMD MIT-style notice inspected",
+      "checked_symbols": [
+        {
+          "symbol": "regRLC_RLCS_BOOTLOAD_STATUS_gc_11_0_1",
+          "value": 20094,
+          "line": 62
+        },
+        {
+          "symbol": "regRLC_RLCS_BOOTLOAD_STATUS_gc_11_0_1_BASE_IDX",
+          "value": 1,
+          "line": 63
+        }
+      ]
+    },
+    {
+      "path": "drivers/gpu/drm/amd/include/asic_reg/gc/gc_11_0_0_offset.h",
+      "sha256": "a2394677509a3415a9e6307d876cae9cd654a99275ab40b3027d983da26801f2",
+      "license_notice": "AMD MIT-style notice inspected",
+      "checked_symbols": [
+        {
+          "symbol": "regCP_STAT",
+          "value": 3904,
+          "line": 1970
+        },
+        {
+          "symbol": "regCP_STAT_BASE_IDX",
+          "value": 0,
+          "line": 1971
+        }
+      ]
+    },
+    {
+      "path": "drivers/gpu/drm/amd/include/asic_reg/gc/gc_11_0_0_sh_mask.h",
+      "sha256": "83dd0060886da2927e3f722b992af208e4d41999b0740123a770a6561f060c94",
+      "license_notice": "AMD MIT-style notice inspected",
+      "checked_symbols": [
+        {
+          "symbol": "RLC_RLCS_BOOTLOAD_STATUS__BOOTLOAD_COMPLETE__SHIFT",
+          "value": 31,
+          "line": 36305
+        },
+        {
+          "symbol": "RLC_RLCS_BOOTLOAD_STATUS__BOOTLOAD_COMPLETE_MASK",
+          "value": 2147483648,
+          "line": 36310
+        }
+      ]
+    }
+  ],
+  "implementation": "Independent downstream sequencing/polling code and factual protocol metadata; no Linux implementation bodies copied.",
+  "target_ip_discovery_verified": false,
+  "target_hardware_executed": false,
+  "gc_segment_bases": "0x1260 / 0xA000 remain pinned nullarc reference assumptions, not target discovery results.",
+  "smu_interface_policy": "Require reviewed value 8; intentionally stricter than Linux warning-only mismatch policy."
+}

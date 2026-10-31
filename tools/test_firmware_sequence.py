@@ -33,9 +33,60 @@ def cases():
         if i: yield "load-" + str(i)
 
 
-def expected_result(fault, data=None):
+def power_cases():
+    yield from cases()
+    for operation in ("smu-if", "smu-version", "smu-enable"):
+        for failure in ("status", "short", "long", "psp", "timeout", "wide"):
+            yield operation + "-" + failure
+    yield from ("smu-if-mismatch", "ready-delayed", "cp-busy", "rlc-not-ready", "rlc-wrong-bit", "read-all-ones",
+                "clock-error", "clock-before-error", "clock-after-error", "clock-bad-nanos", "clock-negative",
+                "clock-overflow", "clock-before-backwards", "clock-after-backwards", "clock-before-deadline",
+                "clock-after-deadline", "clock-frozen", "sleep-eintr", "sleep-error")
+    for register in ("cp", "rlc"):
+        for failure in ("status", "short", "long"):
+            yield "read-" + register + "-" + failure
+
+
+def smu_fault(fault, operation):
+    if fault in (operation + "-status", operation + "-short", operation + "-long"): return 74
+    if fault in (operation + "-psp", operation + "-timeout", operation + "-wide"): return 75
+    if operation == "smu-if" and fault == "smu-if-mismatch": return 75
+    return 0
+
+
+def expected_poll(fault, counts):
+    if fault in ("clock-error", "clock-bad-nanos", "clock-negative", "clock-overflow"):
+        counts["clocks"] = 1
+        return 74
+    if fault in ("clock-before-error", "clock-before-backwards", "clock-before-deadline"):
+        counts["clocks"] = 2
+        return 74 if fault == "clock-before-error" else 75
+    counts["events"].append("readiness")
+    counts.update(clocks=2, cp_reads=1)
+    if fault.startswith("read-cp-"): return 74
+    counts["rlc_reads"] = 1
+    if fault.startswith("read-rlc-"): return 74
+    counts["clocks"] = 3
+    if fault in ("clock-after-error", "clock-after-backwards", "clock-after-deadline"):
+        return 74 if fault == "clock-after-error" else 75
+    if fault == "sleep-error":
+        counts["sleeps"] = 1
+        return 74
+    if fault in ("cp-busy", "rlc-not-ready", "rlc-wrong-bit", "read-all-ones"):
+        counts.update(clocks=9, cp_reads=4, rlc_reads=4, sleeps=3)
+        return 75
+    if fault == "clock-frozen":
+        counts.update(clocks=4001, cp_reads=2000, rlc_reads=2000, sleeps=2000)
+        return 75
+    if fault in ("ready-delayed", "sleep-eintr"):
+        counts.update(clocks=7, cp_reads=3, rlc_reads=3, sleeps=2)
+    return 0
+
+
+def expected_result(fault, data=None, power=False):
     data = load_profile() if data is None else data
     counts = {"events": [], "stages": 0, "accepted_bytes": 0}
+    if power: counts.update(smus=0, clocks=0, sleeps=0, cp_reads=0, rlc_reads=0)
     events = counts["events"]
     if fault.startswith("arg-"): return 64, counts
     for i in range(9):
@@ -51,6 +102,12 @@ def expected_result(fault, data=None):
         if fault == "hello-abi" and operation == "hello": return 75, counts
         if fault in ("layout-zero", "layout-overflow", "layout-aperture", "tmr-alignment") and operation == "layout": return 75, counts
         if fault == "ring-address" and operation == "ring": return 75, counts
+        if operation == "hello" and power:
+            for query in ("smu-if", "smu-version"):
+                events.append(query)
+                counts["smus"] += 1
+                status = smu_fault(fault, query)
+                if status: return status, counts
     for i, step in enumerate(data["steps"]):
         events.append(f"stage-{i}")
         for offset in range(0, step["size_bytes"], 4096):
@@ -70,22 +127,32 @@ def expected_result(fault, data=None):
     events.append("autoload")
     if fault in ("autoload-status", "autoload-short", "autoload-long"): return 74, counts
     if fault in ("autoload-psp", "autoload-timeout"): return 75, counts
+    if power:
+        events.append("smu-enable")
+        counts["smus"] += 1
+        status = smu_fault(fault, "smu-enable")
+        if status: return status, counts
+        status = expected_poll(fault, counts)
+        if status: return status, counts
     events.append("close")
     return (74 if fault == "close-status" else 0), counts
 
 
-def check_result(result, fault, data=None):
-    status, wanted = expected_result(fault, data)
+def check_result(result, fault, data=None, power=False):
+    status, wanted = expected_result(fault, data, power)
     prefix = "fake-sequence-summary "
     lines = [line[len(prefix):] for line in result.stderr.splitlines() if line.startswith(prefix)]
     if result.returncode != status or len(lines) != 1:
         raise RuntimeError(f"Firmware sequence failed expectation ({fault}): {result.returncode}: {result.stderr}")
     actual = json.loads(lines[0])
-    if (actual != wanted or type(actual.get("stages")) is not int or type(actual.get("accepted_bytes")) is not int):
+    if (actual != wanted or any(type(v) is not int for k, v in actual.items() if k != "events")):
         raise RuntimeError(f"Wrong sequence/bytes or continuation after failure ({fault}): {actual}; expected {wanted}")
     marker = "firmware-sequence complete: 17 IP loads and RLC autoload acknowledged; GPU operation unverified"
+    if power:
+        marker = "gfx-power-sequence complete: PMFW 0x13004001, IMU acknowledged and GFX boot readiness observed; queues/shaders/display unverified"
     if status:
-        if "phxctl checked failure:" not in result.stderr or "firmware-sequence complete" in result.stdout:
+        if "phxctl checked failure:" not in result.stderr or any(text in result.stdout for text in
+                ("firmware-sequence complete", "gfx-power-sequence complete")):
             raise RuntimeError("Firmware sequence failure was hidden or reported as success")
     elif marker not in result.stdout:
         raise RuntimeError("Firmware sequence success report missing its hardware limitation")
@@ -102,7 +169,7 @@ def write_fixtures(directory, data, fault):
         (directory / entry["name"]).write_bytes(content)
 
 
-def exercise(out):
+def exercise(out, power=False):
     compiler = shutil.which("clang")
     if platform.system() not in ("Linux", "Darwin") or not compiler:
         raise RuntimeError("Firmware sequence tests require POSIX Clang")
@@ -120,13 +187,15 @@ def exercise(out):
                    check=True, timeout=120)
     data = load_profile()
     reports = []
-    for fault in cases():
+    for fault in (power_cases() if power else cases()):
         directory = out / fault
         write_fixtures(directory, data, fault)
-        result = subprocess.run([str(binary), fault, str(directory)], capture_output=True, text=True, timeout=20)
-        reports.append({"case": fault, **check_result(result, fault, data)})
+        command = [str(binary), fault, str(directory)] + (["power"] if power else [])
+        result = subprocess.run(command, capture_output=True, text=True, timeout=20)
+        reports.append({"case": fault, **check_result(result, fault, data, power)})
     report = {"source_provenance": provenance, "actual_cli_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
-              "cases": reports, "standalone_source_compiled": True, "hardware_executed": False,
+              "cases": reports, "mode": "gfx-power-sequence" if power else "firmware-sequence",
+              "standalone_source_compiled": True, "hardware_executed": False,
               "crypto_backend": "fake fixture-byte validation; not SHA-256 evidence",
               "limitation": "Synthetic files/fake IOKit; no firmware execution, compatibility or address ownership evidence"}
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -137,4 +206,6 @@ def exercise(out):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", required=True, type=Path)
-    exercise(parser.parse_args().out)
+    parser.add_argument("--power", action="store_true", help="Test the GFX power and readiness sequence using fakes only")
+    args = parser.parse_args()
+    exercise(args.out, args.power)

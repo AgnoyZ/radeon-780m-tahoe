@@ -1,0 +1,138 @@
+--- a/tools/phxctl/phxctl.c
++++ b/tools/phxctl/phxctl.c
+@@ -16,6 +16,7 @@
+ #include <errno.h>
+ #include <fcntl.h>
+ #include <sys/stat.h>
++#include <time.h>
+ #include <unistd.h>
+ #include "../../src/phxbringup/PhxNativeABI.h"
+ #include "../../src/phxbringup/PhxPspLayout.h"
+@@ -40,6 +41,14 @@
+ #define SEL_DBG_WRITE_REG 108
+ #define SEL_DBG_VRAM_WRITE 109
+ 
++/* Candidate GC 11.0.1 / SMU 13.0.4 metadata; Linux 7d0a66e4. */
++#define PHX_GFX_BOOT_CP_STAT (0x1260u + 0x0f40u)
++#define PHX_GFX_BOOT_RLC_STATUS (0xA000u + 0x4e7eu)
++#define PHX_GFX_BOOT_COMPLETE 0x80000000u
++#define PHX_SMU_DRIVER_IF_VERSION 8u
++#define PHX_GFX_BOOT_TIMEOUT_US 2000000ull
++#define PHX_GFX_BOOT_MAX_POLLS 2000u
++
+ static io_connect_t conn;
+ static uint8_t *staging_snapshot;
+ static uint8_t *sequence_images[PHX_FW_FILE_COUNT];
+@@ -74,8 +83,8 @@
+         selector == SEL_DBG_PSP_LOADIPFW || selector == SEL_DBG_PSP_RAW ||
+         selector == PHX_PSP_LOAD_TOC_SELECTOR) && output[0] != 0)
+       control_failure(75, "PSP completion/status not confirmed");
+-   if (selector == SEL_DBG_SMU && output[0] != 1)
+-      control_failure(75, "SMU response not successful");
++   if (selector == SEL_DBG_SMU && (output[0] != 1 || output[1] > UINT32_MAX))
++      control_failure(75, "SMU response not successful or argument exceeds 32 bits");
+    return kr;
+ }
+ 
+@@ -206,6 +215,38 @@
+    *resp = (uint32_t)out[0];
+    *after = (uint32_t)out[1];
+    return (int)kr;
++}
++
++static uint64_t monotonic_us(void)
++{
++   struct timespec now;
++   if (clock_gettime(CLOCK_MONOTONIC, &now) || now.tv_sec < 0 || now.tv_nsec < 0 || now.tv_nsec >= 1000000000L ||
++       (uint64_t)now.tv_sec > (UINT64_MAX - 999999ull) / 1000000ull)
++      control_failure(74, "monotonic clock unavailable or outside representable range");
++   return (uint64_t)now.tv_sec * 1000000ull + (uint64_t)now.tv_nsec / 1000ull;
++}
++
++static void wait_gfx_boot(void)
++{
++   const uint64_t start = monotonic_us();
++   uint64_t last = start;
++   for (unsigned sample = 0; sample < PHX_GFX_BOOT_MAX_POLLS; ++sample) {
++      uint64_t before = monotonic_us();
++      if (before < last || before - start >= PHX_GFX_BOOT_TIMEOUT_US)
++         control_failure(75, "GFX boot deadline expired or clock moved backwards");
++      uint32_t cp = 0, rlc = 0;
++      read_reg(PHX_GFX_BOOT_CP_STAT, &cp);
++      read_reg(PHX_GFX_BOOT_RLC_STATUS, &rlc);
++      uint64_t after = monotonic_us();
++      if (after < before || after - start >= PHX_GFX_BOOT_TIMEOUT_US)
++         control_failure(75, "GFX boot observation arrived after the deadline or clock moved backwards");
++      if (cp == 0 && (rlc & PHX_GFX_BOOT_COMPLETE)) return;
++      last = after;
++      const struct timespec delay = {0, 1000000L};
++      if (nanosleep(&delay, NULL) && errno != EINTR)
++         control_failure(74, "GFX boot polling delay failed");
++   }
++   control_failure(75, "GFX boot sample limit exhausted without readiness");
+ }
+ 
+ static const char *smu_resp_name(uint32_t r)
+@@ -245,7 +286,7 @@
+    {"RLC_CNTL", 0xA000 + 0x4c00},
+    {"RLC_STAT", 0xA000 + 0x4c04},
+    {"RLC_GPM_STAT", 0xA000 + 0x4e6b},
+-   {"RLC_RLCS_BOOTLOAD_STATUS", 0xA000 + 0x4e82},
++   {"RLC_RLCS_BOOTLOAD_STATUS", PHX_GFX_BOOT_RLC_STATUS},
+    {"CP_ME_CNTL", 0xA000 + 0x0803},
+    {"CP_MEC_RS64_CNTL", 0xA000 + 0x2904},
+    {"CP_MES_CNTL", 0xA000 + 0x2807},
+@@ -265,7 +306,7 @@
+    }
+ }
+ 
+-static int firmware_sequence(int argc, char **argv)
++static int firmware_sequence(int argc, char **argv, int power_up)
+ {
+    if (argc != 8)
+       control_failure(64, "firmware-sequence requires firmware directory, ring offset, TMR offset/capacity, staging offset/capacity");
+@@ -298,6 +339,14 @@
+       if (bytes != phxFirmwareFiles[i].bytes) control_failure(65, "firmware size differs from the reviewed profile");
+    }
+    if (open_kext()) control_failure(74, "firmware sequence could not open the service");
++   uint32_t pmfw_version = 0;
++   if (power_up) {
++      uint32_t response = 0, driver_if = 0;
++      smu(PHX_PPSMC_GetDriverIfVersion, 0, &response, &driver_if);
++      if (driver_if != PHX_SMU_DRIVER_IF_VERSION)
++         control_failure(75, "SMU interface differs from the reviewed GFX power profile");
++      smu(PHX_PPSMC_GetPmfwVersion, 0, &response, &pmfw_version);
++   }
+    uint64_t output[4] = {0};
+    uint32_t count = 4;
+    checked_method(conn, PHX_PSP_LAYOUT_SELECTOR, NULL, 0, &layout, sizeof(layout), output, &count, NULL, NULL);
+@@ -333,16 +382,26 @@
+    uint64_t autoload[2] = {2, 0};
+    count = 4;
+    checked_scalar(conn, SEL_DBG_PSP_CTL, autoload, 2, output, &count);
++   if (power_up) {
++      uint32_t response = 0, after = 0;
++      /* PSP-loaded firmware uses the acknowledged IMU path; argument 1 enables GFXOFF. */
++      smu(PHX_PPSMC_EnableGfxImu, 1, &response, &after);
++      wait_gfx_boot();
++   }
+    if (IOServiceClose(conn) != KERN_SUCCESS) control_failure(74, "service close failed after firmware commands");
+    free_sequence_images();
+-   printf("firmware-sequence complete: %u IP loads and RLC autoload acknowledged; GPU operation unverified\n",
+-          PHX_FW_STEP_COUNT - 1);
++   if (power_up)
++      printf("gfx-power-sequence complete: PMFW 0x%08x, IMU acknowledged and GFX boot readiness observed; queues/shaders/display unverified\n", pmfw_version);
++   else
++      printf("firmware-sequence complete: %u IP loads and RLC autoload acknowledged; GPU operation unverified\n",
++             PHX_FW_STEP_COUNT - 1);
+    return 0;
+ }
+ 
+ int main(int argc, char **argv)
+ {
+-   if (argc >= 2 && !strcmp(argv[1], "firmware-sequence")) return firmware_sequence(argc, argv);
++   if (argc >= 2 && !strcmp(argv[1], "firmware-sequence")) return firmware_sequence(argc, argv, 0);
++   if (argc >= 2 && !strcmp(argv[1], "gfx-power-sequence")) return firmware_sequence(argc, argv, 1);
+    if (argc >= 2 && !strcmp(argv[1], "loadtoc") && argc != 7)
+       control_failure(64, "loadtoc requires file, offset, size, staging offset and reviewed SHA-256");
+    if (argc >= 2 && !strcmp(argv[1], "psp-layout") && argc != 7)
