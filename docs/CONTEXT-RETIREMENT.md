@@ -99,8 +99,13 @@ cases, 73 adoption cases and all existing regression suites passed. Method and
 declaration hashes match canonical staged source; exact outcome sets, 1455 CLI
 operation-count dictionaries and 26 patch/header Git-object hashes were checked
 independently. See `validation/ci-ce3bda5-context-retirement.json`. Native macOS
-job `124408136515` remains in progress. No target GPU execution, actual page
-wiring, device-wide quiescence or concurrency-stress pass is claimed.
+job `124408136515` subsequently completed successfully. The full kernel/plugin/
+translator/RADV/LLVM build, signing, compiler/runtime checks and non-target refusal
+passed. Independently checked 19 patch plus seven header hashes, four runtime
+hashes and both real plugin shader outputs; zero binaries were retained. See
+`validation/ci-ce3bda5-full.json`. This historical build predates individual BO
+and serialized queue retirement. No target GPU execution, actual page wiring,
+device-wide quiescence or concurrency-stress pass is claimed.
 
 ## Remaining lifetime and hardware gaps
 
