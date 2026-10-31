@@ -158,3 +158,17 @@ runs the unchanged script with real Apple read commands and compares the importe
 system fields with direct capture, logging only system metadata and aggregate
 counts. These are hosted checks, not Recovery or target-laptop verification;
 their observed results must be recorded separately after CI completes.
+
+Run `41162066128`, code `8b91942`, passed all 200 Linux source tests with no skips.
+All 18 new native-capture/import/preflight checks report success, including the
+seven actual-script synthetic shell cases and the offline privacy/rejection
+checks. Existing queue, BO, context, VM-binding and bring-up regressions also
+passed; exact results, method/declaration hashes, operation counts and 28
+patch/header inputs were independently checked. See
+`validation/ci-8b91942-recovery-capture.json`.
+
+GitHub step metadata confirms successful real Intel-macOS preflight in native
+job `124421788912`, including unchanged native capture and offline import.
+The detailed capture JSON/host fields have not been independently extracted
+while the full job runs. This is neither a target-laptop capture nor a Recovery
+environment pass; no new target data or GPU initialization evidence exists.
