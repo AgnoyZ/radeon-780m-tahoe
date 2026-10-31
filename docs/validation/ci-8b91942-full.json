@@ -1,0 +1,330 @@
+{
+  "ci_run_id": 41162066128,
+  "native_job_id": 124421788912,
+  "project_commit": "8b9194268b6b32daaaeb1eb8ea2af88813d1ee31",
+  "ci_overall_conclusion": "success",
+  "host": "macOS-15.7.9-x86_64-i386-64bit-Mach-O",
+  "source_provenance": {
+    "nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+    "patches_sha256": {
+      "patches/0001-strict-hardware-execution.patch": "53af4e33ac223b8ea2ccdb49721e99507ef718f21a4198c9082df140244273ec",
+      "patches/0002-plugin-relative-radv.patch": "67235b00d8e420353cd7f4351a1ff5ade88fe72b6a1a506ed84ba19b88808a7a",
+      "patches/0003-bringup-aperture-bounds.patch": "4942a952b7da1bd37af728e9d5e7d921dc3996c8fd024a1126615da9e29a6898",
+      "patches/0004-checked-bringup-transport.patch": "c1a04745a43c9defc39fdfa0e85465398f78912f5ecb63d246e5a34644e99887",
+      "patches/0005-checked-gpu-completion.patch": "0d5220a1321fdd3b56a0139cb7f5e308fa47a192cec360f517f4a8afe0f1b1bf",
+      "patches/0006-bounded-mes-submission.patch": "e77c3bd279241a4c19eb597329e4f71823ef79ec436a2b577feff09f9b575d30",
+      "patches/0007-checked-psp-completion.patch": "64b8ede45d56618de4846dc7fc68f2966cfc660b752e8359ecd65ab1c324cdea",
+      "patches/0008-checked-firmware-control.patch": "4fc48ed11563223f1afabe31e5dc4a96aefdb1c2606279caa6dcd96f8cb9e37b",
+      "patches/0009-explicit-psp-layout.patch": "a760606bb9ea30225348fb0dba23dd3883ec0630e5bc147abc531899adc8ab59",
+      "patches/0010-checked-toc-initialization.patch": "9c236f78065ba0b5f7a754b438b725c063d2da4d26a5758a38e1bd93e9c32ea2",
+      "patches/0011-profile-firmware-sequence.patch": "f21e2f8ac20df24f660542007ff739927048ccf9017ec742781ab65e9f43b043",
+      "patches/0012-checked-gfx-power-sequence.patch": "4e07b81cc7718d5e69b9c7fbadcc31260fa059049d9d80e6f95ebf28606e33fb",
+      "patches/0013-explicit-gart-bootstrap.patch": "790304821f3b9d8328b68a7509e7abcf257ac1032247c7531c6c5a1b72cec397",
+      "patches/0014-profile-mes-start.patch": "e8bae845162fc0890e94ee597c2877b8b574ff648c03e073c623855066a78803",
+      "patches/0015-explicit-scheduler-queue.patch": "400a13ef815dc5d1d078c6039efea5f069e5c94ea8fa2b63b43648bec963c0d8",
+      "patches/0016-explicit-compute-ring-probe.patch": "4a9685bb087788bdf58b86bd9389655cc6634fd7d6c9dac05ad50cc2bfb63b80",
+      "patches/0017-checked-queue-adoption.patch": "e8f9fcfeae4d517aec0f1ede2100d9a8a02d13e426412f6d99b056f22ccf8e74",
+      "patches/0018-checked-vmid-binding.patch": "d9cb00d9dadcc91b4534c7b1cd2467bf6ef4334147a6fe291ffce380470b95c1",
+      "patches/0019-deferred-client-context-retirement.patch": "71d93e9ba6f968bb80caddc881606f5e43c80260e842aad598d6df3cefb4e865",
+      "patches/0020-deferred-bo-release-and-checked-unmap.patch": "d311e3944db13b1acc68c0d0c8687de45047ab11c0127b65e8113e6b7def7357",
+      "patches/0021-serialized-queue-retirement.patch": "931c2393cef65ac7a7b705040a87597eea310a202a7239edd002b426bae6a992"
+    },
+    "policy_sha256": "2cde00d8647958d0151f98332f33f935cb10ad27c987dea9ac5acfff85340ebe",
+    "psp_layout_sha256": "7b66a4c0fd509621148d3afe9bf2b98be5f59c66d6c933b6d0120a38fec5779e",
+    "firmware_profile_sha256": "bfd1e4f49dfbc5990531a842a660a65a2804b00d8806112f4c3e992fa0062e0d",
+    "boot_memory_sha256": "8b10ca43114c17e7baf70d6984391685ea3d4a4a2a01a6f70fc3964cb2c63349",
+    "gart_layout_sha256": "ccdea678e69dfb4968bdb3d948a77fe24a8933eba75f165321f8056117f15804",
+    "mes_queue_layout_sha256": "328db142647bb14f26273ed1644b33927ed2ddf6838990d51f1596edf1cd5cea",
+    "runtime_path_sha256": "c0413b83f37eeece90543905914628624ceee7c6998e0b886229d09713d554ad",
+    "hardware_tested": false,
+    "translator_source_sha256": "1252d982578b19e18144266aab994bb354a757c7491dcb33c15518b6791c3f3c"
+  },
+  "build_artifacts": {
+    "PhxBringup": {
+      "architecture": "x86_64",
+      "macho_type": 11,
+      "sha256": "6291f4e22c46a8ce174163b9dc39cf9fc4a883fa36c18a1a720d10319fbec9a0",
+      "bytes": 113648
+    },
+    "PhxAccel": {
+      "architecture": "x86_64",
+      "macho_type": 11,
+      "sha256": "21aab7eaced7fe995e52231cc861035e593723e34caca8760871992b232cee30",
+      "bytes": 336416
+    },
+    "NVMTLDriver": {
+      "architecture": "x86_64",
+      "macho_type": 8,
+      "sha256": "b7aae677780d637df6a8d1cb53ad4b2f4dd6963134b8e0773b8c2b3fd84f25ec",
+      "bytes": 1531088
+    },
+    "nvmtl-translator": {
+      "architecture": "x86_64",
+      "macho_type": 6,
+      "sha256": "b8bebbd69419d656c548daf8be533fed3ca8df38e434e3f0ea4bd70ea22a0c2c",
+      "bytes": 14659472
+    },
+    "Mesa-RADV": {
+      "architecture": "x86_64",
+      "macho_type": 6,
+      "sha256": "bf386fee7ab64d49618c5daf753b74eed28e002bc70aa8e72a638aa26401e915",
+      "bytes": 20264208
+    },
+    "LLVM-AIR": {
+      "architecture": "x86_64",
+      "macho_type": 6,
+      "sha256": "615e6eab713a5d08f578d1b645a12b5d35ee9f7b6297831e850875370d48fa2b",
+      "bytes": 48405008
+    },
+    "metal-smoke": {
+      "architecture": "x86_64",
+      "macho_type": 2,
+      "sha256": "8e43eacbadfb05c73b6012415b2f27d5fb8f2e9721325cd41596065a4e99cb46",
+      "bytes": 23784
+    }
+  },
+  "native_preflight": {
+    "source_provenance": {
+      "nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
+      "patches_sha256": {
+        "patches/0001-strict-hardware-execution.patch": "53af4e33ac223b8ea2ccdb49721e99507ef718f21a4198c9082df140244273ec",
+        "patches/0002-plugin-relative-radv.patch": "67235b00d8e420353cd7f4351a1ff5ade88fe72b6a1a506ed84ba19b88808a7a",
+        "patches/0003-bringup-aperture-bounds.patch": "4942a952b7da1bd37af728e9d5e7d921dc3996c8fd024a1126615da9e29a6898",
+        "patches/0004-checked-bringup-transport.patch": "c1a04745a43c9defc39fdfa0e85465398f78912f5ecb63d246e5a34644e99887",
+        "patches/0005-checked-gpu-completion.patch": "0d5220a1321fdd3b56a0139cb7f5e308fa47a192cec360f517f4a8afe0f1b1bf",
+        "patches/0006-bounded-mes-submission.patch": "e77c3bd279241a4c19eb597329e4f71823ef79ec436a2b577feff09f9b575d30",
+        "patches/0007-checked-psp-completion.patch": "64b8ede45d56618de4846dc7fc68f2966cfc660b752e8359ecd65ab1c324cdea",
+        "patches/0008-checked-firmware-control.patch": "4fc48ed11563223f1afabe31e5dc4a96aefdb1c2606279caa6dcd96f8cb9e37b",
+        "patches/0009-explicit-psp-layout.patch": "a760606bb9ea30225348fb0dba23dd3883ec0630e5bc147abc531899adc8ab59",
+        "patches/0010-checked-toc-initialization.patch": "9c236f78065ba0b5f7a754b438b725c063d2da4d26a5758a38e1bd93e9c32ea2",
+        "patches/0011-profile-firmware-sequence.patch": "f21e2f8ac20df24f660542007ff739927048ccf9017ec742781ab65e9f43b043",
+        "patches/0012-checked-gfx-power-sequence.patch": "4e07b81cc7718d5e69b9c7fbadcc31260fa059049d9d80e6f95ebf28606e33fb",
+        "patches/0013-explicit-gart-bootstrap.patch": "790304821f3b9d8328b68a7509e7abcf257ac1032247c7531c6c5a1b72cec397",
+        "patches/0014-profile-mes-start.patch": "e8bae845162fc0890e94ee597c2877b8b574ff648c03e073c623855066a78803",
+        "patches/0015-explicit-scheduler-queue.patch": "400a13ef815dc5d1d078c6039efea5f069e5c94ea8fa2b63b43648bec963c0d8",
+        "patches/0016-explicit-compute-ring-probe.patch": "4a9685bb087788bdf58b86bd9389655cc6634fd7d6c9dac05ad50cc2bfb63b80",
+        "patches/0017-checked-queue-adoption.patch": "e8f9fcfeae4d517aec0f1ede2100d9a8a02d13e426412f6d99b056f22ccf8e74",
+        "patches/0018-checked-vmid-binding.patch": "d9cb00d9dadcc91b4534c7b1cd2467bf6ef4334147a6fe291ffce380470b95c1",
+        "patches/0019-deferred-client-context-retirement.patch": "71d93e9ba6f968bb80caddc881606f5e43c80260e842aad598d6df3cefb4e865",
+        "patches/0020-deferred-bo-release-and-checked-unmap.patch": "d311e3944db13b1acc68c0d0c8687de45047ab11c0127b65e8113e6b7def7357",
+        "patches/0021-serialized-queue-retirement.patch": "931c2393cef65ac7a7b705040a87597eea310a202a7239edd002b426bae6a992"
+      },
+      "policy_sha256": "2cde00d8647958d0151f98332f33f935cb10ad27c987dea9ac5acfff85340ebe",
+      "psp_layout_sha256": "7b66a4c0fd509621148d3afe9bf2b98be5f59c66d6c933b6d0120a38fec5779e",
+      "firmware_profile_sha256": "bfd1e4f49dfbc5990531a842a660a65a2804b00d8806112f4c3e992fa0062e0d",
+      "boot_memory_sha256": "8b10ca43114c17e7baf70d6984391685ea3d4a4a2a01a6f70fc3964cb2c63349",
+      "gart_layout_sha256": "ccdea678e69dfb4968bdb3d948a77fe24a8933eba75f165321f8056117f15804",
+      "mes_queue_layout_sha256": "328db142647bb14f26273ed1644b33927ed2ddf6838990d51f1596edf1cd5cea",
+      "runtime_path_sha256": "c0413b83f37eeece90543905914628624ceee7c6998e0b886229d09713d554ad",
+      "hardware_tested": false
+    },
+    "binary": {
+      "architecture": "x86_64",
+      "macho_type": 2,
+      "sha256": "cfa4b4aabba71c2900f178598b8755a17e461f0d5679d246e192afd067322d62",
+      "bytes": 80696
+    },
+    "native_iokit_linked": true,
+    "mesboot_executed": false,
+    "hardware_executed": false,
+    "firmware_control_offline_check": {
+      "binary": {
+        "architecture": "x86_64",
+        "macho_type": 2,
+        "sha256": "a905e13d0e1a0c04d626ed2a22376ea7f53a6702d76b9133e1739e34eaabf18d",
+        "bytes": 27128
+      },
+      "mode": "verify-file only, before IOKit service opening",
+      "real_commoncrypto_executed": true,
+      "cases": [
+        {
+          "case": "matching-hash",
+          "expected_exit": 0,
+          "observed_exit": 0
+        },
+        {
+          "case": "wrong-hash",
+          "expected_exit": 65,
+          "observed_exit": 65
+        },
+        {
+          "case": "malformed-hash",
+          "expected_exit": 64,
+          "observed_exit": 64
+        },
+        {
+          "case": "changed-file",
+          "expected_exit": 65,
+          "observed_exit": 65
+        }
+      ],
+      "hardware_executed": false,
+      "firmware_staged_or_loaded": false
+    },
+    "deployable": false,
+    "limitation": "Reference memory layout remains unsafe for target use; compile only"
+  },
+  "air_runtime": {
+    "llvm_version": [
+      21,
+      1,
+      8
+    ],
+    "exports_present": [
+      "LLVMConstInBoundsGEP2",
+      "LLVMConstInt",
+      "LLVMConstIntGetSExtValue",
+      "LLVMContextCreate",
+      "LLVMContextDispose",
+      "LLVMContextSetDiagnosticHandler",
+      "LLVMCreateMemoryBufferWithMemoryRangeCopy",
+      "LLVMCreatePassBuilderOptions",
+      "LLVMDisposeErrorMessage",
+      "LLVMDisposeMemoryBuffer",
+      "LLVMDisposeMessage",
+      "LLVMDisposeModule",
+      "LLVMDisposePassBuilderOptions",
+      "LLVMGetArrayLength2",
+      "LLVMGetConstOpcode",
+      "LLVMGetDiagInfoDescription",
+      "LLVMGetDiagInfoSeverity",
+      "LLVMGetElementType",
+      "LLVMGetErrorMessage",
+      "LLVMGetFirstGlobal",
+      "LLVMGetFirstUse",
+      "LLVMGetGEPSourceElementType",
+      "LLVMGetIntTypeWidth",
+      "LLVMGetModuleContext",
+      "LLVMGetNextGlobal",
+      "LLVMGetNextUse",
+      "LLVMGetNumOperands",
+      "LLVMGetOperand",
+      "LLVMGetTypeKind",
+      "LLVMGetUser",
+      "LLVMGlobalGetValueType",
+      "LLVMInt64TypeInContext",
+      "LLVMIsAConstantExpr",
+      "LLVMIsAConstantInt",
+      "LLVMParseBitcodeInContext2",
+      "LLVMPrintModuleToString",
+      "LLVMReplaceAllUsesWith",
+      "LLVMRunPasses"
+    ],
+    "malformed_bitcode_rejected": true,
+    "llvm_sha256": "615e6eab713a5d08f578d1b645a12b5d35ee9f7b6297831e850875370d48fa2b",
+    "translator_sha256": "b8bebbd69419d656c548daf8be533fed3ca8df38e434e3f0ea4bd70ea22a0c2c",
+    "cases": [
+      {
+        "case": "llvm_roundtrip",
+        "bitcode_sha256": "18a09c6ba8eabdf9c888c9958c4e08aadd1a358529d2336fe7f4a35cf4f83eda",
+        "spirv_bytes": 1128,
+        "spirv_sha256": "2de25fd364d0724c2837e9fdebd544a931ce918a35a4c148edf28d9c96b88307",
+        "spirv_val": "passed"
+      },
+      {
+        "case": "apple_metal17",
+        "bitcode_sha256": "b3ad80ae1427345fd363a0a04a45de35a10f392c8fc8b99fa5d6f74eb61cbae6",
+        "spirv_bytes": 1168,
+        "spirv_sha256": "780106044905cb734e1f59b47af8af46af14dbd21a2198f0901f9393af72a484",
+        "spirv_val": "passed"
+      },
+      {
+        "case": "apple_metal29",
+        "bitcode_sha256": "b3fede374fb221c8a691a9d47748e507dc3ca6fa2cf918768d3d06e7d7256918",
+        "spirv_bytes": 1168,
+        "spirv_sha256": "1d1521ef1a49a3271fc53f47f5cdcacf1b27719677a987dd456fa5747abee977",
+        "spirv_val": "passed"
+      }
+    ],
+    "metal_compiler": "Apple metal version 32023.620 (metalfe-32023.620)\nTarget: air64-apple-darwin24.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/metal/current/bin",
+    "hardware_executed": false,
+    "full_plugin_pipeline_tested": false,
+    "limitation": "Host compilation/reading/translation only; not GPU execution or full Metal plugin integration"
+  },
+  "plugin_runtime": {
+    "plugin_sha256": "b7aae677780d637df6a8d1cb53ad4b2f4dd6963134b8e0773b8c2b3fd84f25ec",
+    "translator_sha256": "b8bebbd69419d656c548daf8be533fed3ca8df38e434e3f0ea4bd70ea22a0c2c",
+    "llvm_sha256": "615e6eab713a5d08f578d1b645a12b5d35ee9f7b6297831e850875370d48fa2b",
+    "radv_sha256": "bf386fee7ab64d49618c5daf753b74eed28e002bc70aa8e72a638aa26401e915",
+    "cases": [
+      {
+        "case": "increment17",
+        "plugin_loaded": true,
+        "plugin_compiler_executed": true,
+        "bundled_runtimes_loaded": true,
+        "bundled_radv_loaded": true,
+        "no_device_init_rejected": true,
+        "gpu_commands_begun": 0,
+        "gpu_commands_submitted": 0,
+        "gpu_commands_abandoned": 0,
+        "spirv_bytes": 1168,
+        "spirv_sha256": "780106044905cb734e1f59b47af8af46af14dbd21a2198f0901f9393af72a484",
+        "spirv_val": "passed"
+      },
+      {
+        "case": "increment29",
+        "plugin_loaded": true,
+        "plugin_compiler_executed": true,
+        "bundled_runtimes_loaded": true,
+        "bundled_radv_loaded": true,
+        "no_device_init_rejected": true,
+        "gpu_commands_begun": 0,
+        "gpu_commands_submitted": 0,
+        "gpu_commands_abandoned": 0,
+        "spirv_bytes": 1168,
+        "spirv_sha256": "1d1521ef1a49a3271fc53f47f5cdcacf1b27719677a987dd456fa5747abee977",
+        "spirv_val": "passed"
+      }
+    ],
+    "negative_cases_passed": [
+      "missing_translator",
+      "missing_llvm",
+      "missing_radv",
+      "malformed_metallib"
+    ],
+    "relocated_bundle_tested": true,
+    "hardware_executed": false,
+    "metal_device_created": false,
+    "full_metal_pipeline_tested": false,
+    "limitation": "Actual plugin compiler and no-device ICD initialization; no Metal/Vulkan device, GPU execution or target runtime integration"
+  },
+  "retained_artifacts": 0,
+  "hardware_executed": false,
+  "deployment_performed": false,
+  "validation": "21 patch hashes and seven shared-header hashes match exact commit Git objects. Four runtime hashes match build reports; two plugin shader hashes match direct Apple Metal/AIR translation. Native job steps and zero retained artifacts verified through GitHub API. Native collector/importer hashes match exact Git objects; independent native/direct inventory outputs agree on the non-target Intel CI host and contain zero target candidates. No raw capture is logged.",
+  "scope": "Historical serialized-retirement/native-capture revision only. Does not validate later page-table backing, walk-cleanup or cached-context-clear changes; no target GPU execution.",
+  "native_capture": {
+    "capture_completed": true,
+    "native_collector_sha256": "cbc336ebb3088aea167e6ff8f3260664a855148f2bf169c9685d45537415d935",
+    "importer_sha256": "65a73fff4f7836c226837cb27026223469f8b5ebe9a8462ad85fe56b16b379e1",
+    "system": {
+      "os_version": "15.7.9",
+      "os_build": "24G830",
+      "darwin_release": "24.6.0",
+      "architecture": "x86_64",
+      "ram_bytes": 15032385536,
+      "requested_system_family_matches": false
+    },
+    "pci_root_count": 5,
+    "target_candidate_count": 0,
+    "raw_capture_logged": false,
+    "safe_to_initialize": false,
+    "gpu_work_submitted": false
+  },
+  "read_only_host_inventory": {
+    "capture_completed": true,
+    "system": {
+      "os_version": "15.7.9",
+      "os_build": "24G830",
+      "darwin_release": "24.6.0",
+      "architecture": "x86_64",
+      "ram_bytes": 15032385536,
+      "requested_system_family_matches": false
+    },
+    "pci_root_count": 5,
+    "target_candidate_count": 0,
+    "safe_to_initialize": false,
+    "gpu_work_submitted": false
+  },
+  "target_capture_available": false
+}

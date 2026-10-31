@@ -97,6 +97,15 @@ preflight containing this collector passed run `41096096384`, code `ff3345a`, at
 in `validation/ci-ff3345a-submission.json`; its detailed host metadata has not yet
 been extracted from the still-running native job. Target data is still missing.
 
+Later native run `41162066128`, code `8b91942`, completed successfully. Both the
+direct and native-capture/offline-import routes report the same non-target
+x86_64 CI system (macOS 15.7.9, build 24G830, Darwin 24.6.0), five PCI roots
+and zero target candidates. Exact collector/importer hashes were checked
+against that commit, together with the full build/runtime compiler evidence;
+see `validation/ci-8b91942-full.json`. This verifies the capture route on the CI
+host, not command availability in the user's Recovery, target metadata or
+Tahoe migration. No raw capture or binary artifacts were published.
+
 ## Recovery without Python: native capture, offline import
 
 `tools/recovery_inventory.sh` uses only the fixed native metadata commands listed

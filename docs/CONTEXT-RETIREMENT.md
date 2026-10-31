@@ -170,6 +170,13 @@ associations; a separate orphan-slot case checks the previously hidden hazard.
 
 Windows Python integration/runner checks passed: 212 total tests, 204 executed
 successfully and eight explicit POSIX-only skips; syntax compilation and
-`git diff --check` passed. The 110 actual-method C++ scenarios, sanitizer
-execution and full macOS build are pending CI verification. No target GPU,
-DMA, page wiring, concurrency stress or hardware acceleration pass is claimed.
+`git diff --check` passed. Code `e678137`, run `41167375148`, subsequently
+passed all 212 Linux Python tests without skips, all 110 actual-method context
+ASan/UBSan scenarios, 98 page-table cases, 55 real-walker/map/client integration
+cases and existing BO/queue/binding/adoption/CLI regressions. Exact outcomes,
+all 23 context implementation hashes, shared declarations, 18 runner outcomes,
+1455 CLI operation-count dictionaries and 31 patch/header Git hashes were
+independently checked. See `validation/ci-e678137-context-backing.json`.
+Native job `124438047554` is in progress; a full native build of patch 0024
+has not yet been verified. No target GPU, DMA, page wiring, concurrency stress
+or hardware acceleration pass is claimed.
