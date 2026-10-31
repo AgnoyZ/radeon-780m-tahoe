@@ -50,6 +50,14 @@ class TargetPreflightTests(unittest.TestCase):
         value["system"]["requested_system_family_matches"] = True
         self.assertFalse(evaluate(value)["native_probe_check_allowed"])
 
+    def test_malformed_metadata_is_rejected_without_crashing(self):
+        value = inventory()
+        value["system"]["os_version"] = 26
+        self.assertFalse(evaluate(value)["native_probe_check_allowed"])
+        value = inventory()
+        value["pci"]["target_candidates"] = ["1002:1900"]
+        self.assertRaises(PreflightError, evaluate, value)
+
     def test_missing_ranges_blocks_check(self):
         value = inventory()
         value["pci"]["target_candidates"][0]["assigned_ranges"] = []

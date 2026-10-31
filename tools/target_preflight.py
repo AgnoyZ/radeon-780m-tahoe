@@ -43,14 +43,14 @@ def evaluate(inventory):
     if not isinstance(system, dict) or not isinstance(pci, dict):
         raise PreflightError("Inventory is missing system or PCI metadata")
     candidates = pci.get("target_candidates")
-    if not isinstance(candidates, list):
+    if not isinstance(candidates, list) or len(candidates) > 32 or any(not isinstance(candidate, dict) for candidate in candidates):
         raise PreflightError("Inventory target candidate list is malformed")
 
     version = system.get("os_version")
     darwin = system.get("darwin_release")
     architecture = system.get("architecture")
-    version_match = re.fullmatch(r"(\d+)(?:\.\d+){1,2}", version or "")
-    darwin_match = re.fullmatch(r"(\d+)(?:\.\d+){2}", darwin or "")
+    version_match = re.fullmatch(r"(\d+)(?:\.\d+){1,2}", version) if isinstance(version, str) else None
+    darwin_match = re.fullmatch(r"(\d+)(?:\.\d+){2}", darwin) if isinstance(darwin, str) else None
     derived_target = bool(version_match and darwin_match and architecture == "x86_64"
                           and int(version_match.group(1)) == 26
                           and int(darwin_match.group(1)) == 25)
