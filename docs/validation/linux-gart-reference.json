@@ -1,0 +1,54 @@
+{
+  "source_repository": "torvalds/linux",
+  "source_commit": "7d0a66e4bb9081d75c82ec4957c50034cb0ea449",
+  "files": [
+    {
+      "path": "drivers/gpu/drm/amd/amdgpu/gfxhub_v3_0.c",
+      "sha256": "bcd2f578ad0c7eb3ae84befc75efbff48b0bae0bd46dc95f1e4e6e1133e8d76d",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/include/asic_reg/gc/gc_11_0_0_offset.h",
+      "sha256": "a2394677509a3415a9e6307d876cae9cd654a99275ab40b3027d983da26801f2",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/include/asic_reg/gc/gc_11_0_0_sh_mask.h",
+      "sha256": "83dd0060886da2927e3f722b992af208e4d41999b0740123a770a6561f060c94",
+      "license_notice": "AMD MIT-style notice inspected"
+    }
+  ],
+  "checked_register_offsets": {
+    "regGCVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_LO32": 5875,
+    "regGCVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_HI32": 5876,
+    "regGCVM_CONTEXT0_PAGE_TABLE_START_ADDR_LO32": 5907,
+    "regGCVM_CONTEXT0_PAGE_TABLE_START_ADDR_HI32": 5908,
+    "regGCVM_CONTEXT0_PAGE_TABLE_END_ADDR_LO32": 5939,
+    "regGCVM_CONTEXT0_PAGE_TABLE_END_ADDR_HI32": 5940,
+    "regGCMC_VM_SYSTEM_APERTURE_LOW_ADDR": 5757,
+    "regGCMC_VM_SYSTEM_APERTURE_HIGH_ADDR": 5758,
+    "regGCMC_VM_SYSTEM_APERTURE_DEFAULT_ADDR_LSB": 5544,
+    "regGCMC_VM_SYSTEM_APERTURE_DEFAULT_ADDR_MSB": 5545,
+    "regGCVM_L2_PROTECTION_FAULT_DEFAULT_ADDR_LO32": 5579,
+    "regGCVM_L2_PROTECTION_FAULT_DEFAULT_ADDR_HI32": 5580,
+    "regGCVM_CONTEXT0_CNTL": 5768,
+    "regGCVM_INVALIDATE_ENG17_REQ": 5820,
+    "regGCVM_INVALIDATE_ENG17_ACK": 5838
+  },
+  "address_encoding": {
+    "virtual_page_bounds_shifts": [
+      12,
+      44
+    ],
+    "system_aperture_shift": 18,
+    "physical_default_page_shifts": [
+      12,
+      44
+    ],
+    "virtual_and_physical_bits": 48
+  },
+  "implementation": "Modifies pinned nullarc GART code with independently written snapshot and validation; no Linux implementation bodies copied.",
+  "target_hardware_executed": false,
+  "target_region_ownership_verified": false,
+  "remaining_assumptions": "GC segment bases, other cache/TLB/context settings, local-VRAM default-page semantics and target memory reservations remain unverified."
+}

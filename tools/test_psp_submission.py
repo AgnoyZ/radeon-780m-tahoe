@@ -10,7 +10,7 @@ import subprocess
 
 from prepare_source import ROOT, prepare
 
-METHODS = ("clearRing", "configurePspLayout", "pspRing", "pspRunCmd", "fwStage", "loadToc", "loadIpFw", "pspCtl")
+METHODS = ("clearRing", "bootMemory", "configurePspLayout", "pspRing", "pspRunCmd", "fwStage", "loadToc", "loadIpFw", "pspCtl")
 CASES = ("success", "timeout", "wrong-fence", "psp-error", "last-fence", "fence-exhausted",
          "bad-wptr", "high-wptr", "last-slot", "wrap-sentinel", "max-words", "too-many-words", "null-words",
          "null-output", "cmd-overflow", "fence-overflow", "ring-overflow", "unaligned-cmd",
@@ -24,7 +24,8 @@ CASES = ("success", "timeout", "wrong-fence", "psp-error", "last-fence", "fence-
          "toc-success", "toc-timeout", "toc-error", "toc-zero-size", "toc-capacity", "toc-unaligned-tmr",
          "toc-unaligned-source", "toc-empty", "toc-source-overrun", "toc-address-overflow", "toc-no-ring",
          "toc-after-tmr", "toc-stale-reset", "toc-nonpage-size", "tmr-without-toc", "tmr-size-mismatch",
-         "load-without-tmr", "autoload-without-tmr", "autoload-success", "boot-sequence", "tmr-repeat")
+         "load-without-tmr", "autoload-without-tmr", "autoload-success", "boot-sequence", "tmr-repeat",
+         "memory-snapshot", "memory-no-layout", "memory-no-lock", "memory-null-output", "memory-active", "memory-faulted", "memory-cleared")
 
 
 def extract_methods(source):

@@ -60,12 +60,18 @@ def prepare(destination, root=ROOT):
     psp_layout = (root / "src/PhxPspLayout.h").read_bytes()
     (destination / "src/phxbringup/PhxPspLayout.h").write_bytes(psp_layout)
     (destination / "src/phxbringup/PhxFirmwareProfile.h").write_bytes(firmware_profile)
+    boot_memory = (root / "src/PhxBootMemory.h").read_bytes()
+    gart_layout = (root / "src/PhxGartLayout.h").read_bytes()
+    (destination / "src/phxbringup/PhxBootMemory.h").write_bytes(boot_memory)
+    (destination / "src/phxbringup/PhxGartLayout.h").write_bytes(gart_layout)
     runtime_path = (root / "src/PhxRuntimePath.h").read_bytes()
     (destination / "src/nmplugin/PhxRuntimePath.h").write_bytes(runtime_path)
     result = {"nullarc_commit": lock["nullarc"]["commit"], "patches_sha256": patch_hashes,
               "policy_sha256": hashlib.sha256(policy).hexdigest(),
               "psp_layout_sha256": hashlib.sha256(psp_layout).hexdigest(),
               "firmware_profile_sha256": hashlib.sha256(firmware_profile).hexdigest(),
+              "boot_memory_sha256": hashlib.sha256(boot_memory).hexdigest(),
+              "gart_layout_sha256": hashlib.sha256(gart_layout).hexdigest(),
               "runtime_path_sha256": hashlib.sha256(runtime_path).hexdigest(), "hardware_tested": False}
     (destination / "source-provenance.json").write_text(json.dumps(result, indent=2) + "\n")
     return result

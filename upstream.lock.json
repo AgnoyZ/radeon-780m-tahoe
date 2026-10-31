@@ -53,7 +53,8 @@
     "patches/0009-explicit-psp-layout.patch",
     "patches/0010-checked-toc-initialization.patch",
     "patches/0011-profile-firmware-sequence.patch",
-    "patches/0012-checked-gfx-power-sequence.patch"
+    "patches/0012-checked-gfx-power-sequence.patch",
+    "patches/0013-explicit-gart-bootstrap.patch"
   ],
   "target": {
     "darwin_major": 25,

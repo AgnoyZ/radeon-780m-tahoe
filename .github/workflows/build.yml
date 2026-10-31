@@ -38,6 +38,8 @@ jobs:
         run: python3 tools/test_firmware_sequence.py --out build/firmware-sequence-tests
       - name: Exercise GFX power and readiness with synthetic inputs
         run: python3 tools/test_firmware_sequence.py --power --out build/gfx-power-tests
+      - name: Exercise explicit GART bootstrap with synthetic registers
+        run: python3 tools/test_gart_bootstrap.py --out build/gart-tests
   macos-kexts:
     runs-on: macos-15-intel
     timeout-minutes: 90

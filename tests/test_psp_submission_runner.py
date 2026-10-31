@@ -56,7 +56,10 @@ class PSPSubmissionRunnerTests(unittest.TestCase):
             self.assertFalse(out.exists())
 
     def test_ci_runs_completion_staging_and_lifetime_cases(self):
-        self.assertEqual(69, len(set(CASES)))
+        self.assertEqual(76, len(set(CASES)))
+        for case in ("memory-snapshot", "memory-no-layout", "memory-no-lock", "memory-null-output",
+                     "memory-active", "memory-faulted", "memory-cleared"):
+            self.assertIn(case, CASES)
         for case in ("success", "timeout", "psp-error", "tmr-timeout", "stage-overrun",
                      "load-address-overflow", "create-timeout", "destroy-timeout", "layout-configure",
                      "layout-create-success", "layout-create-missing", "layout-reconfigure", "tmr-zero",

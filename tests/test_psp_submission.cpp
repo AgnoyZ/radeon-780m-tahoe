@@ -2,6 +2,7 @@
 #include "PhxNativeABI.h"
 #include "PhxHardwarePolicy.hpp"
 #include "PhxPspLayout.h"
+#include "PhxBootMemory.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -83,6 +84,7 @@ public:
     void clearRing();
     bool gpuReady() const { assert(gpuMutex == 1); return gpuActive; }
     IOReturn configurePspLayout(const PhxPspLayout &, uint64_t[4]);
+    IOReturn bootMemory(PhxBootMemory *);
     IOReturn pspRing(uint32_t, uint64_t, uint64_t[4]);
     IOReturn pspRunCmd(uint32_t, const uint32_t *, uint32_t, uint64_t[4]);
     IOReturn fwStage(uint32_t, const void *, uint32_t);
@@ -128,7 +130,33 @@ int main(int argc, char **argv) {
     uint64_t out[4] = {99, 99, 99, 99};
     uint32_t words[15] = {0x10203040, 2, 3, 4};
     IOReturn result;
-    if (test == "boot-sequence") {
+    if (test.rfind("memory-", 0) == 0) {
+        p.tmrSetUp = true; p.tmrSize = 8192;
+        if (test == "memory-no-layout") p.pspLayoutConfigured = false;
+        if (test == "memory-no-lock") p.smuLock = nullptr;
+        if (test == "memory-active") p.gpuActive = true;
+        if (test == "memory-faulted") p.pspSubmissionFaulted = true;
+        if (test == "memory-cleared") p.clearRing();
+        PhxBootMemory observation;
+        memset(&observation, 0xa5, sizeof(observation));
+        const auto before = p.memory.words;
+        if (test == "memory-null-output") {
+            assert(p.bootMemory(nullptr) == kIOReturnBadArgument);
+        } else {
+            result = p.bootMemory(&observation);
+            if (test == "memory-no-layout" || test == "memory-no-lock") {
+                PhxBootMemory zero{};
+                assert(result == kIOReturnNotReady && !memcmp(&observation, &zero, sizeof(zero)));
+            } else {
+                assert(result == kIOReturnSuccess && observation.version == 1 && !observation.reserved);
+                const uint64_t flags = test == "memory-active" ? 15 : test == "memory-faulted" ? 23 : test == "memory-cleared" ? 1 : 7;
+                assert(observation.flags == flags && observation.mcBase == p.fbMcBase && observation.physicalBase == p.fbPhys);
+                assert(observation.vramBytes == p.fbSize && observation.apertureBytes == p.fbAperLen);
+                assert(observation.tmrBytes == p.tmrSize && !memcmp(&observation.psp, &p.pspLayout, sizeof(p.pspLayout)));
+            }
+        }
+        assert(p.reads == 0 && p.writes == 0 && p.memory.words == before && !p.lock && !p.gpuMutex);
+    } else if (test == "boot-sequence") {
         p.tocTmrSize = 0;
         assert(p.pspCtl(1, 4096, out) == kIOReturnNotReady);
         assert(p.loadIpFw(4, 0, 4, out) == kIOReturnNotReady);
