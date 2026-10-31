@@ -101,7 +101,7 @@ public:
         if (disableMismatch && reg == kRegCtx0Cntl + 8) return 1;
         auto it = regs.find(reg); return it == regs.end() ? 0 : it->second;
     }
-    uint64_t ptTablePhys(VmCtx &, uint32_t) { return 0; }
+    uint64_t ptTablePhys(VmCtx &c, uint32_t i) { assert(mutex && i == 0); return c.chunk[0] ? c.phys : 0; }
     void clearRing() { ++clears; }
     void releaseSession() { ++sessionReleases; }
     bool vmOwnershipKnown(uint32_t) const;

@@ -1,0 +1,161 @@
+--- a/src/phxbringup/PhxBringup.cpp
++++ b/src/phxbringup/PhxBringup.cpp
+@@ -574,51 +574,111 @@
+     __asm__ __volatile__("clflush (%0)" ::"r"(p) : "memory");
+ }
+ 
++// Validate the entire descriptor before returning CPU or physical page-table storage.
++static bool phxPtBacking(IOBufferMemoryDescriptor *b, uint32_t size, uint64_t *physical, uint8_t **cpu) {
++    if (!physical || !cpu) return false;
++    *physical = 0;
++    *cpu = nullptr;
++    if (!b || !size || (size & 4095) || b->getLength() != size) return false;
++    uint8_t *p = static_cast<uint8_t *>(b->getBytesNoCopy());
++    const uintptr_t address = reinterpret_cast<uintptr_t>(p);
++    if (!p || (address & 4095) || address > UINTPTR_MAX - (size - 1)) return false;
++    IOByteCount length = 0;
++    const addr64_t pa = b->getPhysicalSegment(0, &length, kIOMemoryMapperNone);
++    if (!pa || (pa & ~kPtAddrMask) || length < size ||
++        static_cast<uint64_t>(size - 4096) > kPtAddrMask - pa) return false;
++    *physical = pa;
++    *cpu = p;
++    return true;
++}
++
+ uint64_t *PhxBringup::ptTable(const VmCtx &c, uint64_t phys) const {
+-    for (uint32_t i = 0; i < kPtChunks && c.chunk[i]; i++)
+-        if (phys - c.chunkPhys[i] < kPtChunkBytes)
+-            return reinterpret_cast<uint64_t *>(static_cast<uint8_t *>(c.chunk[i]->getBytesNoCopy()) + (phys - c.chunkPhys[i]));
+-    return nullptr;
+-}
+-
+-// The physical address of table i, allocating (zeroed, flushed) the chunk it lives in; 0 when that fails.
++    if (!phys || (phys & ~kPtAddrMask) || !c.used || c.used > c.pages ||
++        c.pages > kPtChunks * kPtChunkPages) return nullptr;
++    uint64_t *result = nullptr;
++    for (uint32_t k = 0; k * kPtChunkPages < c.used; ++k) {
++        uint64_t base = 0;
++        uint8_t *p = nullptr;
++        if (!phxPtBacking(c.chunk[k], kPtChunkBytes, &base, &p) || base != c.chunkPhys[k]) return nullptr;
++        if (phys < base || phys - base > kPtChunkBytes - 4096) continue;
++        if (result || k * kPtChunkPages + (phys - base) / 4096 >= c.used) return nullptr;
++        result = reinterpret_cast<uint64_t *>(p + (phys - base));
++    }
++    return result;
++}
++
++// Allocate only the next table (or retrieve an existing one); publish only validated, zeroed storage.
+ uint64_t PhxBringup::ptTablePhys(VmCtx &c, uint32_t i) {
++    if (c.pages > kPtChunks * kPtChunkPages || c.used > c.pages || i > c.used ||
++        i >= kPtChunks * kPtChunkPages || (c.pages && i >= c.pages) ||
++        (!c.pages && (c.used || c.phys || i)) ||
++        (c.pages && (!c.chunk[0] || !c.phys || c.phys != c.chunkPhys[0]))) return 0;
+     const uint32_t k = i / kPtChunkPages;
+-    if (k >= kPtChunks)
++    for (uint32_t j = 0; j < k; ++j) if (!c.chunk[j]) return 0;
++    if (!c.chunk[k] && c.chunkPhys[k]) return 0;
++    IOBufferMemoryDescriptor *b = c.chunk[k];
++    const bool fresh = !b;
++    if (fresh) b = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(
++        kernel_task, kIODirectionInOut | kIOMemoryPhysicallyContiguous, kPtChunkBytes, kPtAddrMask);
++    if (!b) return 0;
++    uint64_t base = 0;
++    uint8_t *p = nullptr;
++    bool valid = phxPtBacking(b, kPtChunkBytes, &base, &p) && (fresh || base == c.chunkPhys[k]);
++    bool hole = false;
++    for (uint32_t j = 0; valid && j < kPtChunks; ++j) {
++        IOBufferMemoryDescriptor *other = j == k ? b : c.chunk[j];
++        if (!other) {
++            if (c.chunkPhys[j]) valid = false;
++            hole = true;
++            continue;
++        }
++        if (hole) { valid = false; break; }
++        if (j == k) continue;
++        uint64_t otherBase = 0;
++        uint8_t *otherCpu = nullptr;
++        valid = phxPtBacking(other, kPtChunkBytes, &otherBase, &otherCpu) && otherBase == c.chunkPhys[j];
++        if (!valid) break;
++        const uintptr_t a = reinterpret_cast<uintptr_t>(p), o = reinterpret_cast<uintptr_t>(otherCpu);
++        if ((base >= otherBase ? base - otherBase : otherBase - base) < kPtChunkBytes ||
++            (a >= o ? a - o : o - a) < kPtChunkBytes) valid = false;
++    }
++    if (!valid) {
++        if (fresh) b->release();
+         return 0;
+-    if (!c.chunk[k]) {
+-        IOBufferMemoryDescriptor *b = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(
+-            kernel_task, kIODirectionInOut | kIOMemoryPhysicallyContiguous, kPtChunkBytes, kPtAddrMask);
+-        if (!b)
+-            return 0;
+-        uint8_t *p = static_cast<uint8_t *>(b->getBytesNoCopy());
++    }
++    if (fresh) {
+         bzero(p, kPtChunkBytes);
+-        for (uint32_t o = 0; o < kPtChunkBytes; o += 64)
+-            flushLine(p + o);
++        for (uint32_t o = 0; o < kPtChunkBytes; o += 64) flushLine(p + o);
++        c.chunkPhys[k] = base;
+         c.chunk[k] = b;
+-        c.chunkPhys[k] = b->getPhysicalAddress();
+-    }
+-    return c.chunkPhys[k] + static_cast<uint64_t>(i % kPtChunkPages) * 4096;
++    }
++    return base + static_cast<uint64_t>(i % kPtChunkPages) * 4096;
+ }
+ 
+ uint64_t *PhxBringup::vmPte(VmCtx &c, uint64_t va, bool alloc) {
++    if ((va >> 48) || !c.phys || c.phys != c.chunkPhys[0]) return nullptr;
++    uint64_t ancestors[4] = {c.phys, 0, 0, 0};
+     uint64_t tbl = c.phys;
+-    for (int shift = 39; shift >= 21; shift -= 9) {
++    unsigned level = 0;
++    for (int shift = 39; shift >= 21; shift -= 9, ++level) {
+         uint64_t *t = ptTable(c, tbl);
+-        if (!t)
+-            return nullptr;
++        if (!t) return nullptr;
+         uint64_t *e = t + ((va >> shift) & 511);
+-        if (!(*e & 1)) {
+-            if (!alloc || c.used >= c.pages)
+-                return nullptr;
++        uint64_t entry = *e;
++        if (!entry) {
++            if (!alloc || c.used >= c.pages) return nullptr;
+             const uint64_t child = ptTablePhys(c, c.used);
+-            if (!child)
+-                return nullptr;
+-            c.used++;
+-            *e = child | 7;
++            if (!child) return nullptr;
++            ++c.used;
++            entry = child | 7;
++            *e = entry;
+             flushLine(e);
+         }
+-        tbl = *e & kPtAddrMask;
++        // These owned non-leaf tables use exactly VALID|SYSTEM|SNOOPED, never leaf/large-page flags.
++        if ((entry & ~kPtAddrMask) != 7) return nullptr;
++        tbl = entry & kPtAddrMask;
++        for (unsigned a = 0; a <= level; ++a) if (tbl == ancestors[a]) return nullptr;
++        ancestors[level + 1] = tbl;
+     }
+     uint64_t *t = ptTable(c, tbl);
+     return t ? t + ((va >> 12) & 511) : nullptr;
+@@ -666,12 +726,10 @@
+         VmCtx &c = vm[i];
+         if (c.busy)
+             continue;
+-        if (!c.chunk[0]) {
+-            c.phys = ptTablePhys(c, 0);
+-            if (!c.phys)
+-                break;
+-            c.pages = kPtChunks * kPtChunkPages;
+-        }
++        const uint64_t root = ptTablePhys(c, 0);
++        if (!root) continue;
++        c.phys = root;
++        c.pages = kPtChunks * kPtChunkPages;
+         c.used = 1;
+         c.busy = true;
+         c.closing = false;
