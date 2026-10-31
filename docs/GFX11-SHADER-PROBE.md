@@ -106,7 +106,15 @@ failures, transport boundaries, timeout, changed fence and failed close.
 Windows Python checks completed: 218 total tests, 210 executed successfully and
 eight explicit POSIX-only skips; syntax compilation and `git diff --check`
 passed. The shader runner defines 915 cases per layout variant, 1830 total.
-Actual C sanitizer execution and native IOKit compilation remain pending CI
-verification. No target execution, firmware residency, hardware cache
-correctness or acceleration is claimed by this patch.
+Code `fbd61b8`, run `41168516913`, subsequently passed all 218 Linux Python
+tests without skips and all 1830 actual-CLI scenarios under ASan/UBSan, together
+with the existing kernel/context/page/walk/queue/adoption and firmware/CLI
+regressions. All 1830 operation-count dictionaries, the exact staged CLI and
+canonical-LF header hashes, the unchanged 79-word shader, six new runner
+outcomes and 32 patch/header Git input hashes were independently checked. See
+`validation/ci-fbd61b8-shader-probe.json`.
+
+Native job `124441666535` is in progress; native tool preflight/full build of
+this revision are not yet independently verified. No target execution,
+firmware residency, hardware cache correctness or acceleration is claimed.
 The working EFI, disks, BIOS, NVRAM and OS security settings remain untouched.

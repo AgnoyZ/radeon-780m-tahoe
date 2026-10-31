@@ -71,9 +71,14 @@ header hashes were independently checked against the staged source and exact Git
 objects. Existing retirement, binding/adoption and CLI regressions also passed;
 see `validation/ci-abca74d-page-tables.json`.
 
-Native macOS job `124429663238` was observed in progress. No full native build of
-patch 0022 is claimed from the Linux results; earlier successful native builds
-predate this patch. No target page-table or hardware result is established.
+Native macOS job `124429663238` subsequently completed successfully. Both kexts
+and the Metal/plugin/translator/RADV/LLVM stack built, applicable signing and
+structure/dependency checks passed, both plugin shader outputs matched direct
+AIR translation, and the execution probe refused the non-target host. All
+22 patch and seven header hashes, four runtime hashes, capture/importer hashes
+and zero retained binaries were independently checked; see
+`validation/ci-abca74d-full.json`. This historical revision predates patches
+0023-0025. No target page-table or hardware result is established.
 
 The harness explicitly fakes IOKit descriptors, physical segments, storage,
 cache flushes, locks, readiness and context reaping. It performs no GPU execution,
