@@ -64,9 +64,16 @@ fixture. This is not device execution or exhaustive concurrency validation.
 
 Existing BO/context suites execute their new locked dependencies; adoption checks
 the initialized floor, and the binding fixture still explicitly fakes retirement
-to isolate VMID behavior. Linux CI is configured for ASan/UBSan execution. Native
-macOS compilation and host test results must be recorded after verification;
-Windows passed all 182 Python source integration and runner-contract checks, plus syntax compilation.
+to isolate VMID behavior. Run `41161056198`, code `a6ff87a`, passed the Linux
+source job: all 68 queue-retirement scenarios, 82 BO cases, 55 context-retirement
+cases, 71 VM-binding/submission cases and 73 adoption cases passed under
+ASan/UBSan, together with 182 Python tests and the earlier regressions. The CPU
+thread case completed 256 actual-method submissions. Independently checked exact
+outcomes, method/declaration hashes, 1455 CLI operation-count dictionaries and
+all 21 patch plus seven shared-header hashes against exact Git objects. See
+`validation/ci-a6ff87a-queue-retirement.json`. Native macOS job `124418768180` is
+in progress; the source pass does not establish a native kext build. Windows
+also passed all 182 Python checks and syntax compilation, without local C++ execution.
 
 Other driver state/readiness access paths, descriptor completion reentrancy,
 active-MES invalidation, actual queue ownership, device reset and unload still
