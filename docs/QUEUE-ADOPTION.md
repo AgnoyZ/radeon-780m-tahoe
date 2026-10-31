@@ -45,6 +45,16 @@ that the new queue has not been published yet.
 Windows runs source integration and runner-contract tests only. Native execution
 is claimed only after the actual CI job and its reports are verified.
 
+Run `41155047603` / code `d1ef9f2` completed its Linux source job successfully:
+160 Python tests, all 72 adoption sanitizer cases and the existing regression
+suites passed. The actual method/structure hashes, all adoption case results,
+1455 CLI operation-count dictionaries and all 24 patch/header hashes were
+independently checked. Windows staging CRLF is normalized to canonical LF when
+comparing source text with Linux output; exact Git objects are used for input
+hashes. See `validation/ci-d1ef9f2-queue-adoption.json`. The corresponding macOS
+job `124400202228` is still in progress; no full native build or hardware pass
+is claimed for this revision.
+
 ## Remaining integration requirements
 
 These are numeric bounds and known-region exclusions, **not exclusive ownership
