@@ -39,6 +39,21 @@ class FirmwareProfileTests(unittest.TestCase):
         self.assertEqual(first, render(load_profile()).encode())
         self.assertLess(len(first), 4096)
 
+    def test_mes_pipe_entrypoints_are_independently_bound_to_files(self):
+        entries = self.audit["manifest"]["files"]
+        next(e for e in entries if e["name"] == "gc_11_0_1_mes1.bin")["mes_instruction_start"] = 0x123456789abcdef0
+        data = profile(self.lock, self.audit)
+        self.assertEqual([0, 1], [m["pipe"] for m in data["mes"]])
+        self.assertEqual([4, 3], [m["file_index"] for m in data["mes"]])
+        self.assertEqual([0xfffffffff0005000, 0x123456789abcdef0], [m["instruction_start"] for m in data["mes"]])
+        self.assertIn("0x123456789abcdef0ull", render(data))
+
+    def test_invalid_mes_metadata_is_rejected_before_source_export(self):
+        entry = next(e for e in self.audit["manifest"]["files"] if e["name"] == "gc_11_0_1_mes1.bin")
+        for value in (None, True, 0, -4, 3, 0x10000000000000000, "0xfffffffff0005000"):
+            entry["mes_instruction_start"] = value
+            with self.subTest(value=value), self.assertRaises(ValueError): profile(self.lock, self.audit)
+
     def test_mismatched_revision_and_identity_are_rejected(self):
         for field, value in (("sha256", "0" * 64), ("size_bytes", 1), ("kind", "wrong"),
                              ("header_version", [9, 9]), ("ip_version", [9, 9])):

@@ -17,7 +17,7 @@ def fixture(kind="mes"):
     major, minor = {"mes": (1, 0), "sdma": (2, 0), "imu": (1, 0), "gfx": (2, 0),
                     "rlc": (2, 3), "psp-toc": (1, 0)}[kind]
     COMMON.pack_into(data, 0, len(data), 256, major, minor, 11, 0, 123, 64, 256, 0)
-    fields = {"mes": {36: 32, 40: 256, 48: 32, 52: 288},
+    fields = {"mes": {36: 32, 40: 256, 48: 32, 52: 288, 56: 0xF0005000, 60: 0xffffffff},
               "sdma": {36: 32, 48: 288, 52: 32},
               "imu": {32: 32, 36: 0xBAD, 40: 32, 44: 0xBAD},
               "gfx": {36: 32, 40: 0xBAD, 44: 32, 48: 288},
@@ -42,6 +42,16 @@ class FirmwareManifestTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(data[288:]).hexdigest(), result["components"][1]["sha256"])
         self.assertFalse(result["vendor_signature_verified"])
         self.assertFalse(result["target_compatibility_verified"])
+        self.assertEqual(0xfffffffff0005000, result["mes_instruction_start"])
+
+    def test_mes_entrypoint_uses_both_words_and_requires_alignment(self):
+        data, entry = fixture()
+        self.assertEqual(0x12345678f0005000,
+                         inspect_firmware(*changed(data, entry, 60, 0x12345678))["mes_instruction_start"])
+        for value in (1, 2, 3, 0xffffffff):
+            with self.assertRaises(FirmwareError): inspect_firmware(*changed(data, entry, 56, value))
+        data, entry = changed(data, entry, 56, 0)
+        with self.assertRaises(FirmwareError): inspect_firmware(*changed(data, entry, 60, 0))
 
     def test_hash_mismatch_precedes_layout_parsing(self):
         data, entry = fixture()

@@ -38,4 +38,10 @@ static const struct PhxFirmwareStep phxFirmwareSteps[PHX_FW_STEP_COUNT] = {
     {6u, 148336u, 8704u, 25u},
     {6u, 256u, 25088u, 8u},
 };
+#define PHX_FW_MES_PIPE_COUNT 2u
+struct PhxFirmwareMes { uint32_t pipe, file_index; uint64_t instruction_start; };
+static const struct PhxFirmwareMes phxFirmwareMes[PHX_FW_MES_PIPE_COUNT] = {
+    {0u, 4u, 0xfffffffff0005000ull},
+    {1u, 3u, 0xfffffffff0005000ull},
+};
 #endif

@@ -36,6 +36,9 @@ Offsets are VRAM-relative bytes. No MC/backing/default physical address is
 taken from a reference-machine default. Argument-free `gart` and combined
 `all` now fail before opening IOKit. Other legacy MES/queue experiments still
 have reference assumptions and are not a supported automatic continuation.
+Patch 0014 now gives `mesboot mes` its own explicit matching-layout and
+firmware-profile checks (see `MES-START.md`); this does not make legacy queue
+experiments a supported automatic continuation.
 
 1. Parse strict unsigned arguments before service lookup. Reject malformed,
    zero-size, unaligned/out-of-width spans and enabled `PTE_SYS`/`FAULT_DEFAULT`

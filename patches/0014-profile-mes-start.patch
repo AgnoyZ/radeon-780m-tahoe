@@ -1,0 +1,169 @@
+--- a/tools/phxctl/mesboot.c
++++ b/tools/phxctl/mesboot.c
+@@ -10,6 +10,7 @@
+ #include <unistd.h>
+ #include <errno.h>
+ #include "../../src/phxbringup/PhxGartLayout.h"
++#include "../../src/phxbringup/PhxFirmwareProfile.h"
+ #include "mes_v11_api_def.h"
+ 
+ #define UC_TYPE 0x4E34384Eu
+@@ -159,6 +160,32 @@
+    size_t size = sizeof(words);
+    checked_method(conn, SEL_DBG_VRAM_READ, input, 2, NULL, 0, NULL, NULL, words, &size);
+    return words[0] | ((uint64_t)words[1] << 32);
++}
++static void gart_verify_memory(const struct PhxGartLayout *layout, const struct PhxBootMemory *memory)
++{
++   const uint64_t pages = layout->mappedBytes >> 12, table_bytes = phxGartTableBytes(layout);
++   if (gart_read64(layout->tableOffset) != (memory->physicalBase | 0x71ull) ||
++       gart_read64(layout->tableOffset + (pages - 1) * 8) != ((memory->physicalBase + (pages - 1) * 4096) | 0x71ull) ||
++       (pages * 8 < table_bytes && gart_read64(layout->tableOffset + pages * 8) != 0) ||
++       gart_read64(layout->defaultPageOffset) != 0)
++      gart_failure(75, "page-table/default-page readback mismatch");
++}
++static void gart_verify_addresses(const struct PhxGartLayout *layout, const struct PhxBootMemory *memory)
++{
++   const uint64_t table_pa = memory->physicalBase + layout->tableOffset;
++   const uint64_t default_pa = memory->physicalBase + layout->defaultPageOffset;
++   const uint64_t virtual_end = layout->virtualBase + layout->mappedBytes - 1;
++   const uint32_t verify[][2] = {
++      {SEG0(0x16f3), (uint32_t)(table_pa | 1)}, {SEG0(0x16f4), (uint32_t)(table_pa >> 32)},
++      {SEG0(0x1713), (uint32_t)(layout->virtualBase >> 12)}, {SEG0(0x1714), (uint32_t)(layout->virtualBase >> 44)},
++      {SEG0(0x1733), (uint32_t)(virtual_end >> 12)}, {SEG0(0x1734), (uint32_t)(virtual_end >> 44)},
++      {SEG0(0x167d), (uint32_t)(memory->mcBase >> 18)}, {SEG0(0x167e), (uint32_t)((memory->mcBase + memory->vramBytes - 1) >> 18)},
++      {SEG0(0x15a8), (uint32_t)(default_pa >> 12)}, {SEG0(0x15a9), (uint32_t)(default_pa >> 44)},
++      {SEG0(0x15cb), (uint32_t)(default_pa >> 12)}, {SEG0(0x15cc), (uint32_t)(default_pa >> 44)}
++   };
++   for (unsigned i = 0; i < sizeof(verify) / sizeof(verify[0]); ++i)
++      if (rd(verify[i][0]) != verify[i][1]) gart_failure(75, "GART address register readback mismatch");
++   if ((rd(SEG0(0x1688)) & 7) != 1) gart_failure(75, "context zero did not enter enabled flat-page-table mode");
+ }
+ static int gart(int argc, char **argv)
+ {
+@@ -189,11 +216,7 @@
+       vw(layout.tableOffset + i * 8 + 4, (uint32_t)(pte >> 32));
+    }
+    for (unsigned i = 0; i < 4096; i += 4) vw(layout.defaultPageOffset + i, 0);
+-   if (gart_read64(layout.tableOffset) != (memory.physicalBase | 0x71ull) ||
+-       gart_read64(layout.tableOffset + (pages - 1) * 8) != ((memory.physicalBase + (pages - 1) * 4096) | 0x71ull) ||
+-       (pages * 8 < table_bytes && gart_read64(layout.tableOffset + pages * 8) != 0) ||
+-       gart_read64(layout.defaultPageOffset) != 0)
+-      gart_failure(75, "page-table/default-page readback mismatch");
++   gart_verify_memory(&layout, &memory);
+    wr(SEG0(0x1713), (uint32_t)(layout.virtualBase >> 12)); wr(SEG0(0x1714), (uint32_t)(layout.virtualBase >> 44));
+    wr(SEG0(0x1733), (uint32_t)(virtual_end >> 12)); wr(SEG0(0x1734), (uint32_t)(virtual_end >> 44));
+    wr(SEG0(0x16f3), (uint32_t)(table_pa | 1)); wr(SEG0(0x16f4), (uint32_t)(table_pa >> 32));
+@@ -230,17 +253,7 @@
+    }
+    wr(SEG1(0x900), 0);
+    wr(SEG0(0x1e1f), rd(SEG0(0x1e1f)) | 0x8000);   // CP_DEBUG.CPG_UTCL1_ERROR_HALT_DISABLE (linux sets it with the gfxhub)
+-   const uint32_t verify[][2] = {
+-      {SEG0(0x16f3), (uint32_t)(table_pa | 1)}, {SEG0(0x16f4), (uint32_t)(table_pa >> 32)},
+-      {SEG0(0x1713), (uint32_t)(layout.virtualBase >> 12)}, {SEG0(0x1714), (uint32_t)(layout.virtualBase >> 44)},
+-      {SEG0(0x1733), (uint32_t)(virtual_end >> 12)}, {SEG0(0x1734), (uint32_t)(virtual_end >> 44)},
+-      {SEG0(0x167d), (uint32_t)(memory.mcBase >> 18)}, {SEG0(0x167e), (uint32_t)((memory.mcBase + memory.vramBytes - 1) >> 18)},
+-      {SEG0(0x15a8), (uint32_t)(default_pa >> 12)}, {SEG0(0x15a9), (uint32_t)(default_pa >> 44)},
+-      {SEG0(0x15cb), (uint32_t)(default_pa >> 12)}, {SEG0(0x15cc), (uint32_t)(default_pa >> 44)}
+-   };
+-   for (unsigned i = 0; i < sizeof(verify) / sizeof(verify[0]); ++i)
+-      if (rd(verify[i][0]) != verify[i][1]) gart_failure(75, "GART address register readback mismatch");
+-   if ((rd(SEG0(0x1688)) & 7) != 1) gart_failure(75, "context zero did not enter enabled flat-page-table mode");
++   gart_verify_addresses(&layout, &memory);
+    wr(SEG0(0x16ab + 17), 0x00F80001);          // GCVM_INVALIDATE_ENG17_REQ (the engine amdgpu uses for gmc flushes)
+    unsigned sample;
+    for (sample = 0; sample < 1000; ++sample) {
+@@ -259,20 +272,63 @@
+ {
+    wr(SEG1(0x900), pipe | (me << 2) | (vmid << 4) | (queue << 8));
+ }
+-static void mes_start(void)
+-{
+-   // uc start from fw headers: lo=0xF0005000? taken from the header words (same for sched + kiq)
+-   const uint64_t uc = 0xFFFFFFFFF0005000ull >> 2;
+-   wr(SEG1(0x2807), (1u << 16) | (1u << 17));                // PIPE0/1 RESET
+-   for (int p = 0; p < 2; p++) {
+-      grbm_select(3, p, 0, 0);
+-      wr(SEG1(0x2800), (uint32_t)uc);
+-      wr(SEG1(0x289d), (uint32_t)(uc >> 32));
+-   }
+-   grbm_select(0, 0, 0, 0);
+-   wr(SEG1(0x2807), (1u << 26) | (1u << 27));                // PIPE0/1 ACTIVE
+-   usleep(2000);
+-   printf("mes: CP_MES_CNTL=0x%x\n", rd(SEG1(0x2807)));
++static _Noreturn void mes_start_failure(int code, const char *message)
++{
++   fprintf(stderr, "mesboot MES start: %s; stopping (no rollback)\n", message);
++   exit(code);
++}
++static int mes_start(int argc, char **argv)
++{
++   if (argc != 6) mes_start_failure(64, "requires the explicit GART virtual base, mapped bytes, table and default-page offsets");
++   struct PhxGartLayout layout = {PHX_GART_LAYOUT_VERSION, gart_argument(argv[2]), gart_argument(argv[3]),
++                                 gart_argument(argv[4]), gart_argument(argv[5])};
++   if (!phxGartInputsValid(&layout) || env_on("PTE_SYS") || env_on("FAULT_DEFAULT") || env_on("MESBOOT_MC"))
++      mes_start_failure(64, "invalid GART layout or incompatible legacy environment override");
++   _Static_assert(PHX_FW_MES_PIPE_COUNT == 2, "MES bootstrap requires scheduler and KIQ metadata");
++   for (unsigned pipe = 0; pipe < PHX_FW_MES_PIPE_COUNT; ++pipe) {
++      const struct PhxFirmwareMes *fw = &phxFirmwareMes[pipe];
++      if (fw->pipe != pipe || fw->file_index >= PHX_FW_FILE_COUNT || !fw->instruction_start || (fw->instruction_start & 3))
++         mes_start_failure(64, "invalid generated firmware entrypoint");
++   }
++   if (open_kext()) return 1;
++   struct PhxBootMemory memory = {0};
++   size_t snapshot_size = sizeof(memory);
++   checked_method(conn, PHX_BOOT_MEMORY_SELECTOR, NULL, 0, NULL, 0, NULL, NULL, &memory, &snapshot_size);
++   if (!phxGartLayoutValid(&layout, &memory)) mes_start_failure(75, "unusable kernel bootstrap state or GART layout");
++   uint32_t cp = rd(0x21a0), rlc = rd(0xee7e);
++   if (cp || rlc == UINT32_MAX || !(rlc & 0x80000000u)) mes_start_failure(75, "GFX boot readiness not observed");
++   gart_verify_addresses(&layout, &memory);
++   gart_verify_memory(&layout, &memory);
++   const uint32_t active = 0x0c000000u, all_active = 0x3c000000u, reset = 0x00030000u;
++   const uint32_t state_mask = all_active | 0x400f0000u;
++   uint32_t initial = rd(SEG1(0x2807));
++   if (initial == UINT32_MAX || (initial & all_active)) mes_start_failure(75, "refusing to reset an active MES pipe");
++   if (rd(SEG1(0x900)) != 0) mes_start_failure(75, "GRBM selection is not idle");
++   wr(SEG1(0x2807), initial | reset);
++   for (unsigned pipe = 0; pipe < PHX_FW_MES_PIPE_COUNT; ++pipe) {
++      grbm_select(3, pipe, 0, 0);
++      if (rd(SEG1(0x900)) != (12u | pipe)) mes_start_failure(75, "MES pipe selection readback mismatch");
++      const uint64_t pc = phxFirmwareMes[pipe].instruction_start >> 2;
++      wr(SEG1(0x2800), (uint32_t)pc);
++      wr(SEG1(0x289d), (uint32_t)(pc >> 32));
++      if (rd(SEG1(0x2800)) != (uint32_t)pc || rd(SEG1(0x289d)) != (uint32_t)(pc >> 32))
++         mes_start_failure(75, "MES instruction-start readback mismatch");
++   }
++   grbm_select(0, 0, 0, 0);
++   if (rd(SEG1(0x900)) != 0) mes_start_failure(75, "GRBM idle selection readback mismatch");
++   wr(SEG1(0x2807), active);
++   if (usleep(500) && errno != EINTR) mes_start_failure(74, "initial MES delay failed");
++   unsigned sample;
++   for (sample = 0; sample < 1000; ++sample) {
++      uint32_t state = rd(SEG1(0x2807));
++      if (state == UINT32_MAX) mes_start_failure(75, "invalid all-ones MES control response");
++      if ((state & state_mask) == active) break;
++      if (usleep(1000) && errno != EINTR) mes_start_failure(74, "MES polling delay failed");
++   }
++   if (sample == 1000) mes_start_failure(75, "MES activation register state timed out");
++   if (IOServiceClose(conn) != KERN_SUCCESS) mes_start_failure(74, "service close failed");
++   puts("MES start: two firmware entrypoints and activation register state checked; scheduler execution unverified");
++   return 0;
+ }
+ static void mqd_build(uint64_t mqd, uint64_t ring, uint64_t wb, uint64_t eop, int doorbell, uint32_t db_index)
+ {
+@@ -881,6 +937,7 @@
+ 
+ int main(int argc, char **argv)
+ {
++   if (argc >= 2 && !strcmp(argv[1], "mes")) return mes_start(argc, argv);
+    if (argc >= 2 && !strcmp(argv[1], "gart")) return gart(argc, argv);
+    if (argc >= 2 && !strcmp(argv[1], "all")) gart_failure(64, "legacy all cannot supply an explicit GART layout");
+    if (open_kext()) return 1;
+@@ -889,7 +946,6 @@
+    if (getenv("MESBOOT_MC") && *getenv("MESBOOT_MC") == '1') use_mc = 1;
+    if (!strcmp(argv[1], "db") && argc >= 4) { printf("db +0x%llx <- %llu kr=0x%x\n", strtoull(argv[2], NULL, 0), strtoull(argv[3], NULL, 0), db(strtoull(argv[2], NULL, 0), strtoull(argv[3], NULL, 0))); return 0; }
+    if (!strcmp(argv[1], "dump")) mesdump();
+-   if (all || !strcmp(argv[1], "mes")) mes_start();
+    if (!strcmp(argv[1], "kiqdb")) { use_db = 1; kiq_test(); }
+    if (!strcmp(argv[1], "kiqsched")) { kiq_init_only(); sched_test(); }
+    if (!strcmp(argv[1], "claim")) {   // GPU is up: let PhxAccel (the Metal accelerator) start on it

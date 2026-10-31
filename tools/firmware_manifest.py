@@ -42,7 +42,7 @@ def inspect_firmware(data, expected):
         return struct.unpack_from("<I", data, offset)[0]
 
     extent(payload_offset, payload_size)
-    regions, absent, jump_table = [], [], None
+    regions, absent, jump_table, mes_start = [], [], None, None
 
     def region(name, offset, size):
         extent(offset, size)
@@ -57,6 +57,9 @@ def inspect_firmware(data, expected):
         word(68)
         region("instruction", word(40), word(36))
         region("data", word(52), word(48))
+        mes_start = word(56) | (word(60) << 32)
+        if not mes_start or mes_start & 3:
+            raise FirmwareError("MES instruction start must be nonzero and dword aligned")
     elif kind == "sdma" and (major, minor) == (2, 0):
         word(60)
         region("context", payload_offset, word(36))
@@ -104,7 +107,7 @@ def inspect_firmware(data, expected):
             "crc32_reported": f"{crc:08x}",
             "crc32_zlib_common_payload": f"{zlib.crc32(data[payload_offset:payload_offset + payload_size]):08x}",
             "crc32_convention_verified": False, "components": regions, "jump_table": jump_table,
-            "absent_optional_components": absent,
+            "absent_optional_components": absent, "mes_instruction_start": mes_start,
             "vendor_signature_verified": False, "target_compatibility_verified": False}
 
 

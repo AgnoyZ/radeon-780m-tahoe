@@ -3,7 +3,7 @@
   "reference_nullarc_commit": "cbb08ddf517c009255a74ad0fbc2cd7e0d6fa339",
   "file_count": 9,
   "firmware_lock_file_sha256": "f139c4e96119421a00d31159507b8bb7fcbce8f84bda37eb48bafe8b0191a3ac",
-  "parser_source_sha256": "09b9eb09ea3001c6103d4e7a23d2f92490e6304603db1e03eca51f1a969d7633",
+  "parser_source_sha256": "0640ba5588aa76896f4cd3818f840b4e104c8312c61925256a65470c25404358",
   "linux_source_sha256": {
     "linux-amdgpu_ucode.h": "9b717be2e98470203d188c44c6a9468e37efbec397140af9f4106518b6f31e3c",
     "linux-amdgpu_ucode.c": "c28085638023bc9bf40eb21ddd94b06e62e935f87d948810e80cc8c4b2858b46",
@@ -53,6 +53,7 @@
         ],
         "jump_table": null,
         "absent_optional_components": [],
+        "mes_instruction_start": null,
         "vendor_signature_verified": false,
         "target_compatibility_verified": false
       },
@@ -92,6 +93,7 @@
           "sha256": "ae7a4f1e31452fd83f88729ee493a6e456d55d123555ed3ef6552018831ce8d9"
         },
         "absent_optional_components": [],
+        "mes_instruction_start": null,
         "vendor_signature_verified": false,
         "target_compatibility_verified": false
       },
@@ -137,6 +139,7 @@
           "sha256": "1d6e2b1d6e3248efc1133d44c4c5eda6884a839e6bf0a640cedbf986f000aa79"
         },
         "absent_optional_components": [],
+        "mes_instruction_start": null,
         "vendor_signature_verified": false,
         "target_compatibility_verified": false
       },
@@ -178,6 +181,7 @@
         ],
         "jump_table": null,
         "absent_optional_components": [],
+        "mes_instruction_start": 18446744073441136640,
         "vendor_signature_verified": false,
         "target_compatibility_verified": false
       },
@@ -219,6 +223,7 @@
         ],
         "jump_table": null,
         "absent_optional_components": [],
+        "mes_instruction_start": 18446744073441136640,
         "vendor_signature_verified": false,
         "target_compatibility_verified": false
       },
@@ -258,6 +263,7 @@
           "sha256": "ca46cd2707779f4eedafdfec7aeaf657ed2f5584265a98da5d0d5ea221217f1d"
         },
         "absent_optional_components": [],
+        "mes_instruction_start": null,
         "vendor_signature_verified": false,
         "target_compatibility_verified": false
       },
@@ -326,6 +332,7 @@
           "restore_cntl",
           "rlcv"
         ],
+        "mes_instruction_start": null,
         "vendor_signature_verified": false,
         "target_compatibility_verified": false
       },
@@ -361,6 +368,7 @@
         ],
         "jump_table": null,
         "absent_optional_components": [],
+        "mes_instruction_start": null,
         "vendor_signature_verified": false,
         "target_compatibility_verified": false
       },
@@ -402,6 +410,7 @@
         ],
         "jump_table": null,
         "absent_optional_components": [],
+        "mes_instruction_start": null,
         "vendor_signature_verified": false,
         "target_compatibility_verified": false
       }

@@ -66,7 +66,15 @@ def profile(lock, audit):
             raise ValueError("Firmware component leaves its reviewed file")
         steps.append({"file_index": next(i for i, e in enumerate(files) if e["name"] == name),
                       "component": component, "file_offset": offset, "size_bytes": size, "fw_type": fw_type})
-    return {"lock_sha256": digest, "files": files, "steps": steps}
+    mes = []
+    for pipe, name in enumerate(("gc_11_0_1_mes_2.bin", "gc_11_0_1_mes1.bin")):
+        actual = next(e for e in observed if e["name"] == name)
+        start = actual.get("mes_instruction_start")
+        if type(start) is not int or not 0 < start <= 0xffffffffffffffff or start & 3:
+            raise ValueError("Missing or invalid audited MES instruction start")
+        mes.append({"pipe": pipe, "file_index": next(i for i, e in enumerate(files) if e["name"] == name),
+                    "instruction_start": start})
+    return {"lock_sha256": digest, "files": files, "steps": steps, "mes": mes}
 
 
 def render(data):
@@ -82,6 +90,11 @@ def render(data):
     lines += ["};", "static const struct PhxFirmwareStep phxFirmwareSteps[PHX_FW_STEP_COUNT] = {"]
     for step in data["steps"]:
         lines.append("    {%uu, %uu, %uu, %uu}," % (step["file_index"], step["file_offset"], step["size_bytes"], step["fw_type"]))
+    lines += ["};", "#define PHX_FW_MES_PIPE_COUNT 2u",
+              "struct PhxFirmwareMes { uint32_t pipe, file_index; uint64_t instruction_start; };",
+              "static const struct PhxFirmwareMes phxFirmwareMes[PHX_FW_MES_PIPE_COUNT] = {"]
+    for mes in data["mes"]:
+        lines.append("    {%uu, %uu, 0x%016xull}," % (mes["pipe"], mes["file_index"], mes["instruction_start"]))
     return "\n".join(lines + ["};", "#endif", ""])
 
 

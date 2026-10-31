@@ -1,0 +1,55 @@
+{
+  "source_repository": "torvalds/linux",
+  "source_commit": "7d0a66e4bb9081d75c82ec4957c50034cb0ea449",
+  "files": [
+    {
+      "path": "drivers/gpu/drm/amd/amdgpu/mes_v11_0.c",
+      "sha256": "cf7c661ecdd6c69b11d2884abc24065e4a059ef3e76da574966b01e155d06122",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/amdgpu/amdgpu_mes.c",
+      "sha256": "4d5b14dc2a2bd10287005c519f10cec1ceb9e3175c7278f65c687416d56604a9",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h",
+      "sha256": "9b717be2e98470203d188c44c6a9468e37efbec397140af9f4106518b6f31e3c",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/include/asic_reg/gc/gc_11_0_0_offset.h",
+      "sha256": "a2394677509a3415a9e6307d876cae9cd654a99275ab40b3027d983da26801f2",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/include/asic_reg/gc/gc_11_0_0_sh_mask.h",
+      "sha256": "83dd0060886da2927e3f722b992af208e4d41999b0740123a770a6561f060c94",
+      "license_notice": "AMD MIT-style notice inspected"
+    }
+  ],
+  "header_entrypoint_byte_offsets": [
+    56,
+    60
+  ],
+  "instruction_address_shift": 2,
+  "checked_register_offsets": {
+    "CP_MES_CNTL": 10247,
+    "CP_MES_PRGRM_CNTR_START": 10240,
+    "CP_MES_PRGRM_CNTR_START_HI": 10397
+  },
+  "checked_masks": {
+    "pipe01_reset": 196608,
+    "pipe01_active": 201326592,
+    "all_pipe_active": 1006632960,
+    "halt": 1073741824,
+    "pc_high": 1073741823
+  },
+  "pipe_filenames": [
+    "gc_11_0_1_mes_2.bin",
+    "gc_11_0_1_mes1.bin"
+  ],
+  "implementation": "Changes pinned nullarc code; independently written validation and tests, no full Linux bodies or headers copied.",
+  "hardware_executed": false,
+  "firmware_residency_verified": false
+}
