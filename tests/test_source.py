@@ -50,14 +50,15 @@ class SourceTests(unittest.TestCase):
             prepare(self.stage)
     def test_provenance_is_not_hardware_pass(self):
         self.assertFalse(self.provenance["hardware_tested"])
-        self.assertEqual(14, len(self.provenance["patches_sha256"]))
+        self.assertEqual(15, len(self.provenance["patches_sha256"]))
     def test_firmware_profile_is_staged_and_bound_to_provenance(self):
         from firmware_profile import checked_header
         data = checked_header()
         self.assertEqual(data, (self.stage / "src/phxbringup/PhxFirmwareProfile.h").read_bytes())
         self.assertEqual(hashlib.sha256(data).hexdigest(), self.provenance["firmware_profile_sha256"])
     def test_bootstrap_memory_headers_are_staged_and_hashed(self):
-        for name, key in (("PhxBootMemory.h", "boot_memory_sha256"), ("PhxGartLayout.h", "gart_layout_sha256")):
+        for name, key in (("PhxBootMemory.h", "boot_memory_sha256"), ("PhxGartLayout.h", "gart_layout_sha256"),
+                          ("PhxMesQueueLayout.h", "mes_queue_layout_sha256")):
             data = (ROOT / "src" / name).read_bytes()
             self.assertEqual(data, (self.stage / "src/phxbringup" / name).read_bytes())
             self.assertEqual(hashlib.sha256(data).hexdigest(), self.provenance[key])

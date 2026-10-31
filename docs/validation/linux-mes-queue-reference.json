@@ -1,0 +1,47 @@
+{
+  "source_repository": "torvalds/linux",
+  "source_commit": "7d0a66e4bb9081d75c82ec4957c50034cb0ea449",
+  "files": [
+    {
+      "path": "drivers/gpu/drm/amd/amdgpu/mes_v11_0.c",
+      "sha256": "cf7c661ecdd6c69b11d2884abc24065e4a059ef3e76da574966b01e155d06122",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/amdgpu/amdgpu_mes.c",
+      "sha256": "4d5b14dc2a2bd10287005c519f10cec1ceb9e3175c7278f65c687416d56604a9",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/include/asic_reg/gc/gc_11_0_0_offset.h",
+      "sha256": "a2394677509a3415a9e6307d876cae9cd654a99275ab40b3027d983da26801f2",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/include/asic_reg/gc/gc_11_0_0_sh_mask.h",
+      "sha256": "83dd0060886da2927e3f722b992af208e4d41999b0740123a770a6561f060c94",
+      "license_notice": "AMD MIT-style notice inspected"
+    }
+  ],
+  "checked_register_offsets": {
+    "regCP_HQD_ACTIVE": 8107,
+    "regCP_HQD_VMID": 8108,
+    "regCP_MQD_BASE_ADDR": 8105,
+    "regCP_MQD_BASE_ADDR_HI": 8106,
+    "regCP_HQD_PQ_BASE": 8113,
+    "regCP_HQD_PQ_BASE_HI": 8114,
+    "regCP_HQD_PQ_RPTR_REPORT_ADDR": 8116,
+    "regCP_HQD_PQ_RPTR_REPORT_ADDR_HI": 8117,
+    "regCP_HQD_PQ_WPTR_POLL_ADDR": 8118,
+    "regCP_HQD_PQ_WPTR_POLL_ADDR_HI": 8119,
+    "regCP_HQD_PQ_DOORBELL_CONTROL": 8120,
+    "regCP_HQD_PQ_CONTROL": 8122
+  },
+  "doorbell_offset_mask": 268435452,
+  "doorbell_offset_shift": 2,
+  "kernel_doorbell_byte_alignment": 8,
+  "implementation": "Relocates pinned nullarc scheduler helpers; independently written validation and tests. No full Linux source bodies or headers copied.",
+  "target_topology_verified": false,
+  "target_memory_ownership_verified": false,
+  "hardware_executed": false
+}

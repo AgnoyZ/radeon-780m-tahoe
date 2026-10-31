@@ -64,6 +64,8 @@ def prepare(destination, root=ROOT):
     gart_layout = (root / "src/PhxGartLayout.h").read_bytes()
     (destination / "src/phxbringup/PhxBootMemory.h").write_bytes(boot_memory)
     (destination / "src/phxbringup/PhxGartLayout.h").write_bytes(gart_layout)
+    mes_queue_layout = (root / "src/PhxMesQueueLayout.h").read_bytes()
+    (destination / "src/phxbringup/PhxMesQueueLayout.h").write_bytes(mes_queue_layout)
     runtime_path = (root / "src/PhxRuntimePath.h").read_bytes()
     (destination / "src/nmplugin/PhxRuntimePath.h").write_bytes(runtime_path)
     result = {"nullarc_commit": lock["nullarc"]["commit"], "patches_sha256": patch_hashes,
@@ -72,6 +74,7 @@ def prepare(destination, root=ROOT):
               "firmware_profile_sha256": hashlib.sha256(firmware_profile).hexdigest(),
               "boot_memory_sha256": hashlib.sha256(boot_memory).hexdigest(),
               "gart_layout_sha256": hashlib.sha256(gart_layout).hexdigest(),
+              "mes_queue_layout_sha256": hashlib.sha256(mes_queue_layout).hexdigest(),
               "runtime_path_sha256": hashlib.sha256(runtime_path).hexdigest(), "hardware_tested": False}
     (destination / "source-provenance.json").write_text(json.dumps(result, indent=2) + "\n")
     return result

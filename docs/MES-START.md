@@ -91,4 +91,7 @@ entries translate correctly, or that the firmware has executed any instruction.
 The control register can echo activation without scheduler progress. Partial
 failures have no automatic rollback; re-running after an error is unsupported.
 Legacy queue/MQD/scratch offsets remain unresolved and must not be automatically
-chained after this command. No deployment or working-EFI change is performed.
+chained after this command. Patch 0015 adds a separately checked, explicitly
+relocated scheduler-only query path (`MES-QUEUE.md`), but does not resolve memory
+ownership or the legacy compute/gfx queue layout. No deployment or working-EFI
+change is performed.

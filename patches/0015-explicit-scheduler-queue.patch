@@ -1,0 +1,161 @@
+--- a/tools/phxctl/mesboot.c
++++ b/tools/phxctl/mesboot.c
+@@ -9,7 +9,7 @@
+ #include <stddef.h>
+ #include <unistd.h>
+ #include <errno.h>
+-#include "../../src/phxbringup/PhxGartLayout.h"
++#include "../../src/phxbringup/PhxMesQueueLayout.h"
+ #include "../../src/phxbringup/PhxFirmwareProfile.h"
+ #include "mes_v11_api_def.h"
+ 
+@@ -128,15 +128,20 @@
+ #define KIQ_WB   0x2501000ull            // +0 rptr report, +16 wptr poll
+ #define KIQ_MQD  0x2502000ull            // 2 KiB
+ #define KIQ_EOP  0x2503000ull            // 2 KiB
+-#define SCH_RING 0x2510000ull
+-#define SCH_WB   0x2511000ull
+-#define SCH_MQD  0x2512000ull
+-#define SCH_EOP  0x2513000ull
++/* Defaults are retained only for legacy experiments; sched-query sets every field. */
++static uint64_t scheduler_ring = 0x2510000ull, scheduler_wb = 0x2511000ull;
++static uint64_t scheduler_mqd = 0x2512000ull, scheduler_eop = 0x2513000ull;
++static uint32_t scheduler_doorbell = 0x16;
++#define SCH_RING scheduler_ring
++#define SCH_WB scheduler_wb
++#define SCH_MQD scheduler_mqd
++#define SCH_EOP scheduler_eop
+ #define TESTBUF  0x2520000ull
+ 
+ static int env_on(const char *n) { const char *v = getenv(n); return v && *v && *v != '0'; }
+ static int use_mc;
+-#define VA(off) ((use_mc ? VRAM_MC : GART_VA) + (off))
++static uint64_t bootstrap_va = GART_VA;
++#define VA(off) ((use_mc ? VRAM_MC : bootstrap_va) + (off))
+ #define MC(off) (VRAM_MC + (off))
+ 
+ static _Noreturn void gart_failure(int code, const char *message)
+@@ -454,12 +459,12 @@
+ static int skip_hqd;
+ static void sched_init(void)
+ {
+-   if (!skip_hqd) mqd_build(SCH_MQD, SCH_RING, SCH_WB, SCH_EOP, 1, 0x16);
++   if (!skip_hqd) mqd_build(SCH_MQD, SCH_RING, SCH_WB, SCH_EOP, 1, scheduler_doorbell);
+    for (unsigned i = 0; i < SCH_RING_DWORDS; i++) vw(SCH_RING + i * 4, 0);
+    for (int i = 0; i < 32; i++) vw(SCH_WB + i * 4, 0);
+    uint32_t pq = 0x00308509; pq = (pq & ~0xffu) | 9u; pq = (pq & ~(0x3fu << 8)) | (9u << 8);
+    pq |= (1u << 28) | (1u << 30) | (1u << 31) | (1u << 27); pq &= ~(1u << 29);
+-   if (!skip_hqd) hqd_program(3, 0, SCH_MQD, SCH_RING, SCH_WB, pq, (0x16u << 2) | (1u << 30));
++   if (!skip_hqd) hqd_program(3, 0, SCH_MQD, SCH_RING, SCH_WB, pq, (scheduler_doorbell << 2) | (1u << 30));
+    sch_wptr = 0; sch_seq = 0;
+    grbm_select(3, 0, 0, 0);
+    printf("sched: hqd active=%u pq_base=0x%x\n", rd(SEG0(0x1fab)), rd(SEG0(0x1fb1)));
+@@ -504,9 +509,12 @@
+    for (size_t i = 0; i < sizeof(q) / 4; i++) vw(SCH_RING + (sch_wptr + size / 4 + i) * 4, qd[i]);
+    sch_wptr += (uint32_t)((size + sizeof(q)) / 4);
+    vw(SCH_WB + 16, sch_wptr); vw(SCH_WB + 20, 0);          // wptr shadow (polled by MES) before the doorbell
+-   db(0x16 * 4, sch_wptr);
++   db((uint64_t)scheduler_doorbell * 4, sch_wptr);
+    for (int t = 0; t < 400; t++) {
+-      usleep(5000);
++      if (usleep(5000) && errno != EINTR) {
++         fprintf(stderr, "mesboot transport: MES completion delay failed; stopping\n");
++         exit(74);
++      }
+       if (vr64(SCH_WB + 32) == sch_seq) break;
+    }
+    uint64_t f = vr64(SCH_WB + 32), st = vr64(SCH_WB + 64);
+@@ -740,9 +748,8 @@
+    grbm_select(0, 0, 0, 0);
+ }
+ 
+-static void sched_test(void)
+-{
+-   sched_init();
++static void sched_resources(void)
++{
+    union MESAPI_SET_HW_RESOURCES r;
+    memset(&r, 0, sizeof(r));
+    r.header.type = MES_API_TYPE_SCHEDULER;
+@@ -769,8 +776,73 @@
+    q.header.opcode = MES_SCH_API_QUERY_SCHEDULER_STATUS;
+    q.header.dwsize = API_FRAME_SIZE_IN_DWORDS;
+    mes_submit(&q, sizeof(q), offsetof(union MESAPI__QUERY_MES_STATUS, api_status), "QUERY_SCHED_STATUS");
++}
++static void sched_test(void)
++{
++   sched_init();
++   sched_resources();
+    if (env_on("MESBOOT_CS")) compute_via_mes();
+    if (env_on("MESBOOT_GFX")) gfx_via_mes();
++}
++
++static int scheduler_query(int argc, char **argv)
++{
++   if (argc != 8) mes_start_failure(64, "sched-query requires GART virtual base, mapped bytes, table/default offsets, arena offset and doorbell index");
++   struct PhxGartLayout layout = {PHX_GART_LAYOUT_VERSION, gart_argument(argv[2]), gart_argument(argv[3]),
++                                 gart_argument(argv[4]), gart_argument(argv[5])};
++   struct PhxMesQueueLayout queue = {PHX_MES_QUEUE_VERSION, gart_argument(argv[6]), gart_argument(argv[7])};
++   if (!phxGartInputsValid(&layout) || !phxMesQueueInputsValid(&queue)) mes_start_failure(64, "invalid scheduler layout arguments");
++   const char *overrides[] = {"PTE_SYS", "FAULT_DEFAULT", "MESBOOT_MC", "MESBOOT_CS", "MESBOOT_GFX", "ADOPT", "ADOPT_GFX"};
++   for (unsigned i = 0; i < sizeof(overrides) / sizeof(overrides[0]); ++i)
++      if (env_on(overrides[i])) mes_start_failure(64, "sched-query cannot combine legacy experiment overrides");
++   if (open_kext()) return 1;
++   struct PhxBootMemory memory = {0};
++   size_t size = sizeof(memory);
++   checked_method(conn, PHX_BOOT_MEMORY_SELECTOR, NULL, 0, NULL, 0, NULL, NULL, &memory, &size);
++   if (!phxMesQueueLayoutValid(&queue, &layout, &memory)) mes_start_failure(75, "scheduler arena overlaps or exceeds bootstrap regions");
++   uint32_t cp = rd(0x21a0), rlc = rd(0xee7e);
++   if (cp || rlc == UINT32_MAX || !(rlc & 0x80000000u)) mes_start_failure(75, "GFX boot readiness not observed");
++   gart_verify_addresses(&layout, &memory);
++   gart_verify_memory(&layout, &memory);
++   for (unsigned page = 0; page < 4; ++page) {
++      uint64_t offset = queue.arenaOffset + (uint64_t)page * 4096;
++      if (gart_read64(layout.tableOffset + (offset >> 12) * 8) != ((memory.physicalBase + offset) | 0x71ull))
++         mes_start_failure(75, "scheduler arena PTE does not match bootstrap backing memory");
++   }
++   uint32_t mes = rd(SEG1(0x2807));
++   if (mes == UINT32_MAX || (mes & 0x7c0f0000u) != 0x0c000000u) mes_start_failure(75, "MES activation state not observed");
++   if (rd(SEG1(0x900)) != 0) mes_start_failure(75, "GRBM selection is not idle");
++   grbm_select(3, 0, 0, 0);
++   if (rd(SEG1(0x900)) != 12) mes_start_failure(75, "scheduler pipe selection failed");
++   uint32_t active = rd(SEG0(0x1fab));
++   if (active == UINT32_MAX || (active & 1)) mes_start_failure(75, "scheduler queue already active");
++   grbm_select(0, 0, 0, 0);
++   if (rd(SEG1(0x900)) != 0) mes_start_failure(75, "GRBM idle selection failed");
++   bootstrap_va = layout.virtualBase; use_mc = 0; skip_hqd = 0;
++   scheduler_ring = queue.arenaOffset; scheduler_wb = queue.arenaOffset + 4096;
++   scheduler_mqd = queue.arenaOffset + 8192; scheduler_eop = queue.arenaOffset + 12288;
++   scheduler_doorbell = (uint32_t)queue.doorbellIndex;
++   /* Clear all four pages, including firmware context/fence slots and EOP, before activation. */
++   for (uint64_t i = 0; i < PHX_MES_QUEUE_ARENA_BYTES; i += 4) vw(queue.arenaOffset + i, 0);
++   sched_init();
++   grbm_select(3, 0, 0, 0);
++   if (rd(SEG1(0x900)) != 12) mes_start_failure(75, "scheduler verification pipe selection failed");
++   const uint32_t expected[][2] = {
++      {SEG0(0x1fab), 1}, {SEG0(0x1fac), 0},
++      {SEG0(0x1fa9), (uint32_t)VA(SCH_MQD)}, {SEG0(0x1faa), (uint32_t)(VA(SCH_MQD) >> 32)},
++      {SEG0(0x1fb1), (uint32_t)(VA(SCH_RING) >> 8)}, {SEG0(0x1fb2), (uint32_t)(VA(SCH_RING) >> 40)},
++      {SEG0(0x1fb4), (uint32_t)VA(SCH_WB)}, {SEG0(0x1fb5), (uint32_t)(VA(SCH_WB) >> 32)},
++      {SEG0(0x1fb6), (uint32_t)VA(SCH_WB + 16)}, {SEG0(0x1fb7), (uint32_t)(VA(SCH_WB + 16) >> 32)},
++      {SEG0(0x1fb8), (scheduler_doorbell << 2) | (1u << 30)}, {SEG0(0x1fba), 0xd8308909u}
++   };
++   for (unsigned i = 0; i < sizeof(expected) / sizeof(expected[0]); ++i)
++      if (rd(expected[i][0]) != expected[i][1]) mes_start_failure(75, "scheduler HQD readback mismatch");
++   grbm_select(0, 0, 0, 0);
++   if (rd(SEG1(0x900)) != 0) mes_start_failure(75, "scheduler verification left GRBM selected");
++   sched_resources();
++   if (IOServiceClose(conn) != KERN_SUCCESS) mes_start_failure(74, "service close failed");
++   puts("scheduler query: resource and query completions observed; GPU compute and graphics unverified");
++   return 0;
+ }
+ 
+ #define MEC_RING 0x2530000ull
+@@ -937,6 +1009,7 @@
+ 
+ int main(int argc, char **argv)
+ {
++   if (argc >= 2 && !strcmp(argv[1], "sched-query")) return scheduler_query(argc, argv);
+    if (argc >= 2 && !strcmp(argv[1], "mes")) return mes_start(argc, argv);
+    if (argc >= 2 && !strcmp(argv[1], "gart")) return gart(argc, argv);
+    if (argc >= 2 && !strcmp(argv[1], "all")) gart_failure(64, "legacy all cannot supply an explicit GART layout");
