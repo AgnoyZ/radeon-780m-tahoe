@@ -64,7 +64,8 @@
     "patches/0020-deferred-bo-release-and-checked-unmap.patch",
     "patches/0021-serialized-queue-retirement.patch",
     "patches/0022-checked-page-table-backing.patch",
-    "patches/0023-checked-walk-cleanup.patch"
+    "patches/0023-checked-walk-cleanup.patch",
+    "patches/0024-checked-context-table-clear.patch"
   ],
   "target": {
     "darwin_major": 25,

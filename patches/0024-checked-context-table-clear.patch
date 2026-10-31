@@ -1,0 +1,105 @@
+--- a/src/phxbringup/PhxBringup.cpp
++++ b/src/phxbringup/PhxBringup.cpp
+@@ -226,6 +226,7 @@
+     void reapContextsLocked();
+     uint32_t vmBind(uint32_t handle);
+     VmCtx *vmCtx(uint32_t handle) { return !stopping && handle && handle <= kMaxCtx && vm[handle - 1].busy && !vm[handle - 1].closing ? &vm[handle - 1] : nullptr; }
++    bool ptClear(VmCtx &c) const;
+     uint64_t *ptTable(const VmCtx &c, uint64_t phys) const;
+     uint64_t ptTablePhys(VmCtx &c, uint32_t i);
+     uint64_t *vmPte(VmCtx &c, uint64_t va, bool alloc, IOReturn *status = nullptr);
+@@ -380,22 +381,21 @@
+ }
+ 
+ void PhxBringup::stop(IOService *provider) {
+-    if (gpuLock) {
+-        IOLockLock(gpuLock);
+-        stopping = true;
+-        reapContextsLocked();
+-        bool retained = quarantinedBuffers || gq[0].ready || gq[1].ready || ringMc || tmrSetUp;
+-        for (const VmCtx &c : vm) retained = retained || c.busy;
+-        if (retained) {
+-            // No device-wide quiescence/reset protocol exists yet. Preserve DMA backing and mappings.
+-            if (!stopQuarantined) { retain(); stopQuarantined = true; }
+-            IOLockUnlock(gpuLock);
+-            IOLog("PhxBringup: stop quarantined active hardware/resources; reclaim requires verified quiescence\n");
+-            IOService::stop(provider);
+-            return;
+-        }
+-        IOLockUnlock(gpuLock);
+-    }
++    if (gpuLock) IOLockLock(gpuLock);
++    stopping = true;
++    if (gpuLock) reapContextsLocked();
++    bool retained = quarantinedBuffers || gq[0].ready || gq[1].ready || ringMc || tmrSetUp;
++    for (const VmCtx &c : vm) retained = retained || c.busy;
++    for (const HwVmid &h : hwv) retained = retained || h.ctx || h.faulted;
++    if (retained) {
++        // Lost synchronization or orphaned slot state cannot prove device-wide quiescence.
++        if (!stopQuarantined) { retain(); stopQuarantined = true; }
++        if (gpuLock) IOLockUnlock(gpuLock);
++        IOLog("PhxBringup: stop quarantined active hardware/resources; reclaim requires verified quiescence\n");
++        IOService::stop(provider);
++        return;
++    }
++    if (gpuLock) IOLockUnlock(gpuLock);
+     if (gSysctlUp) {
+         sysctl_unregister_oid(&sysctl__debug_phxbos_flush);
+         sysctl_unregister_oid(&sysctl__debug_phxbos_flush_bytes);
+@@ -589,6 +589,37 @@
+         static_cast<uint64_t>(size - 4096) > kPtAddrMask - pa) return false;
+     *physical = pa;
+     *cpu = p;
++    return true;
++}
++
++// Preflight every cached chunk before clearing any used page; do not re-fetch CPU pointers during mutation.
++bool PhxBringup::ptClear(VmCtx &c) const {
++    if (!c.phys || c.phys != c.chunkPhys[0] || !c.used || c.used > c.pages ||
++        c.pages > kPtChunks * kPtChunkPages) return false;
++    uint8_t *cpu[kPtChunks]{};
++    uint64_t physical[kPtChunks]{};
++    bool hole = false;
++    for (uint32_t k = 0; k < kPtChunks; ++k) {
++        if (!c.chunk[k]) {
++            if (c.chunkPhys[k] || k * kPtChunkPages < c.used) return false;
++            hole = true;
++            continue;
++        }
++        if (hole || !phxPtBacking(c.chunk[k], kPtChunkBytes, &physical[k], &cpu[k]) ||
++            physical[k] != c.chunkPhys[k]) return false;
++        for (uint32_t j = 0; j < k; ++j) {
++            const uintptr_t a = reinterpret_cast<uintptr_t>(cpu[k]), b = reinterpret_cast<uintptr_t>(cpu[j]);
++            if ((physical[k] >= physical[j] ? physical[k] - physical[j] : physical[j] - physical[k]) < kPtChunkBytes ||
++                (a >= b ? a - b : b - a) < kPtChunkBytes) return false;
++        }
++    }
++    const uint32_t chunks = (c.used + kPtChunkPages - 1) / kPtChunkPages;
++    for (uint32_t k = 0; k < chunks; ++k) {
++        const uint32_t left = c.used - k * kPtChunkPages;
++        const uint32_t n = left < kPtChunkPages ? left : kPtChunkPages;
++        bzero(cpu[k], static_cast<size_t>(n) * 4096);
++        for (uint32_t o = 0; o < n * 4096u; o += 64) flushLine(cpu[k] + o);
++    }
+     return true;
+ }
+ 
+@@ -862,17 +893,7 @@
+     for (VmCtx &c : vm) {
+         if (!c.busy || !c.closing || c.hw || c.retireSeq > done || (c.retireSeq && !observable) ||
+             !c.used || c.used > c.pages || c.pages > kPtChunks * kPtChunkPages) continue;
+-        bool complete = true;
+-        const uint32_t chunks = (c.used + kPtChunkPages - 1) / kPtChunkPages;
+-        for (uint32_t k = 0; k < chunks; ++k) complete = complete && c.chunk[k];
+-        if (!complete) continue;
+-        for (uint32_t k = 0; k < chunks; ++k) {
+-            const uint32_t left = c.used - k * kPtChunkPages;
+-            const uint32_t n = left < kPtChunkPages ? left : kPtChunkPages;
+-            uint8_t *p = static_cast<uint8_t *>(c.chunk[k]->getBytesNoCopy());
+-            bzero(p, static_cast<size_t>(n) * 4096);
+-            for (uint32_t o = 0; o < n * 4096u; o += 64) flushLine(p + o);
+-        }
++        if (!ptClear(c)) continue;
+         PhxRetiredBuffers *buffers = c.retiredBuffers;
+         c.retiredBuffers = nullptr;
+         c.used = 1;

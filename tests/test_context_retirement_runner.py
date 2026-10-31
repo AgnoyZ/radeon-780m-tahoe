@@ -9,7 +9,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 from prepare_source import prepare
-from test_context_retirement import CASES, OWNER_METHODS, CLIENT_METHODS, check_result, exercise, extract_source
+from test_context_retirement import BACKING_FAULTS, CASES, OWNER_METHODS, CLIENT_METHODS, check_result, exercise, extract_source
 
 
 class ContextRetirementRunnerTests(unittest.TestCase):
@@ -24,7 +24,7 @@ class ContextRetirementRunnerTests(unittest.TestCase):
 
     def test_actual_methods_structures_and_hashes(self):
         constants, shared, declarations, methods, hashes = extract_source(self.source)
-        expected = {'PhxBringup::' + n for n in OWNER_METHODS} | {'IOAccelPhxNativeClient::' + n for n in CLIENT_METHODS} | {'shape', 'phxReleaseBuffers'}
+        expected = {'PhxBringup::' + n for n in OWNER_METHODS} | {'IOAccelPhxNativeClient::' + n for n in CLIENT_METHODS} | {'shape', 'phxReleaseBuffers', 'phxPtBacking'}
         self.assertEqual(expected, set(hashes))
         for line in (constants + '\n' + shared + '\n' + declarations).splitlines(): self.assertIn(line, self.source)
         for name, digest in hashes.items():
@@ -43,7 +43,8 @@ class ContextRetirementRunnerTests(unittest.TestCase):
         self.assertLess(stop.index('stopQuarantined'), stop.index('clearRing()'))
 
     def test_missing_or_duplicate_source_rejected(self):
-        for marker in ('PhxBringup::deferClient(', 'IOAccelPhxNativeClient::closeResources(', 'struct PhxRetiredBuffers {', 'static void phxReleaseBuffers('):
+        for marker in ('PhxBringup::deferClient(', 'IOAccelPhxNativeClient::closeResources(', 'struct PhxRetiredBuffers {',
+                       'static void phxReleaseBuffers(', 'PhxBringup::ptClear(', 'static bool phxPtBacking('):
             with self.assertRaises(RuntimeError): extract_source(self.source.replace(marker, 'missing'))
         with self.assertRaises(RuntimeError): extract_source(self.source * 2)
 
@@ -67,6 +68,13 @@ class ContextRetirementRunnerTests(unittest.TestCase):
                      'client-close-then-free', 'close-during-wait', 'stop-repeat', 'alloc-reclaims'):
             self.assertIn(case, CASES)
         self.assertIn('python3 tools/test_context_retirement.py', (ROOT / '.github/workflows/build.yml').read_text())
+        harness = (ROOT / 'tests/test_context_retirement.cpp').read_text(encoding='utf-8')
+        for fault in BACKING_FAULTS:
+            self.assertIn('"' + fault + '"', harness)
+        for case in CASES[55:]:
+            if case.startswith(('clear-root-', 'clear-used-', 'clear-cached-')) and any(case.endswith('-' + fault) for fault in BACKING_FAULTS):
+                continue
+            self.assertIn('"' + case + '"', harness)
 
 
 if __name__ == '__main__': unittest.main()

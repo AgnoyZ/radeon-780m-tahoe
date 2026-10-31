@@ -132,3 +132,44 @@ pending-free normal and host BOs, retaining them while work is pending and
 releasing once after retirement. Run `41159691075`, code `da5c999`, passed the
 expanded 55-case context suite and 82 individual BO cases under ASan/UBSan.
 See `validation/ci-da5c999-bo-retirement.json`; this is host evidence only.
+
+## Checked cached storage and stop follow-on
+
+Patch `0024-checked-context-table-clear.patch` adds `ptClear` to the actual
+reaper. Retirement and hardware-slot detach/ACK remain prerequisites. Before
+writing any byte, it validates every cached 64-KiB descriptor, including cached
+chunks beyond the used-page count: exact length, whole physical segment,
+aligned/nonwrapping CPU span, supported physical extent, cached physical-base
+agreement, contiguous chunk ownership and no pairwise CPU/physical overlap.
+Missing used backing, stale metadata, holes or malformed descriptors retain the
+closing context, its BO container and imported-page wiring. A later checked
+retry can reclaim them without another ownership transfer.
+
+Validated CPU pointers are snapshotted before mutation. Clearing and flushing
+touch only the used-page prefix; unused tails and unused cached chunks remain
+unchanged. No second CPU-pointer lookup occurs during clearing. Corrupt PDE
+contents do not alone prevent clearing valid owned storage after the existing
+retirement, detach and global ownership checks; this is storage validation,
+not permission to skip GPU retirement or invalidate unknown ownership.
+
+The stop guard now also preserves orphaned or faulted hardware-slot state, and
+evaluates tracked active state even when the GPU lock is missing. A busy
+context, ready queue, firmware ring/TMR or quarantine ledger prevents cold
+teardown. The service is retained at most once. Only an inactive service with
+no uncertain tracked ownership can take the cold cleanup path. This still
+does not implement device-wide reset/quiescence or active unload.
+
+The harness now defines 110 cases: the previous 55, a 39-case root/used/unused
+cached descriptor fault matrix, seven additional clear cases and nine stop
+cases. Refused clear cases assert the entire backing remains unchanged, BO
+references/pins remain owned, and geometry-only repair permits exactly one
+release. Alias cases keep physical-cache metadata consistent so they reach the
+overlap check. Snapshot and corrupt-entry cases check actual successful clear
+behavior. The cold-stop fixture explicitly removes both software/hardware
+associations; a separate orphan-slot case checks the previously hidden hazard.
+
+Windows Python integration/runner checks passed: 212 total tests, 204 executed
+successfully and eight explicit POSIX-only skips; syntax compilation and
+`git diff --check` passed. The 110 actual-method C++ scenarios, sanitizer
+execution and full macOS build are pending CI verification. No target GPU,
+DMA, page wiring, concurrency stress or hardware acceleration pass is claimed.

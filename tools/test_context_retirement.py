@@ -12,9 +12,12 @@ from prepare_source import ROOT, prepare
 from test_vm_binding import extract_source as extract_vm
 
 OWNER_METHODS = ('vmOwnershipKnown', 'vmFlushTlb', 'deferClient', 'reapContexts', 'reapContextsLocked',
-                 'vmidAlloc', 'queueFence', 'queueProgress', 'gpuRetiredLocked', 'gpuRetired', 'stop')
+                 'vmidAlloc', 'queueFence', 'queueProgress', 'gpuRetiredLocked', 'gpuRetired', 'stop', 'ptClear')
 CLIENT_METHODS = ('boRelease', 'freeAll', 'closeResources', 'clientClose', 'free',
                   'findBo', 'clientMemoryForType', 'doWaitSeq')
+BACKING_FAULTS = ('short-length', 'long-length', 'null-cpu', 'unaligned-cpu', 'cpu-overflow',
+                  'zero-physical', 'unaligned-physical', 'high-physical', 'physical-overflow',
+                  'short-segment', 'cached-base-mismatch', 'physical-alias', 'cpu-alias')
 CASES = (
     'defer-pending', 'defer-complete', 'late-completion', 'zero-submissions', 'driver-last-sequence',
     'client-last-sequence', 'ack-timeout', 'ack-retry', 'ack-all-ones', 'disable-mismatch', 'disable-retry',
@@ -27,6 +30,12 @@ CASES = (
     'wait-after-close', 'close-during-wait', 'stop-active', 'stop-pending', 'stop-faulted', 'stop-orphan',
     'stop-cold', 'stop-repeat', 'host-pins-preserved', 'mixed-buffer-release', 'empty-buffer-container',
     'alloc-stopping-after-lock', 'unbound-peer-invalid-hardware', 'client-pending-bo-close',
+) + tuple(f'clear-{kind}-{fault}' for kind in ('root', 'used', 'cached') for fault in BACKING_FAULTS) + (
+    'clear-root-mismatch', 'clear-used-zero', 'clear-pages-overflow', 'clear-stale-base',
+    'clear-cached-hole', 'clear-snapshot', 'clear-invalid-entries',
+    'shutdown-orphan-slot', 'shutdown-faulted-slot', 'shutdown-no-lock-context', 'shutdown-no-lock-queue',
+    'shutdown-no-lock-firmware', 'shutdown-no-lock-tmr', 'shutdown-no-lock-ledger',
+    'shutdown-no-lock-repeat', 'shutdown-no-lock-cold',
 )
 
 
@@ -43,7 +52,7 @@ def extract_source(source):
             rows = re.findall(r'^[^\n]*\b' + klass + r'::' + name + r'\([^\n]*\)(?: const)? \{.*?^\}\n', source, re.M | re.S)
             if len(rows) != 1: raise RuntimeError('Expected actual method: ' + klass + '::' + name)
             parts.append(rows[0]); hashes[klass + '::' + name] = hashlib.sha256(rows[0].encode()).hexdigest()
-    for name in ('phxReleaseBuffers', 'shape'):
+    for name in ('phxReleaseBuffers', 'shape', 'phxPtBacking'):
         rows = re.findall(r'^static [^\n]+\b' + name + r'\([^\n]*\) \{.*?^\}\n', source, re.M | re.S)
         if len(rows) != 1: raise RuntimeError('Expected actual helper: ' + name)
         parts.insert(0, rows[0]); hashes[name] = hashlib.sha256(rows[0].encode()).hexdigest()
@@ -83,7 +92,7 @@ def exercise(out):
     result = {'source_provenance': provenance, 'actual_retirement_method_sha256': hashes,
               'actual_retirement_declarations_sha256': hashlib.sha256((constants + shared + declarations).encode()).hexdigest(),
               'cases': rows, 'hardware_executed': False, 'kernel_loaded': False,
-              'limitation': 'Actual ownership transfer, reaping, close/free, wait and stop methods with fake IOKit, registers and fence storage. No actual DMA, page wiring, concurrency stress, reset or target hardware proof.'}
+              'limitation': 'Actual ownership transfer, complete cached-backing validation/clear, reaping, close/free, wait and stop methods with fake IOKit, aligned CPU backing, physical segments, cache flushes, registers and fence storage. No actual DMA, page wiring, concurrency stress, reset or target hardware proof.'}
     (out / 'report.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps(result, indent=2), flush=True)
     return result

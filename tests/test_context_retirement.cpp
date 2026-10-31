@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <map>
@@ -13,10 +14,13 @@
 using IOReturn = int;
 using UInt32 = uint32_t;
 using IOOptionBits = uint32_t;
+using IOByteCount = uint64_t;
+using addr64_t = uint64_t;
+static constexpr unsigned kIOMemoryMapperNone = 0x800;
 enum { kIOReturnSuccess, kIOReturnNotReady, kIOReturnBadArgument, kIOReturnNotFound };
 static std::vector<std::string> events;
 static std::set<void *> allocations;
-static unsigned frees = 0, lineFlushes = 0, delays = 0, casCalls = 0;
+static unsigned frees = 0, lineFlushes = 0, delays = 0, casCalls = 0, lockFrees = 0;
 static bool failCasOnce = false;
 static void IOFree(void *p, size_t) { assert(allocations.erase(p) == 1); ++frees; events.push_back("free-storage"); std::free(p); }
 static bool OSCompareAndSwapPtr(void *old, void *value, void *volatile *where) {
@@ -28,7 +32,7 @@ static bool OSCompareAndSwapPtr(void *old, void *value, void *volatile *where) {
 static void afterLock(int *);
 static void IOLockLock(int *p) { assert(p && !*p); *p = 1; afterLock(p); }
 static void IOLockUnlock(int *p) { assert(p && *p); *p = 0; }
-static void IOLockFree(int *p) { assert(p && !*p); }
+static void IOLockFree(int *p) { assert(p && !*p); ++lockFrees; }
 static void IOLog(const char *, ...) {}
 static void IODelay(unsigned);
 static void flushLine(void *) { if (!lineFlushes) events.push_back("flush-pages"); ++lineFlushes; }
@@ -41,9 +45,25 @@ struct IOMemoryDescriptor {
     void release() { ++releases; events.push_back("release"); }
     void complete() { ++completes; events.push_back("complete"); }
 };
+struct PageBytes {
+    std::vector<uint8_t> storage = std::vector<uint8_t>(65536 + 4095, 0xa5);
+    uint8_t *data() { return reinterpret_cast<uint8_t *>((reinterpret_cast<uintptr_t>(storage.data()) + 4095) & ~uintptr_t(4095)); }
+    const uint8_t *data() const { return reinterpret_cast<const uint8_t *>((reinterpret_cast<uintptr_t>(storage.data()) + 4095) & ~uintptr_t(4095)); }
+    uint8_t *begin() { return data(); } uint8_t *end() { return data() + 65536; }
+    const uint8_t *begin() const { return data(); } const uint8_t *end() const { return data() + 65536; }
+    uint8_t &operator[](size_t i) { return data()[i]; }
+    const uint8_t &operator[](size_t i) const { return data()[i]; }
+};
 struct IOBufferMemoryDescriptor : IOMemoryDescriptor {
-    std::vector<uint8_t> bytes = std::vector<uint8_t>(65536, 0xa5);
-    void *getBytesNoCopy() { return bytes.data(); }
+    PageBytes bytes;
+    void *cpu{bytes.data()};
+    uint64_t length{65536}, physical{0x200000}, segmentLength{65536};
+    unsigned cpuReads{0}, failCpuAfter{0};
+    uint64_t getLength() const { return length; }
+    void *getBytesNoCopy() { ++cpuReads; return failCpuAfter && cpuReads > failCpuAfter ? nullptr : cpu; }
+    addr64_t getPhysicalSegment(uint64_t off, IOByteCount *out, unsigned options) {
+        assert(off == 0 && out && options == kIOMemoryMapperNone); *out = segmentLength; return physical;
+    }
 };
 struct IOService { unsigned retains{0}, stops{0}; void retain() { ++retains; } void stop(IOService *) { ++stops; } };
 struct IOUserClient { unsigned terminated{0}, baseFreed{0}; void terminate() { ++terminated; } void free() { ++baseFreed; } };
@@ -81,6 +101,7 @@ public:
         auto &c = vm[0]; c.busy = true; c.hw = 8; c.phys = 0x200000;
         c.pages = kPtChunks * kPtChunkPages; c.used = 17; c.lastSeq = 5;
         c.chunk[0] = &root; c.chunk[1] = &child;
+        child.physical = 0x220000; c.chunkPhys[0] = root.physical; c.chunkPhys[1] = child.physical;
         hwv[0].ctx = 1; hwv[0].lastSeq = 5;
         gq[0].ready = true; gq[0].fenceOff = 0x100; gq[0].tail = 1; gq[0].fseq[0] = 5; gq[0].retiredSeq = 4;
         aperture.words[0x100 / 8] = 4; regs[kRegCtx0Cntl + 8] = 0x01fffe07;
@@ -105,6 +126,7 @@ public:
     void clearRing() { ++clears; }
     void releaseSession() { ++sessionReleases; }
     bool vmOwnershipKnown(uint32_t) const;
+    bool ptClear(VmCtx &) const;
     bool vmFlushTlb(uint32_t) const;
     void deferClient(uint32_t, uint64_t, PhxRetiredBuffers *);
     void reapContexts(); void reapContextsLocked();
@@ -166,13 +188,15 @@ static void retained(const PhxBringup &p, const IOMemoryDescriptor &normal, cons
     assert(normal.releases == 0 && host.releases == 0 && host.completes == 0 && frees == 0);
     assert(lineFlushes == 0 && p.root.bytes[0] == 0xa5 && p.child.bytes[0] == 0xa5);
 }
-static void reclaimed(const PhxBringup &p, const IOMemoryDescriptor &normal, const IOMemoryDescriptor &host, bool hadHardware = true) {
+static void reclaimed(const PhxBringup &p, const IOMemoryDescriptor &normal, const IOMemoryDescriptor &host, bool hadHardware = true, uint32_t pages = 17) {
     assert(!p.vm[0].busy && !p.vm[0].closing && !p.vm[0].retiredBuffers && !p.vm[0].hw);
     assert(normal.releases == 1 && normal.completes == 0 && host.releases == 1 && host.completes == 1);
-    assert(frees == 1 && lineFlushes == 17u * 4096 / 64 && p.root.releases == 0 && p.child.releases == 0);
-    assert(std::all_of(p.root.bytes.begin(), p.root.bytes.end(), [](uint8_t b) { return b == 0; }));
-    assert(std::all_of(p.child.bytes.begin(), p.child.bytes.begin() + 4096, [](uint8_t b) { return b == 0; }));
-    assert(std::all_of(p.child.bytes.begin() + 4096, p.child.bytes.end(), [](uint8_t b) { return b == 0xa5; }));
+    assert(frees == 1 && lineFlushes == pages * 4096 / 64 && p.root.releases == 0 && p.child.releases == 0);
+    const unsigned rootBytes = std::min(pages, 16u) * 4096, childBytes = pages > 16 ? (pages - 16) * 4096 : 0;
+    assert(std::all_of(p.root.bytes.begin(), p.root.bytes.begin() + rootBytes, [](uint8_t b) { return b == 0; }));
+    assert(std::all_of(p.root.bytes.begin() + rootBytes, p.root.bytes.end(), [](uint8_t b) { return b == 0xa5; }));
+    assert(std::all_of(p.child.bytes.begin(), p.child.bytes.begin() + childBytes, [](uint8_t b) { return b == 0; }));
+    assert(std::all_of(p.child.bytes.begin() + childBytes, p.child.bytes.end(), [](uint8_t b) { return b == 0xa5; }));
     if (hadHardware) assert(std::find(events.begin(), events.end(), "ack") < std::find(events.begin(), events.end(), "flush-pages"));
     assert(std::find(events.begin(), events.end(), "flush-pages") < std::find(events.begin(), events.end(), "release"));
 }
@@ -182,7 +206,111 @@ int main(int argc, char **argv) {
            kRegCtx0StartLo == 0x2973 && kRegCtx0EndLo == 0x2993);
     IOMemoryDescriptor normal, host; auto *buffers = storage(normal, host);
     const bool clientCase = test.rfind("client-", 0) == 0 || test == "wait-after-close" || test == "close-during-wait";
-    if (clientCase) {
+    if (test.rfind("clear-", 0) == 0) {
+        auto &c = p.vm[0];
+        const uint32_t originalPages = c.pages;
+        uint32_t used = 17;
+        bool damaged = true;
+        p.aperture.words[0x100 / 8] = 5;
+        const std::string kinds[] = {"root", "used", "cached"};
+        bool matrix = false;
+        for (const std::string &kind : kinds) {
+            const std::string prefix = "clear-" + kind + "-";
+            if (test.rfind(prefix, 0) != 0) continue;
+            const std::string fault = test.substr(prefix.size());
+            const std::set<std::string> faults = {"short-length", "long-length", "null-cpu", "unaligned-cpu", "cpu-overflow",
+                "zero-physical", "unaligned-physical", "high-physical", "physical-overflow", "short-segment",
+                "cached-base-mismatch", "physical-alias", "cpu-alias"};
+            if (!faults.count(fault)) continue;
+            matrix = true;
+            if (kind == "cached") c.used = used = 1;
+            const unsigned index = kind == "root" ? 0 : 1;
+            auto &backing = index == 0 ? p.root : p.child;
+            auto &other = index == 0 ? p.child : p.root;
+            if (fault == "short-length") backing.length = 65535;
+            else if (fault == "long-length") backing.length = 65537;
+            else if (fault == "null-cpu") backing.cpu = nullptr;
+            else if (fault == "unaligned-cpu") backing.cpu = backing.bytes.data() + 1;
+            else if (fault == "cpu-overflow") backing.cpu = reinterpret_cast<void *>(UINTPTR_MAX & ~uintptr_t(4095));
+            else if (fault == "zero-physical") backing.physical = 0;
+            else if (fault == "unaligned-physical") backing.physical += 1;
+            else if (fault == "high-physical") backing.physical = 1ull << 48;
+            else if (fault == "physical-overflow") backing.physical = 0x0000fffffffff000ull;
+            else if (fault == "short-segment") backing.segmentLength = 65535;
+            else if (fault == "cached-base-mismatch") { c.chunkPhys[index] += 4096; if (!index) c.phys = c.chunkPhys[0]; }
+            else if (fault == "physical-alias") {
+                backing.physical = other.physical + 4096; c.chunkPhys[index] = backing.physical;
+                if (!index) c.phys = backing.physical;
+            } else if (fault == "cpu-alias") backing.cpu = other.bytes.data() + 4096;
+        }
+        if (!matrix) {
+            if (test == "clear-root-mismatch") c.phys += 4096;
+            else if (test == "clear-used-zero") c.used = 0;
+            else if (test == "clear-pages-overflow") c.pages += 1;
+            else if (test == "clear-stale-base") c.chunkPhys[2] = 0x240000;
+            else if (test == "clear-cached-hole") {
+                c.used = used = 1; c.chunk[1] = nullptr; c.chunkPhys[1] = 0;
+                c.chunk[2] = &p.child; c.chunkPhys[2] = p.child.physical;
+            } else if (test == "clear-snapshot") {
+                damaged = false; p.root.failCpuAfter = p.child.failCpuAfter = 1;
+            } else if (test == "clear-invalid-entries") {
+                damaged = false;
+                reinterpret_cast<uint64_t *>(p.root.bytes.data())[0] = c.phys | 3;
+                reinterpret_cast<uint64_t *>(p.child.bytes.data())[0] = UINT64_MAX;
+            } else assert(false && "Unknown clear scenario");
+        }
+        p.deferClient(1, 5, buffers);
+        assert(!c.hw && !p.hwv[0].ctx && !p.hwv[0].faulted && p.ackReads == 1 && p.writes);
+        if (damaged) {
+            retained(p, normal, host);
+            assert(!p.root.releases && !p.child.releases);
+            assert(std::all_of(p.root.bytes.begin(), p.root.bytes.end(), [](uint8_t b) { return b == 0xa5; }));
+            assert(std::all_of(p.child.bytes.begin(), p.child.bytes.end(), [](uint8_t b) { return b == 0xa5; }));
+            // Repair only fixture backing; the actual closing/retirement ledger must survive the refusal.
+            p.root.cpu = p.root.bytes.data(); p.child.cpu = p.child.bytes.data();
+            p.root.length = p.child.length = p.root.segmentLength = p.child.segmentLength = 65536;
+            p.root.physical = c.phys = c.chunkPhys[0] = 0x200000;
+            p.child.physical = c.chunkPhys[1] = 0x220000;
+            c.chunk[1] = &p.child; c.chunk[2] = nullptr; c.chunkPhys[2] = 0;
+            c.pages = originalPages; c.used = used;
+            p.reapContexts();
+        } else if (test == "clear-snapshot") assert(p.root.cpuReads == 1 && p.child.cpuReads == 1);
+        reclaimed(p, normal, host, true, used);
+        p.reapContexts(); reclaimed(p, normal, host, true, used);
+    } else if (test.rfind("shutdown-", 0) == 0) {
+        p.gq[0].ready = false; p.vm[0].busy = false; p.vm[0].hw = 0; p.hwv[0] = PhxBringup::HwVmid{};
+        IOBufferMemoryDescriptor system; p.sysBuf = &system;
+        const bool noLock = test.rfind("shutdown-no-lock-", 0) == 0;
+        const bool cold = test == "shutdown-no-lock-cold";
+        if (noLock) p.gpuLock = nullptr;
+        if (test == "shutdown-orphan-slot") p.hwv[0].ctx = 1;
+        else if (test == "shutdown-faulted-slot") p.hwv[0].faulted = true;
+        else if (test == "shutdown-no-lock-context") p.vm[0].busy = true;
+        else if (test == "shutdown-no-lock-queue") p.gq[0].ready = true;
+        else if (test == "shutdown-no-lock-firmware") p.ringMc = 0x300000;
+        else if (test == "shutdown-no-lock-tmr") p.tmrSetUp = true;
+        else if (test == "shutdown-no-lock-ledger" || test == "shutdown-no-lock-repeat") p.quarantinedBuffers = buffers;
+        else assert(cold && "Unknown shutdown scenario");
+        p.stop(nullptr);
+        assert(p.stopping && p.stops == 1 && !normal.releases && !host.completes && !host.releases && !frees && !lineFlushes);
+        if (cold) {
+            assert(!p.stopQuarantined && !p.retains && p.clears == 1 && lockFrees == 1);
+            assert(!p.gpuLock && !p.smuLock && !p.mmio && !p.fbAper && !p.doorbellMap && !p.pci && !p.sysBuf);
+            assert(p.root.releases == 1 && p.child.releases == 1 && system.releases == 1);
+            assert(p.registers.releases == 1 && p.aperture.releases == 1 && p.bells.releases == 1 && p.pciObject.releases == 1);
+        } else {
+            assert(p.stopQuarantined && p.retains == 1 && !p.clears && !lockFrees);
+            assert((p.gpuLock == nullptr) == noLock && p.smuLock && p.mmio && p.fbAper && p.doorbellMap && p.pci && p.sysBuf);
+            assert(!p.root.releases && !p.child.releases && !system.releases);
+            assert(!p.registers.releases && !p.aperture.releases && !p.bells.releases && !p.pciObject.releases);
+            assert(!p.gpuReady() && !p.vmCtx(1));
+            if (test == "shutdown-no-lock-repeat") {
+                p.stop(nullptr);
+                assert(p.retains == 1 && p.stops == 2 && !p.clears && !lockFrees && p.quarantinedBuffers == buffers);
+                assert(!p.root.releases && !p.child.releases && !system.releases && p.mmio && p.smuLock);
+            }
+        }
+    } else if (clientCase) {
         IOAccelPhxNativeClient c(p, buffers);
         if (test == "client-pending-bo-close") { c.bos[1].pendingFree = true; c.bos[2].pendingFree = true; }
         if (test == "client-no-vmid") c.vmid = 0;
@@ -221,7 +349,7 @@ int main(int argc, char **argv) {
         if (test != "client-no-vmid") assert(!c.bos && !c.bufferStorage && !c.vmid);
     } else if (test.rfind("stop-", 0) == 0) {
         if (test != "stop-cold") p.deferClient(1, 5, buffers);
-        else { p.gq[0].ready = false; p.vm[0].busy = false; }
+        else { p.gq[0].ready = false; p.vm[0].busy = false; p.vm[0].hw = 0; p.hwv[0] = PhxBringup::HwVmid{}; }
         if (test == "stop-faulted") { p.aperture.words[0x100 / 8] = 5; p.timeout = true; }
         if (test == "stop-orphan") p.quarantinedBuffers = buffers;
         p.stop(nullptr);
