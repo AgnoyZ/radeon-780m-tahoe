@@ -4880,5 +4880,5 @@
   "native_job_id": 124385784387,
   "native_preflight_step_conclusion": "success",
   "native_preflight_evidence_scope": "GitHub job step metadata only; no native artifact hashes or full native build result verified here.",
-  "native_build": "In progress; no full native build result claimed by this source report."
+  "native_build": "Subsequently completed successfully; full native evidence is recorded separately in ci-6f03c29-full.json."
 }

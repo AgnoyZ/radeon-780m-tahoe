@@ -50,7 +50,7 @@ class SourceTests(unittest.TestCase):
             prepare(self.stage)
     def test_provenance_is_not_hardware_pass(self):
         self.assertFalse(self.provenance["hardware_tested"])
-        self.assertEqual(16, len(self.provenance["patches_sha256"]))
+        self.assertEqual(17, len(self.provenance["patches_sha256"]))
     def test_firmware_profile_is_staged_and_bound_to_provenance(self):
         from firmware_profile import checked_header
         data = checked_header()

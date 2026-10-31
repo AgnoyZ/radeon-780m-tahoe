@@ -1,0 +1,100 @@
+--- a/src/phxbringup/PhxBringup.cpp
++++ b/src/phxbringup/PhxBringup.cpp
+@@ -680,34 +680,75 @@
+ }
+ 
+ IOReturn PhxBringup::adoptQueue(const uint64_t in[6]) {
+-    if (!fbAper || !doorbellMap || !mmio || !fbMcBase || !gpuLock)
++    if (!in) return kIOReturnBadArgument;
++    if (!fbAper || !doorbellMap || !mmio || !fbMcBase || !gpuLock || !smuLock)
+         return kIOReturnNotReady;
+-    // in[5] = fence offset | queue index (0 compute, 1 gfx): the fence is 8-byte aligned, so bit 0 is free
++    // The queue index occupies fence bit 0; bits 1 and 2 must still be zero.
+     const uint64_t ringOff = in[0], ringDw = in[1], wbOff = in[2], dbByte = in[3], wptr = in[4], fenceOff = in[5] & ~1ull;
+     const uint32_t qi = static_cast<uint32_t>(in[5] & 1);
+     if (ringDw < 256 || ringDw > 65536 || (ringDw & (ringDw - 1)) || (ringOff & 0xFF) ||
+-        ringOff + ringDw * 4 > fbAperLen || (wbOff & 7) || wbOff + 32 > fbAperLen || (fenceOff & 7) ||
+-        fenceOff + 8 > fbAperLen || (dbByte & 7) || dbByte + 8 > doorbellMap->getLength())
+-        return kIOReturnBadArgument;
++        (wbOff & 7) || (fenceOff & 7) || (dbByte & 7) ||
++        !phxPspSpanFits(dbByte, 8, doorbellMap->getLength()))
++        return kIOReturnBadArgument;
++    const uint64_t offsets[] = {ringOff, wbOff, fenceOff};
++    const uint64_t sizes[] = {ringDw * 4, 32, 8};
++    for (unsigned i = 0; i < 3; ++i) {
++        // Stored offsets and later raw writes are 32-bit. Validate the entire extent before narrowing.
++        if (!phxPspSpanFits(offsets[i], sizes[i], 0x100000000ull) ||
++            !phxPspSpanFits(offsets[i], sizes[i], fbAperLen) ||
++            !phxPspSpanFits(offsets[i], sizes[i], fbSize))
++            return kIOReturnBadArgument;
++        for (unsigned j = 0; j < i; ++j)
++            if (!phxPspDisjoint(offsets[i], sizes[i], offsets[j], sizes[j]))
++                return kIOReturnBadArgument;
++    }
++    // Same lock order as configurePspLayout/bootMemory; layout cannot change during adoption.
+     IOLockLock(gpuLock);
+-    GpuQueue &q = gq[qi];
+-    bzero(&q, sizeof(q));
+-    q.gfx = qi == 1;
+-    q.ringOff = static_cast<uint32_t>(ringOff);
+-    q.ringDw = static_cast<uint32_t>(ringDw);
+-    q.wbOff = static_cast<uint32_t>(wbOff);
+-    q.fenceOff = static_cast<uint32_t>(fenceOff);
+-    q.dbByte = dbByte;
+-    q.wptr = q.doneEnd = wptr;
+-    volatile uint32_t *fence = reinterpret_cast<volatile uint32_t *>(fbAper->getVirtualAddress() + fenceOff);
+-    fence[0] = static_cast<uint32_t>(gSeq);
+-    fence[1] = static_cast<uint32_t>(gSeq >> 32);
+-    hdpFlush();
+-    q.ready = true;
++    IOLockLock(smuLock);
++    const IOReturn result = [&]() -> IOReturn {
++        GpuQueue &q = gq[qi];
++        if (q.ready) return kIOReturnExclusiveAccess;
++        if (!pspLayoutConfigured || pspSubmissionFaulted) return kIOReturnNotReady;
++        if (!phxPspLayoutValid(&pspLayout, fbMcBase, fbPhys, fbSize, fbAperLen))
++            return kIOReturnBadArgument;
++        const uint64_t reserved[] = {pspLayout.ringOffset, pspLayout.tmrOffset, pspLayout.stagingOffset};
++        const uint64_t capacities[] = {PHX_PSP_LAYOUT_RING_BYTES, pspLayout.tmrCapacity, pspLayout.stagingCapacity};
++        for (unsigned i = 0; i < 3; ++i)
++            for (unsigned j = 0; j < 3; ++j)
++                if (!phxPspDisjoint(offsets[i], sizes[i], reserved[j], capacities[j]))
++                    return kIOReturnExclusiveAccess;
++        const GpuQueue &other = gq[qi ^ 1];
++        if (other.ready) {
++            if (dbByte == other.dbByte) return kIOReturnExclusiveAccess;
++            const uint64_t occupied[] = {other.ringOff, other.wbOff, other.fenceOff};
++            const uint64_t lengths[] = {static_cast<uint64_t>(other.ringDw) * 4, 32, 8};
++            for (unsigned i = 0; i < 3; ++i)
++                for (unsigned j = 0; j < 3; ++j)
++                    if (!phxPspDisjoint(offsets[i], sizes[i], occupied[j], lengths[j]))
++                        return kIOReturnExclusiveAccess;
++        }
++        GpuQueue next{};
++        next.gfx = qi == 1;
++        next.ringOff = static_cast<uint32_t>(ringOff);
++        next.ringDw = static_cast<uint32_t>(ringDw);
++        next.wbOff = static_cast<uint32_t>(wbOff);
++        next.fenceOff = static_cast<uint32_t>(fenceOff);
++        next.dbByte = dbByte;
++        next.wptr = next.doneEnd = wptr;
++        volatile uint32_t *fence = reinterpret_cast<volatile uint32_t *>(fbAper->getVirtualAddress() + fenceOff);
++        fence[0] = static_cast<uint32_t>(gSeq);
++        fence[1] = static_cast<uint32_t>(gSeq >> 32);
++        hdpFlush();
++        q = next;
++        q.ready = true;
++        return kIOReturnSuccess;
++    }();
++    IOLockUnlock(smuLock);
+     IOLockUnlock(gpuLock);
+-    IOLog("PhxBringup: adopted %s queue ring=+0x%llx (%llu dw) wptr=%llu doorbell=+0x%llx\n",
+-          qi ? "gfx" : "compute", ringOff, ringDw, wptr, dbByte);
+-    return kIOReturnSuccess;
++    if (result == kIOReturnSuccess)
++        IOLog("PhxBringup: adopted %s queue ring=+0x%llx (%llu dw) wptr=%llu doorbell=+0x%llx\n",
++              qi ? "gfx" : "compute", ringOff, ringDw, wptr, dbByte);
++    return result;
+ }
+ 
+ // PhxAccel (the NullMoth accelerator in its AMD configuration) starts only on a GPU marked as driven; matching is
