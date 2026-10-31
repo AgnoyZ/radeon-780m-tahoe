@@ -1,0 +1,158 @@
+--- a/tools/phxctl/mesboot.c
++++ b/tools/phxctl/mesboot.c
+@@ -386,6 +386,23 @@
+    wr(SEG0(0x1fad), (0x0be05501u & ~(0xffu << 8)) | (0x55u << 8));
+    wr(SEG0(0x1fab), 1);                                       // HQD_ACTIVE
+    grbm_select(0, 0, 0, 0);
++}
++static void hqd_verify(uint32_t me, uint32_t pipe, uint64_t mqd, uint64_t ring, uint64_t wb, uint32_t doorbell)
++{
++   grbm_select(me, pipe, 0, 0);
++   if (rd(SEG1(0x900)) != ((me << 2) | pipe)) mes_start_failure(75, "scheduler verification pipe selection failed");
++   const uint32_t expected[][2] = {
++      {SEG0(0x1fab), 1}, {SEG0(0x1fac), 0},
++      {SEG0(0x1fa9), (uint32_t)VA(mqd)}, {SEG0(0x1faa), (uint32_t)(VA(mqd) >> 32)},
++      {SEG0(0x1fb1), (uint32_t)(VA(ring) >> 8)}, {SEG0(0x1fb2), (uint32_t)(VA(ring) >> 40)},
++      {SEG0(0x1fb4), (uint32_t)VA(wb)}, {SEG0(0x1fb5), (uint32_t)(VA(wb) >> 32)},
++      {SEG0(0x1fb6), (uint32_t)VA(wb + 16)}, {SEG0(0x1fb7), (uint32_t)(VA(wb + 16) >> 32)},
++      {SEG0(0x1fb8), (doorbell << 2) | (1u << 30)}, {SEG0(0x1fba), 0xd8308909u}
++   };
++   for (unsigned i = 0; i < sizeof(expected) / sizeof(expected[0]); ++i)
++      if (rd(expected[i][0]) != expected[i][1]) mes_start_failure(75, "scheduler HQD readback mismatch");
++   grbm_select(0, 0, 0, 0);
++   if (rd(SEG1(0x900)) != 0) mes_start_failure(75, "scheduler verification left GRBM selected");
+ }
+ static int use_db;
+ static void kiq_test(void)
+@@ -785,12 +802,57 @@
+    if (env_on("MESBOOT_GFX")) gfx_via_mes();
+ }
+ 
++static void compute_ring_probe(const struct PhxMesQueueLayout *queue, const struct PhxBootMemory *memory)
++{
++   const uint64_t ring = queue->arenaOffset, wb = ring + 4096, mqd = ring + 8192, eop = ring + 12288;
++   const uint64_t result = ring + 16384, fence = result + 256;
++   const uint32_t pattern = 0x7800c0deu;
++   const uint64_t completion_value = ((uint64_t)pattern << 32) | 1u, guard = 0xa55aa55a5aa55aa5ull;
++   for (uint64_t i = 0; i < PHX_COMPUTE_PROBE_ARENA_BYTES; i += 4) vw(ring + i, 0);
++   mqd_build(mqd, ring, wb, eop, 1, (uint32_t)queue->doorbellIndex);
++   union MESAPI__ADD_QUEUE a;
++   memset(&a, 0, sizeof(a));
++   a.header.type = MES_API_TYPE_SCHEDULER; a.header.opcode = MES_SCH_API_ADD_QUEUE;
++   a.header.dwsize = API_FRAME_SIZE_IN_DWORDS;
++   a.pipe_id = 0; a.queue_id = 0; a.doorbell_offset = (uint32_t)queue->doorbellIndex;
++   a.mqd_addr = VA(mqd); a.wptr_addr = VA(wb + 16);
++   a.queue_type = MES_QUEUE_TYPE_COMPUTE; a.map_legacy_kq = 1;
++   mes_submit(&a, sizeof(a), offsetof(union MESAPI__ADD_QUEUE, api_status), "ADD_QUEUE(explicit compute probe)");
++   hqd_verify(1, 0, mqd, ring, wb, (uint32_t)queue->doorbellIndex);
++   vw(result, (uint32_t)guard); vw(result + 4, (uint32_t)(guard >> 32));
++   vw(result + 8, ~pattern); vw(result + 12, (uint32_t)(guard >> 32));
++   vw(result + 16, (uint32_t)guard); vw(result + 20, (uint32_t)(guard >> 32));
++   vw(fence, (uint32_t)~completion_value); vw(fence + 4, (uint32_t)(~completion_value >> 32));
++   const uint64_t target = VA(result + 8), fence_mc = memory->mcBase + fence;
++   /* WRITE_DATA through GART, then the same 64-bit release encoding used by gpuSubmit. */
++   const uint32_t packet[] = {0xc0033700u, 0x00100500u, (uint32_t)target, (uint32_t)(target >> 32), pattern,
++       0xc0064900u, 0x06603514u, 0x40000000u, (uint32_t)fence_mc, (uint32_t)(fence_mc >> 32),
++       (uint32_t)completion_value, (uint32_t)(completion_value >> 32), 0};
++   const unsigned dwords = sizeof(packet) / sizeof(packet[0]);
++   for (unsigned i = 0; i < dwords; ++i) vw(ring + (uint64_t)i * 4, packet[i]);
++   vw(wb + 16, dwords); vw(wb + 20, 0);
++   db(queue->doorbellIndex * 4, dwords);
++   unsigned sample;
++   for (sample = 0; sample < 400; ++sample) {
++      if (usleep(5000) && errno != EINTR) mes_start_failure(74, "compute-ring completion delay failed");
++      if (vr64(fence) == completion_value) break;
++   }
++   if (sample == 400) gpu_failure("compute-ring 64-bit release fence");
++   if (vr64(fence) != completion_value || vr64(result) != guard ||
++       vr64(result + 8) != ((guard & 0xffffffff00000000ull) | pattern) || vr64(result + 16) != guard)
++      gpu_failure("compute-ring memory result or guards");
++}
++
+ static int scheduler_query(int argc, char **argv)
+ {
+-   if (argc != 8) mes_start_failure(64, "sched-query requires GART virtual base, mapped bytes, table/default offsets, arena offset and doorbell index");
++   const int compute = !strcmp(argv[1], "compute-probe");
++   if (argc != (compute ? 10 : 8)) mes_start_failure(64, "requires explicit GART and scheduler layout; compute-probe also requires compute arena and doorbell");
+    struct PhxGartLayout layout = {PHX_GART_LAYOUT_VERSION, gart_argument(argv[2]), gart_argument(argv[3]),
+                                  gart_argument(argv[4]), gart_argument(argv[5])};
+    struct PhxMesQueueLayout queue = {PHX_MES_QUEUE_VERSION, gart_argument(argv[6]), gart_argument(argv[7])};
++   struct PhxMesQueueLayout work = {PHX_MES_QUEUE_VERSION, 0, 0};
++   if (compute) { work.arenaOffset = gart_argument(argv[8]); work.doorbellIndex = gart_argument(argv[9]); }
++   if (compute && !phxMesQueueInputsValid(&work)) mes_start_failure(64, "invalid compute-probe arguments");
+    if (!phxGartInputsValid(&layout) || !phxMesQueueInputsValid(&queue)) mes_start_failure(64, "invalid scheduler layout arguments");
+    const char *overrides[] = {"PTE_SYS", "FAULT_DEFAULT", "MESBOOT_MC", "MESBOOT_CS", "MESBOOT_GFX", "ADOPT", "ADOPT_GFX"};
+    for (unsigned i = 0; i < sizeof(overrides) / sizeof(overrides[0]); ++i)
+@@ -800,6 +862,8 @@
+    size_t size = sizeof(memory);
+    checked_method(conn, PHX_BOOT_MEMORY_SELECTOR, NULL, 0, NULL, 0, NULL, NULL, &memory, &size);
+    if (!phxMesQueueLayoutValid(&queue, &layout, &memory)) mes_start_failure(75, "scheduler arena overlaps or exceeds bootstrap regions");
++   if (compute && !phxComputeProbeLayoutValid(&queue, &work, &layout, &memory))
++      mes_start_failure(75, "compute arena or doorbell overlaps or exceeds bootstrap resources");
+    uint32_t cp = rd(0x21a0), rlc = rd(0xee7e);
+    if (cp || rlc == UINT32_MAX || !(rlc & 0x80000000u)) mes_start_failure(75, "GFX boot readiness not observed");
+    gart_verify_addresses(&layout, &memory);
+@@ -809,6 +873,11 @@
+       if (gart_read64(layout.tableOffset + (offset >> 12) * 8) != ((memory.physicalBase + offset) | 0x71ull))
+          mes_start_failure(75, "scheduler arena PTE does not match bootstrap backing memory");
+    }
++   if (compute) for (unsigned page = 0; page < 5; ++page) {
++      uint64_t offset = work.arenaOffset + (uint64_t)page * 4096;
++      if (gart_read64(layout.tableOffset + (offset >> 12) * 8) != ((memory.physicalBase + offset) | 0x71ull))
++         mes_start_failure(75, "compute arena PTE does not match bootstrap backing memory");
++   }
+    uint32_t mes = rd(SEG1(0x2807));
+    if (mes == UINT32_MAX || (mes & 0x7c0f0000u) != 0x0c000000u) mes_start_failure(75, "MES activation state not observed");
+    if (rd(SEG1(0x900)) != 0) mes_start_failure(75, "GRBM selection is not idle");
+@@ -818,6 +887,14 @@
+    if (active == UINT32_MAX || (active & 1)) mes_start_failure(75, "scheduler queue already active");
+    grbm_select(0, 0, 0, 0);
+    if (rd(SEG1(0x900)) != 0) mes_start_failure(75, "GRBM idle selection failed");
++   if (compute) {
++      grbm_select(1, 0, 0, 0);
++      if (rd(SEG1(0x900)) != 4) mes_start_failure(75, "compute pipe selection failed");
++      uint32_t work_active = rd(SEG0(0x1fab));
++      if (work_active == UINT32_MAX || (work_active & 1)) mes_start_failure(75, "compute queue already active");
++      grbm_select(0, 0, 0, 0);
++      if (rd(SEG1(0x900)) != 0) mes_start_failure(75, "compute preflight left GRBM selected");
++   }
+    bootstrap_va = layout.virtualBase; use_mc = 0; skip_hqd = 0;
+    scheduler_ring = queue.arenaOffset; scheduler_wb = queue.arenaOffset + 4096;
+    scheduler_mqd = queue.arenaOffset + 8192; scheduler_eop = queue.arenaOffset + 12288;
+@@ -825,23 +902,12 @@
+    /* Clear all four pages, including firmware context/fence slots and EOP, before activation. */
+    for (uint64_t i = 0; i < PHX_MES_QUEUE_ARENA_BYTES; i += 4) vw(queue.arenaOffset + i, 0);
+    sched_init();
+-   grbm_select(3, 0, 0, 0);
+-   if (rd(SEG1(0x900)) != 12) mes_start_failure(75, "scheduler verification pipe selection failed");
+-   const uint32_t expected[][2] = {
+-      {SEG0(0x1fab), 1}, {SEG0(0x1fac), 0},
+-      {SEG0(0x1fa9), (uint32_t)VA(SCH_MQD)}, {SEG0(0x1faa), (uint32_t)(VA(SCH_MQD) >> 32)},
+-      {SEG0(0x1fb1), (uint32_t)(VA(SCH_RING) >> 8)}, {SEG0(0x1fb2), (uint32_t)(VA(SCH_RING) >> 40)},
+-      {SEG0(0x1fb4), (uint32_t)VA(SCH_WB)}, {SEG0(0x1fb5), (uint32_t)(VA(SCH_WB) >> 32)},
+-      {SEG0(0x1fb6), (uint32_t)VA(SCH_WB + 16)}, {SEG0(0x1fb7), (uint32_t)(VA(SCH_WB + 16) >> 32)},
+-      {SEG0(0x1fb8), (scheduler_doorbell << 2) | (1u << 30)}, {SEG0(0x1fba), 0xd8308909u}
+-   };
+-   for (unsigned i = 0; i < sizeof(expected) / sizeof(expected[0]); ++i)
+-      if (rd(expected[i][0]) != expected[i][1]) mes_start_failure(75, "scheduler HQD readback mismatch");
+-   grbm_select(0, 0, 0, 0);
+-   if (rd(SEG1(0x900)) != 0) mes_start_failure(75, "scheduler verification left GRBM selected");
++   hqd_verify(3, 0, SCH_MQD, SCH_RING, SCH_WB, scheduler_doorbell);
+    sched_resources();
++   if (compute) compute_ring_probe(&work, &memory);
+    if (IOServiceClose(conn) != KERN_SUCCESS) mes_start_failure(74, "service close failed");
+-   puts("scheduler query: resource and query completions observed; GPU compute and graphics unverified");
++   if (compute) puts("compute-ring probe: memory write and full-width release fence observed; shader execution unverified");
++   else puts("scheduler query: resource and query completions observed; GPU compute and graphics unverified");
+    return 0;
+ }
+ 
+@@ -1009,7 +1075,7 @@
+ 
+ int main(int argc, char **argv)
+ {
+-   if (argc >= 2 && !strcmp(argv[1], "sched-query")) return scheduler_query(argc, argv);
++   if (argc >= 2 && (!strcmp(argv[1], "sched-query") || !strcmp(argv[1], "compute-probe"))) return scheduler_query(argc, argv);
+    if (argc >= 2 && !strcmp(argv[1], "mes")) return mes_start(argc, argv);
+    if (argc >= 2 && !strcmp(argv[1], "gart")) return gart(argc, argv);
+    if (argc >= 2 && !strcmp(argv[1], "all")) gart_failure(64, "legacy all cannot supply an explicit GART layout");

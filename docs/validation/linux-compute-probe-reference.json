@@ -1,0 +1,31 @@
+{
+  "source_repository": "torvalds/linux",
+  "source_commit": "7d0a66e4bb9081d75c82ec4957c50034cb0ea449",
+  "files": [
+    {
+      "path": "drivers/gpu/drm/amd/amdgpu/gfx_v11_0.c",
+      "sha256": "6b3dc555a2587666b46cdade8141966f49eaca71b40ad53b0a45b8624e5aeec9",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/amdgpu/nvd.h",
+      "sha256": "0a4de0b61f8be33d83e7dc1af4b96370898af36d211f296daf018e72820ea0eb",
+      "license_notice": "AMD MIT-style notice inspected"
+    },
+    {
+      "path": "drivers/gpu/drm/amd/include/navi10_enum.h",
+      "sha256": "26bf943bd92a5282814385cf80f3c7ced99ba0c534ae1b932d1bf4293fa2feed",
+      "license_notice": "AMD MIT-style notice inspected"
+    }
+  ],
+  "checked_packet_words": {
+    "write_data_header": 3221436160,
+    "write_data_control": 1049856,
+    "release_mem_header": 3221637376,
+    "release_event": 106968340,
+    "release_data_select": 1073741824
+  },
+  "implementation": "Independently written candidate probe using audited encodings and existing pinned-source queue helpers. No Linux implementation bodies copied.",
+  "hardware_executed": false,
+  "shader_execution_verified": false
+}

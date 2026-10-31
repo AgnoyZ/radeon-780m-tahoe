@@ -94,3 +94,8 @@ Actual firmware residency, GART translation, MES packet compatibility and
 hardware completion remain unverified. Even genuine scheduler completion would
 not prove compute, graphics, display or Metal acceleration. No working EFI,
 device installation, BIOS, NVRAM or OS security setting is changed here.
+
+Patch 0016 adds `compute-probe` as an explicit combined scheduler/compute
+bootstrap, documented in `COMPUTE-RING-PROBE.md`. It shares the existing
+four-page scheduler contract and HQD checks. It does not make legacy commands,
+allocation/ownership or shader execution verified.

@@ -56,7 +56,8 @@
     "patches/0012-checked-gfx-power-sequence.patch",
     "patches/0013-explicit-gart-bootstrap.patch",
     "patches/0014-profile-mes-start.patch",
-    "patches/0015-explicit-scheduler-queue.patch"
+    "patches/0015-explicit-scheduler-queue.patch",
+    "patches/0016-explicit-compute-ring-probe.patch"
   ],
   "target": {
     "darwin_major": 25,

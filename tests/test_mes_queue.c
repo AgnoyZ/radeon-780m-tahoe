@@ -11,22 +11,33 @@ static int fake_usleep(useconds_t);
 #include "mesboot.c"
 #undef main
 #undef usleep
+#ifndef PHX_TEST_COMPUTE
+#define PHX_TEST_COMPUTE 0
+#endif
+static const int compute_mode = PHX_TEST_COMPUTE;
 static const char *fault;
 static struct PhxBootMemory memory;
 static uint64_t arena, va;
 static uint32_t doorbell, registers[0x20000], words[4096];
 static unsigned lookups, opens, hellos, snapshots, reads, writes, vreads, vwrites, bells, sleeps, closes;
+static uint64_t work_arena;
+static uint32_t work_doorbell, work_words[5120], work_registers[0x20000];
+static unsigned work_bells, work_writes, work_fence_reads;
 static int is(const char *s) { return !strcmp(fault, s); }
 static int indexed(const char *s, unsigned i) { char name[40]; snprintf(name, sizeof(name), "%s-%u", s, i); return is(name); }
 static void summary(void) {
     fprintf(stderr, "fake-mes-queue-summary {\"lookups\":%u,\"opens\":%u,\"hellos\":%u,\"snapshots\":%u,"
-        "\"reads\":%u,\"writes\":%u,\"vreads\":%u,\"vwrites\":%u,\"bells\":%u,\"sleeps\":%u,\"closes\":%u}\n",
+        "\"reads\":%u,\"writes\":%u,\"vreads\":%u,\"vwrites\":%u,\"bells\":%u,\"sleeps\":%u,\"closes\":%u",
         lookups, opens, hellos, snapshots, reads, writes, vreads, vwrites, bells, sleeps, closes);
+    if (compute_mode) fprintf(stderr, ",\"work_bells\":%u", work_bells);
+    fputs("}\n", stderr);
 }
 static int fake_usleep(useconds_t delay) {
     assert(delay == 5000 && bells); ++sleeps;
     if (is("delay-error")) { errno = EIO; return -1; }
     if (is("delay-eintr")) { errno = EINTR; return -1; }
+    if (work_bells && is("work-delay-error")) { errno = EIO; return -1; }
+    if (work_bells && is("work-eintr")) { errno = EINTR; return -1; }
     return 0;
 }
 void *IOServiceMatching(const char *name) { assert(!strcmp(name, "PhxBringup")); return (void *)1; }
@@ -41,11 +52,12 @@ kern_return_t IOObjectRelease(io_service_t service) { assert(service == 1); retu
 kern_return_t IOServiceClose(io_connect_t connection) {
     assert(connection == 7);
     if (is("hello-abi")) assert(!snapshots && !reads && !writes && !vwrites);
-    else assert(bells == 2 && words[1024 + 8] == 2 && !registers[0xa900]);
+    else assert(bells == (compute_mode ? 3u : 2u) && words[1024 + 8] == bells && !registers[0xa900]);
+    if (compute_mode && !is("hello-abi")) assert(work_bells == 1);
     ++closes; return is("close-status") ? 5 : 0;
 }
 static void check_packet(void) {
-    assert(bells == 1 || bells == 2);
+    assert(bells == 1 || bells == 2 || (compute_mode && bells == 3));
     assert(words[1024 + 4] == bells * 128 && words[1024 + 5] == 0);
     assert(words[1024 + 16] == 0 && words[1024 + 17] == 0);
     assert(words[1024 + 32] == 0 && words[1024 + 33] == 0 && words[1024 + 34] == 0 && words[1024 + 35] == 0);
@@ -61,11 +73,25 @@ static void check_packet(void) {
         assert(r.vmid_mask_gfxhub == 0xffffff00 && r.vmid_mask_mmhub == 0xffffff00);
         for (unsigned i = 0; i < 4; ++i) assert(r.compute_hqd_mask[i] == 0xc);
         assert(r.gfx_hqd_mask[0] == 0xfffffffe && r.sdma_hqd_mask[0] == 0xfc);
-    } else {
+    } else if (bells == 2) {
         union MESAPI__QUERY_MES_STATUS q; memcpy(&q, pkt, sizeof(q));
         assert(q.header.opcode == MES_SCH_API_QUERY_SCHEDULER_STATUS);
         assert(q.api_status.api_completion_fence_addr == va + arena + 4096 + 64);
         assert(q.api_status.api_completion_fence_value == 1);
+    } else {
+        union MESAPI__ADD_QUEUE a; memcpy(&a, pkt, sizeof(a));
+        assert(a.header.type == MES_API_TYPE_SCHEDULER && a.header.opcode == MES_SCH_API_ADD_QUEUE);
+        assert(a.header.dwsize == API_FRAME_SIZE_IN_DWORDS && !a.pipe_id && !a.queue_id);
+        assert(a.doorbell_offset == work_doorbell && a.mqd_addr == va + work_arena + 8192);
+        assert(a.wptr_addr == va + work_arena + 4096 + 16 && a.map_legacy_kq == 1 && a.queue_type == MES_QUEUE_TYPE_COMPUTE);
+        assert(a.api_status.api_completion_fence_addr == va + arena + 4096 + 64 && a.api_status.api_completion_fence_value == 1);
+        assert(work_words[2048 + 128] == (uint32_t)a.mqd_addr && work_words[2048 + 129] == (uint32_t)(a.mqd_addr >> 32));
+        assert(work_words[2048 + 136] == (uint32_t)((va + work_arena) >> 8));
+        assert(work_words[2048 + 137] == (uint32_t)((va + work_arena) >> 40));
+        assert(work_words[2048 + 143] == ((work_doorbell << 2) | (1u << 30)));
+        assert(work_words[2048 + 165] == (uint32_t)((va + work_arena + 12288) >> 8));
+        assert(work_words[2048 + 166] == (uint32_t)((va + work_arena + 12288) >> 40));
+        for (unsigned i = 3072; i < 5120; ++i) assert(work_words[i] == 0);
     }
     union MESAPI__QUERY_MES_STATUS fence; memcpy(&fence, pkt + 64, sizeof(fence));
     assert(fence.header.type == MES_API_TYPE_SCHEDULER && fence.header.opcode == MES_SCH_API_QUERY_SCHEDULER_STATUS);
@@ -91,11 +117,16 @@ kern_return_t IOConnectCallScalarMethod(io_connect_t connection, uint32_t select
     }
     if (selector == SEL_DBG_VRAM_WRITE) {
         assert(input_count == 2 && !output && !output_count && reads >= 20);
-        assert(!(input[0] & 3) && input[0] >= arena && input[0] + 4 <= arena + 16384 && input[1] <= UINT32_MAX);
+        assert(!(input[0] & 3) && input[1] <= UINT32_MAX);
+        int work = compute_mode && input[0] >= work_arena && input[0] + 4 <= work_arena + 20480;
+        assert(work || (input[0] >= arena && input[0] + 4 <= arena + 16384));
         if (vwrites < 4096) assert(input[0] == arena + vwrites * 4 && input[1] == 0);
+        if (work && work_writes < 5120) assert(input[0] == work_arena + work_writes * 4 && input[1] == 0);
         ++vwrites;
         if (indexed("vwrite", vwrites)) return 5;
-        words[(input[0] - arena) / 4] = (uint32_t)input[1]; return 0;
+        if (work) { ++work_writes; work_words[(input[0] - work_arena) / 4] = (uint32_t)input[1]; }
+        else words[(input[0] - arena) / 4] = (uint32_t)input[1];
+        return 0;
     }
     if (selector == SEL_DBG_WRITE_REG) {
         assert(input_count == 2 && output && *output_count == 1 && input[0] < 0x20000);
@@ -106,12 +137,43 @@ kern_return_t IOConnectCallScalarMethod(io_connect_t connection, uint32_t select
         registers[input[0]] = (uint32_t)input[1]; output[0] = input[1]; return 0;
     }
     assert(selector == SEL_DBG_DOORBELL && input_count == 3 && !output && !output_count);
+    if (compute_mode && input[0] == (uint64_t)work_doorbell * 4) {
+        assert(bells == 3 && !work_bells && input[1] == 13 && !input[2] && !registers[0xa900]);
+        ++work_bells;
+        const uint64_t dst = va + work_arena + 16384 + 8, fence = memory.mcBase + work_arena + 16384 + 256;
+        const uint32_t expected[] = {0xc0033700, 0x00100500, (uint32_t)dst, (uint32_t)(dst >> 32), 0x7800c0de,
+            0xc0064900, 0x06603514, 0x40000000, (uint32_t)fence, (uint32_t)(fence >> 32), 1, 0x7800c0de, 0};
+        assert(!memcmp(work_words, expected, sizeof(expected)) && work_words[1028] == 13 && !work_words[1029]);
+        assert(work_words[4096] == 0x5aa55aa5 && work_words[4097] == 0xa55aa55a);
+        assert(work_words[4098] == ~0x7800c0deu && work_words[4099] == 0xa55aa55a);
+        assert(work_words[4100] == 0x5aa55aa5 && work_words[4101] == 0xa55aa55a);
+        assert(work_words[4160] == ~1u && work_words[4161] == ~0x7800c0deu);
+        if (is("work-bell")) return 5;
+        if (!is("work-missing-data")) work_words[4098] = 0x7800c0de;
+        if (!is("work-timeout")) {
+            work_words[4160] = is("work-fence-low") ? 2 : 1;
+            work_words[4161] = is("work-fence-high") ? 0 : 0x7800c0de;
+        }
+        if (is("work-guard-before")) work_words[4096] ^= 1;
+        if (is("work-guard-after")) work_words[4100] ^= 1;
+        if (is("work-data-high")) work_words[4099] ^= 1;
+        return 0;
+    }
     assert(input[0] == (uint64_t)doorbell * 4 && input[1] == (bells + 1) * 128 && !input[2]);
     ++bells; check_packet();
     if (indexed("bell", bells)) return 5;
-    words[1024 + 8] = is("timeout") ? 0 : bells;
+    if (compute_mode && bells == 3) {
+        uint64_t r = va + work_arena, m = r + 8192, w = r + 4096;
+        work_registers[0x320b] = 1; work_registers[0x320c] = 0;
+        work_registers[0x3209] = (uint32_t)m; work_registers[0x320a] = (uint32_t)(m >> 32);
+        work_registers[0x3211] = (uint32_t)(r >> 8); work_registers[0x3212] = (uint32_t)(r >> 40);
+        work_registers[0x3214] = (uint32_t)w; work_registers[0x3215] = (uint32_t)(w >> 32);
+        work_registers[0x3216] = (uint32_t)(w + 16); work_registers[0x3217] = (uint32_t)((w + 16) >> 32);
+        work_registers[0x3218] = (work_doorbell << 2) | (1u << 30); work_registers[0x321a] = 0xd8308909;
+    }
+    words[1024 + 8] = is("timeout") || (bells == 3 && is("add-timeout")) ? 0 : bells;
     words[1024 + 9] = is("fence-high") ? 1 : 0;
-    words[1024 + 16] = is("bad-token") ? 2 : 1;
+    words[1024 + 16] = is("bad-token") || (bells == 3 && is("add-bad-token")) ? 2 : 1;
     words[1024 + 17] = is("token-high") ? 1 : 0;
     return 0;
 }
@@ -138,17 +200,30 @@ kern_return_t IOConnectCallMethod(io_connect_t connection, uint32_t selector,
             assert(input[0] == offsets[vreads - 1] && !writes && !vwrites);
             value = values[vreads - 1];
             if (indexed("vbad", vreads)) value ^= 1;
+        } else if (compute_mode && vreads <= 12) {
+            uint64_t offset = work_arena + (uint64_t)(vreads - 8) * 4096;
+            assert(input[0] == 0x700000 + (offset >> 12) * 8 && !writes && !vwrites);
+            value = (memory.physicalBase + offset) | 0x71;
+            if (indexed("vbad", vreads)) value ^= 1;
         } else {
-            assert(bells && input[0] >= arena && input[0] + 8 <= arena + 16384);
-            unsigned i = (unsigned)((input[0] - arena) / 4);
-            value = words[i] | ((uint64_t)words[i + 1] << 32);
+            assert(bells);
+            int work = compute_mode && input[0] >= work_arena && input[0] + 8 <= work_arena + 20480;
+            assert(work || (input[0] >= arena && input[0] + 8 <= arena + 16384));
+            unsigned i = (unsigned)((input[0] - (work ? work_arena : arena)) / 4);
+            uint32_t *mem = work ? work_words : words;
+            value = mem[i] | ((uint64_t)mem[i + 1] << 32);
+            if (work && i == 4160) {
+                ++work_fence_reads;
+                if (is("work-delayed") && work_fence_reads < 3) value = 0;
+                if (is("work-fence-changed") && work_fence_reads == 2) value ^= 1;
+            }
         }
         memcpy(output_data, &value, 8);
         if (is("vread-short")) --*output_size;
         return indexed("vread", vreads) ? 5 : 0;
     }
     assert(selector == SEL_READREGS && input_count == 3 && input[1] == 1 && *output_size == 4 && input[0] < 0x20000);
-    ++reads; uint32_t value = registers[input[0]];
+    ++reads; uint32_t value = compute_mode && registers[0xa900] == 4 && input[0] != 0xa900 ? work_registers[input[0]] : registers[input[0]];
     if (indexed("bad", reads)) value ^= 1;
     memcpy(output_data, &value, 4);
     if (is("read-short")) --*output_size;
@@ -159,7 +234,10 @@ int main(int argc, char **argv) {
     int relocated = !strcmp(argv[1], "relocated");
     arena = relocated ? 0xa00000 : 0x800000; va = relocated ? 0x400000000000ull : 0x4000000000ull;
     doorbell = relocated ? 0x100 : 0x22;
+    work_arena = relocated ? 0xe00000 : 0xc00000; work_doorbell = relocated ? 0x102 : 6;
+    if (is("work-adjacent")) work_arena = arena + 16384;
     memset(words, 0xa5, sizeof(words));
+    memset(work_words, 0xa5, sizeof(work_words));
     memory = (struct PhxBootMemory){1, 7, relocated ? 0x234500000000ull : 0x8000000000ull,
         relocated ? 0x123400000000ull : 0x600000000ull, 0x10000000, 0x10000000, 0x100000, 0,
         {1, 0x100000, 0x200000, 0x100000, 0x400000, 0x100000, {0, 0}}};
@@ -191,8 +269,10 @@ int main(int argc, char **argv) {
     registers[0xc807] = is("mes-inactive") ? 0 : is("mes-all-ones") ? UINT32_MAX : 0x0c000000;
     registers[0xa900] = is("selection-busy") ? 12 : 0;
     registers[0x320b] = is("hqd-active") ? 1 : is("hqd-all-ones") ? UINT32_MAX : 0;
-    char *args[] = {"mesboot", "sched-query", relocated ? "0x400000000000" : "0x4000000000", "0x1000000",
-        "0x700000", "0x710000", relocated ? "0xa00000" : "0x800000", relocated ? "0x100" : "0x22"};
+    work_registers[0x320b] = is("work-hqd-active") ? 1 : is("work-hqd-all-ones") ? UINT32_MAX : 0;
+    char work_offset[24]; snprintf(work_offset, sizeof(work_offset), "0x%llx", (unsigned long long)work_arena);
+    char *args[] = {"mesboot", compute_mode ? "compute-probe" : "sched-query", relocated ? "0x400000000000" : "0x4000000000", "0x1000000",
+        "0x700000", "0x710000", relocated ? "0xa00000" : "0x800000", relocated ? "0x100" : "0x22", work_offset, relocated ? "0x102" : "6"};
     if (is("arg-unaligned")) args[6] = "0x800001";
     if (is("arg-overflow")) args[6] = "18446744073709551616";
     if (is("arg-wide")) args[6] = "0xfffff000";
@@ -206,5 +286,16 @@ int main(int argc, char **argv) {
     if (is("arena-unmapped")) args[6] = "0xffd000";
     if (is("env-mc")) setenv("MESBOOT_MC", "1", 1);
     if (is("env-adopt")) setenv("ADOPT", "1", 1);
-    return mesboot_reference_main(is("arg-count") ? 2 : 8, args);
+    if (is("arg-work-unaligned")) args[8] = "0xc00001";
+    if (is("arg-work-bell-odd")) args[9] = "7";
+    if (is("work-arena-scheduler")) args[8] = args[6];
+    if (is("work-bell-overlap")) args[9] = args[7];
+    if (is("work-arena-table")) args[8] = "0x700000";
+    if (is("work-arena-default")) args[8] = "0x710000";
+    if (is("work-arena-ring")) args[8] = "0x100000";
+    if (is("work-arena-tmr")) args[8] = "0x200000";
+    if (is("work-arena-stage")) args[8] = "0x400000";
+    if (is("work-arena-unmapped")) args[8] = "0xffc000";
+    if (is("work-last-page-overlap")) args[8] = "0x70c000";
+    return mesboot_reference_main(is("arg-count") ? 2 : compute_mode ? 10 : 8, args);
 }

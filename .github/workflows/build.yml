@@ -44,6 +44,8 @@ jobs:
         run: python3 tools/test_mes_start.py --out build/mes-start-tests
       - name: Exercise relocated scheduler queues with synthetic completions
         run: python3 tools/test_mes_queue.py --out build/mes-queue-tests
+      - name: Exercise explicit compute-ring probe with synthetic completions
+        run: python3 tools/test_compute_probe.py --out build/compute-probe-tests
   macos-kexts:
     runs-on: macos-15-intel
     timeout-minutes: 90
