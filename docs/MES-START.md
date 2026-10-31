@@ -71,8 +71,18 @@ both entrypoint readbacks, GART prerequisites, all four VRAM reads, wrong pipe,
 stuck reset/halt, all ones, delayed/absent activation, EINTR and close failures.
 No VRAM writes, doorbells, adoption calls or scheduler submissions are accepted
 by this harness. Python checks validate termination accounting and false-success
-rejection. POSIX sanitizer and native compilation results must be recorded for
-the exact code revision when available; earlier passes do not cover this patch.
+rejection.
+
+Run `41151681907`, code `17763be`, passed 145 Python tests and all 212 MES
+actual-CLI cases under ASan/UBSan, plus 319 GART, 76 kernel-method, 114 firmware
+sequence and 158 GFX-power regression cases. All MES/GART operation counts and
+case sets were independently checked; CLI/kernel method hashes match the staged
+source and all fourteen patch/six shared-header hashes match the exact Git
+commit. Evidence: `validation/ci-17763be-mes-start.json`.
+
+Native job `124389642450` passed the real-tool compilation/preflight step.
+That observation comes from job-step metadata, not native artifact hashes.
+The full native build is still running; no full-build pass is claimed here.
 
 This still needs target validation. Snapshot and readback checks do not acquire
 exclusive hardware ownership or prevent concurrent raw-debug clients. They do
