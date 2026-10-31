@@ -19,7 +19,7 @@ def report(status, counts, success=False):
 class GfxPowerRunnerTests(unittest.TestCase):
     def test_case_inventory_and_result_contract(self):
         all_cases = list(power_cases())
-        self.assertEqual(157, len(all_cases))
+        self.assertEqual(158, len(all_cases))
         self.assertEqual(len(all_cases), len(set(all_cases)))
         for case in all_cases:
             with self.subTest(case=case):
@@ -47,7 +47,7 @@ class GfxPowerRunnerTests(unittest.TestCase):
         self.assertNotIn("layout", counts["events"])
 
     def test_late_or_busy_registers_cannot_be_success(self):
-        for fault in ("clock-after-deadline", "cp-busy", "rlc-not-ready", "rlc-wrong-bit", "read-all-ones"):
+        for fault in ("clock-after-deadline", "cp-busy", "rlc-not-ready", "rlc-wrong-bit", "read-all-ones", "rlc-all-ones"):
             status, counts = expected_result(fault, power=True)
             self.assertEqual(75, status)
             self.assertNotIn("close", counts["events"])

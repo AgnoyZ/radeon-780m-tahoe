@@ -86,10 +86,10 @@ commands may have changed device state; stopping the process is not rollback.
 No automatic retry, NVRAM/EFI mutation, installation or security change is added.
 This command remains a research initialization path, not a deployment workflow.
 
-The actual-CLI harness now exercises both modes. The GFX suite uses 157
+The actual-CLI harness now exercises both modes. The GFX suite uses 158
 synthetic cases: all firmware prerequisite cases plus SMU reply/version faults,
 immediate/delayed readiness, independent CP/RLC failures, wrong completion bit,
-all-ones reads, exact deadlines, backwards/frozen/invalid clocks, failed or
+all-ones reads (including RLC alone while CP is zero), exact deadlines, backwards/frozen/invalid clocks, failed or
 interrupted sleeps and malformed register replies. It checks exact operation
 order/counts and verifies snapshots are freed. Fake clocks avoid waiting on
 real wall time; fake registers do not emulate a GPU.
@@ -97,3 +97,10 @@ real wall time; fake registers do not emulate a GPU.
 Local Python tests pass (128 tests). Actual C/ASan/UBSan results and native
 compilation must be recorded from CI for this revision before claiming they
 passed. Native execution remains limited to hardware-free verification paths.
+
+The initial implementation `e873835` passed 157 GFX cases in source job
+`124377804435` (run `41148090561`). Subsequent review found that the all-ones
+case set both CP and RLC to all ones, so CP's nonzero value could hide acceptance
+of RLC all ones alone. The corrected readiness predicate now explicitly rejects
+`UINT32_MAX` RLC data and the suite adds that independent failure. The older
+157-case pass does not verify this correction; a new CI result is required.

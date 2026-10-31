@@ -38,7 +38,7 @@ def power_cases():
     for operation in ("smu-if", "smu-version", "smu-enable"):
         for failure in ("status", "short", "long", "psp", "timeout", "wide"):
             yield operation + "-" + failure
-    yield from ("smu-if-mismatch", "ready-delayed", "cp-busy", "rlc-not-ready", "rlc-wrong-bit", "read-all-ones",
+    yield from ("smu-if-mismatch", "ready-delayed", "cp-busy", "rlc-not-ready", "rlc-wrong-bit", "read-all-ones", "rlc-all-ones",
                 "clock-error", "clock-before-error", "clock-after-error", "clock-bad-nanos", "clock-negative",
                 "clock-overflow", "clock-before-backwards", "clock-after-backwards", "clock-before-deadline",
                 "clock-after-deadline", "clock-frozen", "sleep-eintr", "sleep-error")
@@ -72,7 +72,7 @@ def expected_poll(fault, counts):
     if fault == "sleep-error":
         counts["sleeps"] = 1
         return 74
-    if fault in ("cp-busy", "rlc-not-ready", "rlc-wrong-bit", "read-all-ones"):
+    if fault in ("cp-busy", "rlc-not-ready", "rlc-wrong-bit", "read-all-ones", "rlc-all-ones"):
         counts.update(clocks=9, cp_reads=4, rlc_reads=4, sleeps=3)
         return 75
     if fault == "clock-frozen":

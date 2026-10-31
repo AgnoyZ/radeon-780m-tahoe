@@ -63,7 +63,7 @@
 +      uint64_t after = monotonic_us();
 +      if (after < before || after - start >= PHX_GFX_BOOT_TIMEOUT_US)
 +         control_failure(75, "GFX boot observation arrived after the deadline or clock moved backwards");
-+      if (cp == 0 && (rlc & PHX_GFX_BOOT_COMPLETE)) return;
++      if (cp == 0 && rlc != UINT32_MAX && (rlc & PHX_GFX_BOOT_COMPLETE)) return;
 +      last = after;
 +      const struct timespec delay = {0, 1000000L};
 +      if (nanosleep(&delay, NULL) && errno != EINTR)

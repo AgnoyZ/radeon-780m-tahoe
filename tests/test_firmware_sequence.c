@@ -48,7 +48,7 @@ static void summary(void) {
 }
 
 static int slow_poll(void) {
-    return is("cp-busy") || is("rlc-not-ready") || is("rlc-wrong-bit") || is("read-all-ones");
+    return is("cp-busy") || is("rlc-not-ready") || is("rlc-wrong-bit") || is("read-all-ones") || is("rlc-all-ones");
 }
 static int injected_clock_gettime(clockid_t which, struct timespec *value) {
     assert(power_up && smus == 3 && which == CLOCK_MONOTONIC);
@@ -204,6 +204,7 @@ kern_return_t IOConnectCallMethod(io_connect_t connection, uint32_t selector,
         if (!cp && (is("ready-delayed") || is("sleep-eintr")) && rlc_reads < 3) value = 0;
         if (!cp && is("rlc-wrong-bit")) value = 1;
         if (is("read-all-ones")) value = 0xffffffff;
+        if (!cp && is("rlc-all-ones")) value = 0xffffffff;
         memcpy(output_data, &value, sizeof(value));
         char name[40];
         snprintf(name, sizeof(name), "read-%s-short", cp ? "cp" : "rlc");
