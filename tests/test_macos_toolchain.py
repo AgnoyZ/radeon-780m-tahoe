@@ -6,7 +6,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from macos_toolchain import metal_command, probe_command, preflight, packaging_preflight
+from macos_toolchain import metal_command, probe_command, preflight, packaging_preflight, native_capture_preflight
 
 
 class MacOSToolchainTests(unittest.TestCase):
@@ -64,6 +64,32 @@ class MacOSToolchainTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 packaging_preflight(Path(directory))
             run.assert_not_called()
+
+    def test_native_capture_refuses_non_native_host_and_existing_output(self):
+        with tempfile.TemporaryDirectory() as directory, mock.patch('macos_toolchain.subprocess.run') as run:
+            with mock.patch('macos_toolchain.platform.system', return_value='Windows'):
+                with self.assertRaises(RuntimeError): native_capture_preflight(Path(directory) / 'new')
+            with mock.patch('macos_toolchain.platform.system', return_value='Darwin'), \
+                 mock.patch('macos_toolchain.platform.machine', return_value='x86_64'):
+                with self.assertRaises(RuntimeError): native_capture_preflight(Path(directory))
+            run.assert_not_called()
+
+    def test_native_capture_failure_does_not_expose_raw_output(self):
+        import subprocess
+        for response in (subprocess.CompletedProcess([], 1, b'PRIVATE_STDOUT', b'PRIVATE_STDERR'),
+                         subprocess.TimeoutExpired('capture', 130, output=b'PRIVATE_TIMEOUT')):
+            with tempfile.TemporaryDirectory() as directory, \
+                 mock.patch('macos_toolchain.platform.system', return_value='Darwin'), \
+                 mock.patch('macos_toolchain.platform.machine', return_value='x86_64'), \
+                 mock.patch('macos_toolchain.import_capture') as importer, \
+                 mock.patch('macos_toolchain.subprocess.run') as run:
+                if isinstance(response, Exception): run.side_effect = response
+                else: run.return_value = response
+                with self.assertRaises(RuntimeError) as caught: native_capture_preflight(Path(directory) / 'new')
+                self.assertNotIn('PRIVATE', str(caught.exception)); importer.assert_not_called()
+                self.assertTrue(run.call_args.kwargs['capture_output'])
+                self.assertEqual(130, run.call_args.kwargs['timeout'])
+                self.assertNotIn('DYLD_LIBRARY_PATH', run.call_args.kwargs['env'])
 
 
 if __name__ == "__main__":

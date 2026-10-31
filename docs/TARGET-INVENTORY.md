@@ -1,5 +1,8 @@
 # Target metadata collection: no driver installation
 
+For Recovery without Python, use the native capture/offline import route below.
+The existing direct Python route keeps its original in-memory privacy behavior.
+
 This is the first, read-only metadata step toward target bring-up, not a GPU test
 or a complete memory-ownership audit. It does not load a kext, open the experimental
 IOKit user client, submit commands, write registers, run `diskutil`, change NVRAM,
@@ -93,3 +96,65 @@ preflight containing this collector passed run `41096096384`, code `ff3345a`, at
 `2026-10-30T17:08:40Z` (October 31 in Asia/Shanghai). The step result is preserved
 in `validation/ci-ff3345a-submission.json`; its detailed host metadata has not yet
 been extracted from the still-running native job. Target data is still missing.
+
+## Recovery without Python: native capture, offline import
+
+`tools/recovery_inventory.sh` uses only the fixed native metadata commands listed
+above, plus `uname`, shell builtins and ordinary file/timeout helpers. It does
+not need Python, sudo or any installed experimental driver. It refuses non-macOS
+and ARM hosts. Availability of these native commands in the user's actual
+Recovery remains to be observed; missing commands fail rather than installing
+anything or inventing values.
+
+Copy the script to an ordinary writable data directory on the USB drive, outside
+the EFI partition. From that data directory in Recovery Terminal, run:
+
+```sh
+/bin/sh recovery_inventory.sh recovery-capture-01
+```
+
+The output directory must be new and its parent must already exist. Spaces in
+paths are supported. Every file is private (umask 077), and a local `.gitignore`
+excludes all capture contents. Each fixed command writes its own output, stderr
+and exit status. A private completion marker is written only after all five
+commands exit successfully with nonempty bounded outputs. The script requests
+termination after 20 seconds per command and restricts per-process file sizes;
+it cannot guarantee interruption of a stuck kernel request. It controls only
+the child command and timeout helper it started. Failed/interrupted output
+remains an incomplete private capture, never an initialization success.
+
+Unlike the direct Python route, **this directory contains raw PCI registry
+properties and stderr**. It may contain identifiers. Keep the entire directory
+private, do not post it on GitHub, and do not treat its completion marker as proof
+of valid PCI data, target identity or memory ownership.
+
+Copy the private directory back to the Windows data workspace. From this
+repository, run with Python, replacing the quoted input path with its location:
+
+```text
+python tools/target_inventory.py --from-capture "<copied-capture-directory>" --out local/target-inventory-from-recovery-01
+```
+
+Import is offline and can run on Windows. It executes no commands from the
+capture, checks the exact fixed file set and successful statuses, rejects linked,
+missing, oversized or malformed inputs, and applies the same numeric/PCI whitelist
+as direct capture. It writes only `inventory.json` to a new output directory;
+original captures are neither changed nor copied into that report. The observed
+OS/build remains explicit: a Sonoma Recovery capture is never relabeled Tahoe.
+The report remains private metadata for manual review before any sharing.
+
+Input hashes are computed when importing. They are not authenticated evidence
+that the script ran unmodified on the reported host. `native_capture_source_verified`,
+`physical_identity_verified`, `reserved_region_ownership_verified`,
+`safe_to_initialize` and `gpu_work_submitted` remain false. Even a valid single
+`1002:1900` match on Darwin 25 does not prove free VRAM, GPU IP revisions,
+reservations, correct firmware selection, working queues or acceleration.
+
+Windows tests exercise import, rejection and privacy without claiming native
+shell execution. Linux CI executes the actual script with fixed native command
+paths replaced by explicit synthetic fixtures, including timeout, failed status,
+file-size limits and existing-output refusal. Intel macOS preflight additionally
+runs the unchanged script with real Apple read commands and compares the imported
+system fields with direct capture, logging only system metadata and aggregate
+counts. These are hosted checks, not Recovery or target-laptop verification;
+their observed results must be recorded separately after CI completes.

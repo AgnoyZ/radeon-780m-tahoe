@@ -7,6 +7,7 @@ from pathlib import Path
 import platform
 import plistlib
 import re
+import stat
 import struct
 import subprocess
 
@@ -18,6 +19,7 @@ COMMANDS = {
     "pci": ["/usr/sbin/ioreg", "-a", "-l", "-r", "-c", "IOPCIDevice", "-d", "1"],
 }
 MAX_BYTES = 16 * 1024 * 1024
+CAPTURE_MARKER = b"PHX780M_NATIVE_CAPTURE_V1\n"
 
 
 class InventoryError(ValueError):
@@ -115,6 +117,41 @@ def system_inventory(version, build, darwin, ram, architecture):
                 int(version.split(".")[0]) == 26 and int(darwin.split(".")[0]) == 25}
 
 
+def make_report(outputs, architecture):
+    try:
+        strings = {key: outputs[key].decode("ascii").strip() for key in COMMANDS if key != "pci"}
+    except UnicodeError:
+        raise InventoryError("System metadata is not in its expected numeric format") from None
+    system = system_inventory(strings["os_version"], strings["os_build"], strings["darwin_release"],
+                              strings["ram_bytes"], architecture)
+    registry = pci_inventory(outputs["pci"])
+    try:
+        collector_hash = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    except OSError:
+        raise InventoryError("Could not identify the collector source revision") from None
+    return {"schema_version": 1, "collector_sha256": collector_hash, "system": system, "pci": registry,
+              "safe_to_initialize": False, "gpu_work_submitted": False,
+              "privacy": "Local-only metadata; review before sharing. Raw registry/stdout/stderr are not saved.",
+              "limitations": ["Registry identity and assigned ranges are not independent PCI configuration-space verification.",
+                              "Assigned PCI ranges do not establish usable VRAM, firmware/console reservations or exclusive ownership.",
+                              "No GPU IP discovery, firmware parsing, device initialization or acceleration test was performed.",
+                              "A successful capture is not permission to load the experimental driver."]}
+
+
+def save_report(out, report):
+    out = Path(out).resolve()
+    if out.exists():
+        raise InventoryError("Inventory output exists; choose a fresh directory")
+    try:
+        out.mkdir(parents=True, mode=0o700)
+        fd = os.open(out / "inventory.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps(report, indent=2) + "\n")
+    except OSError:
+        raise InventoryError("Could not write private inventory; collection is not reported as successful") from None
+    return report
+
+
 def capture(out):
     if platform.system() != "Darwin" or platform.machine() != "x86_64":
         raise InventoryError("Capture requires Intel macOS; no target evidence was collected")
@@ -133,41 +170,72 @@ def capture(out):
         if result.returncode != 0 or len(result.stdout) > MAX_BYTES:
             raise InventoryError("Metadata command failed or exceeded output limit: " + label)
         outputs[label] = result.stdout
+    return save_report(out, make_report(outputs, platform.machine()))
+
+
+def regular_capture_file(source, name, maximum=MAX_BYTES):
+    path = source / name
     try:
-        strings = {key: outputs[key].decode("ascii").strip() for key in COMMANDS if key != "pci"}
-    except UnicodeError:
-        raise InventoryError("System metadata is not in its expected numeric format") from None
-    system = system_inventory(strings["os_version"], strings["os_build"], strings["darwin_release"],
-                              strings["ram_bytes"], platform.machine())
-    registry = pci_inventory(outputs["pci"])
-    try:
-        collector_hash = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or getattr(info, "st_file_attributes", 0) & 0x400:
+            raise InventoryError("Capture files must be regular files without links")
+        if info.st_size > maximum:
+            raise InventoryError("Capture file exceeds its size limit")
+        with path.open("rb") as stream:
+            data = stream.read(maximum + 1)
     except OSError:
-        raise InventoryError("Could not identify the collector source revision") from None
-    report = {"schema_version": 1, "collector_sha256": collector_hash, "system": system, "pci": registry,
-              "safe_to_initialize": False, "gpu_work_submitted": False,
-              "privacy": "Local-only metadata; review before sharing. Raw registry/stdout/stderr are not saved.",
-              "limitations": ["Registry identity and assigned ranges are not independent PCI configuration-space verification.",
-                              "Assigned PCI ranges do not establish usable VRAM, firmware/console reservations or exclusive ownership.",
-                              "No GPU IP discovery, firmware parsing, device initialization or acceleration test was performed.",
-                              "A successful capture is not permission to load the experimental driver."]}
+        raise InventoryError("A required capture file cannot be read") from None
+    if len(data) > maximum:
+        raise InventoryError("Capture file exceeds its size limit")
+    return data
+
+
+def import_capture(source, out):
+    """Parse a private native capture on any host; never execute capture contents."""
+    source = Path(source).absolute()
     try:
-        out.mkdir(parents=True, mode=0o700)
-        fd = os.open(out / "inventory.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            stream.write(json.dumps(report, indent=2) + "\n")
+        info = source.lstat()
+        if not stat.S_ISDIR(info.st_mode) or getattr(info, "st_file_attributes", 0) & 0x400:
+            raise InventoryError("Capture source must be a directory without links")
+        names = {path.name for path in source.iterdir()}
     except OSError:
-        raise InventoryError("Could not write private inventory; collection is not reported as successful") from None
-    return report
+        raise InventoryError("Capture source cannot be opened") from None
+    expected = {".gitignore", "capture.complete", "platform.txt", "architecture.txt"}
+    expected.update(label + suffix for label in COMMANDS for suffix in (".txt", ".stderr", ".status"))
+    if names != expected:
+        raise InventoryError("Capture is incomplete or contains unexpected entries")
+    if regular_capture_file(source, "capture.complete", 64) != CAPTURE_MARKER:
+        raise InventoryError("Capture completion marker is invalid")
+    if regular_capture_file(source, ".gitignore", 64) != b"*\n":
+        raise InventoryError("Capture is missing its Git exclusion")
+    if regular_capture_file(source, "platform.txt", 64) != b"Darwin\n":
+        raise InventoryError("Capture does not report macOS")
+    if regular_capture_file(source, "architecture.txt", 64) != b"x86_64\n":
+        raise InventoryError("Capture does not report Intel architecture")
+    outputs = {}
+    for label in COMMANDS:
+        if regular_capture_file(source, label + ".status", 32) != b"0\n":
+            raise InventoryError("Capture reports a failed metadata command: " + label)
+        regular_capture_file(source, label + ".stderr")
+        outputs[label] = regular_capture_file(source, label + ".txt")
+    report = make_report(outputs, "x86_64")
+    report["collection_method"] = "offline_native_capture_v1"
+    report["capture_files_sha256"] = {label: hashlib.sha256(data).hexdigest() for label, data in outputs.items()}
+    report["native_capture_source_verified"] = False
+    report["privacy"] = "Imported metadata is whitelisted; original raw capture and stderr remain private and are not copied."
+    report["limitations"].append("Capture file hashes are computed at import, not authenticated capture provenance or proof of the reported host.")
+    return save_report(out, report)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=Path("local/target-inventory"))
+    parser.add_argument("--from-capture", type=Path, help="Import a private recovery_inventory.sh capture without executing commands")
     args = parser.parse_args()
     try:
-        data = capture(args.out)
+        data = import_capture(args.from_capture, args.out) if args.from_capture else capture(args.out)
     except InventoryError as error:
         parser.exit(1, str(error) + "\n")
-    print("Inventory captured locally; no GPU work submitted and initialization remains unapproved.")
+    print("Inventory " + ("imported" if args.from_capture else "captured") +
+          " locally; no GPU work submitted and initialization remains unapproved.")
     print("Registry target candidate count:", data["pci"]["target_candidate_count"])

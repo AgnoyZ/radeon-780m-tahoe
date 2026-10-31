@@ -9,10 +9,31 @@ import subprocess
 
 from build_radv import runtime_destination, runtime_metadata_destination, write_runtime_metadata, seal_runtime_bundle
 from test_bringup_transport import compile_native
-from target_inventory import capture as capture_inventory
+from target_inventory import capture as capture_inventory, import_capture
 from verify_artifacts import inspect_macho
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def native_capture_preflight(out):
+    if platform.system() != 'Darwin' or platform.machine() != 'x86_64':
+        raise RuntimeError('Native capture preflight requires Intel macOS')
+    out = Path(out).resolve()
+    if out.exists(): raise RuntimeError('Native capture output exists; choose a fresh directory')
+    script = ROOT / 'tools/recovery_inventory.sh'
+    environment = {'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'LC_ALL': 'C', 'SYSTEM_VERSION_COMPAT': '0'}
+    try:
+        result = subprocess.run(['/bin/sh', str(script), str(out)], capture_output=True, env=environment, timeout=130)
+    except (OSError, subprocess.TimeoutExpired):
+        raise RuntimeError('Native metadata capture did not complete; no target evidence is claimed') from None
+    if result.returncode:
+        raise RuntimeError('Native metadata capture failed; raw details remain private')
+    parsed = import_capture(out, out.parent / (out.name + '-import'))
+    return {'capture_completed': True, 'native_collector_sha256': hashlib.sha256(script.read_bytes()).hexdigest(),
+            'importer_sha256': parsed['collector_sha256'], 'system': parsed['system'],
+            'pci_root_count': parsed['pci']['pci_root_count'],
+            'target_candidate_count': parsed['pci']['target_candidate_count'],
+            'raw_capture_logged': False, 'safe_to_initialize': False, 'gpu_work_submitted': False}
 
 
 def metal_command(fixture, output, value):
@@ -111,9 +132,13 @@ def preflight(out):
                          "target_candidate_count": inventory["pci"]["target_candidate_count"],
                          "safe_to_initialize": inventory["safe_to_initialize"],
                          "gpu_work_submitted": inventory["gpu_work_submitted"]}
+    native_inventory = native_capture_preflight(out / 'native-capture')
+    if native_inventory['system'] != inventory_summary['system']:
+        raise RuntimeError('Direct and imported native system metadata disagree')
     report = {"metal_compiler": compiler, "cases": reports, "compiled_probes": probes, "packaging": packaging,
               "bringup_transport_compile_only": bringup_transport,
               "read_only_host_inventory": inventory_summary,
+              "read_only_native_capture": native_inventory,
               "native_probes_executed": False, "driver_runtime_tested": False, "hardware_executed": False}
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2), flush=True)
