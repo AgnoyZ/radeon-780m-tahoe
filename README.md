@@ -5,7 +5,7 @@
 > 当前阶段：已接入固定版上游源码和下游内核补丁，建立构建与回归测试。尚无完整安装包或本机 GPU 加速成功的结论。
 > 本仓库不是 NootedRed 或 nullarc 官方项目，也不代表与其存在合作关系。
 
-完整原生 CI `41166014645`（代码 `298b6fd`，包含前 23 个补丁）已通过：两项 kext、真实 Metal 插件、翻译器、Mesa RADV、LLVM AIR 运行库和计算探针均完成源码构建及相应检查。后续补丁 0024-0027 的完整原生构建仍待核验。
+最新完整原生 CI `41175675186`（代码 `ded9914`，包含全部 27 个补丁）已通过：两项 kext、真实 Metal 插件、翻译器、Mesa RADV、LLVM AIR 运行库和 `native-shader-probe` 均完成源码构建、签名及相应检查。该结果只证明 Intel CI 主机上的源码/构建链路，不证明目标笔记本已初始化或获得 GPU 加速；目标机实测仍待完成。
 真实插件已加载自带运行库，将两个由 Apple 编译器生成的 metallib 转成不同的、通过校验的 SPIR-V，并通过缺失依赖和损坏输入测试。
 以上是非目标 Mac 上的编译链与无设备集成验证：没有创建 Metal/Vulkan 设备或提交 GPU 工作。固件、目标机初始化、内屏与 WindowServer 加速仍未验证，不能直接安装使用。详见 `docs/IMPLEMENTATION-STATUS.md` 与 `docs/validation/ci-298b6fd-full.json`。
 
