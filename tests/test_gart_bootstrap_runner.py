@@ -17,6 +17,14 @@ def result(status, counts):
 
 
 class GartBootstrapRunnerTests(unittest.TestCase):
+    def test_abi_mismatch_closes_without_bootstrap_activity(self):
+        status, counts = expected_result("hello-abi")
+        self.assertEqual(1, status)
+        self.assertEqual(1, counts["closes"])
+        for field in ("snapshots", "reg_reads", "vram_writes", "reg_writes"):
+            self.assertEqual(0, counts[field])
+        with self.assertRaises(RuntimeError):
+            check_result(result(status, {**counts, "closes": 0}), "hello-abi")
     def test_all_cases_have_terminal_accounting(self):
         names = list(cases())
         self.assertEqual(len(names), len(set(names)))

@@ -106,3 +106,11 @@ Both new header hashes are recorded in source provenance. Local Python tests
 pass (136). Native preflight compiles the real tool without running it; CI
 sanitizer/native results must be recorded for this revision when available.
 Older build passes are not evidence for this new initializer.
+
+Initial source run `41150258701` (`b8f9883`) passed Python and prior suites,
+including all 76 actual kernel-method cases, but stopped in the new GART
+harness on `hello-abi`. The actual tool already closes an incompatible ABI
+connection; the fake close function incorrectly required a completed GART
+sequence. The harness now asserts that this early close happens exactly once
+with no snapshot, register or memory access. This fixes the test's model, not
+the tool's ABI behavior. The initial run is not a GART suite pass.

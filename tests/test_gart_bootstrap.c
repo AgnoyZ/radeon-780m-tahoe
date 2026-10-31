@@ -43,6 +43,10 @@ kern_return_t IOServiceOpen(io_service_t service, mach_port_t task, uint32_t typ
 }
 kern_return_t IOObjectRelease(io_service_t service) { assert(service == 1); return 0; }
 kern_return_t IOServiceClose(io_connect_t connection) {
+    if (is("hello-abi")) {
+        assert(connection == 7 && hellos == 1 && !snapshots && !reg_reads && !vram_writes && !reg_writes);
+        ++closes; return 0;
+    }
     assert(connection == 7 && reg_writes == 188 && accepted_words == 2048 && ack_reads);
     const uint64_t table_pa = observation.physicalBase + table_off, dummy_pa = observation.physicalBase + default_off;
     assert(registers[0x2953] == (uint32_t)(table_pa | 1) && registers[0x2954] == (uint32_t)(table_pa >> 32));

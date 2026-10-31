@@ -45,7 +45,9 @@ def expected_result(fault):
     if fault == "open-status": return 1, c
     c["hellos"] = 1
     if fault in ("hello-status", "hello-short", "hello-long"): return 74, c
-    if fault == "hello-abi": return 1, c
+    if fault == "hello-abi":
+        c["closes"] = 1
+        return 1, c
     c["snapshots"] = 1
     if fault in ("snapshot-status", "snapshot-short", "snapshot-long"): return 74, c
     if fault in INVALID_LAYOUT: return 75, c
