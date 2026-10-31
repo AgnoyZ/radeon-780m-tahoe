@@ -13,7 +13,7 @@ from build_userspace import build_plugin, PLUGIN_IDENTIFIER
 from build_translator import build_translator
 from build_radv import build_radv
 from build_air_runtime import build_air_runtime
-from macos_toolchain import probe_command
+from macos_toolchain import probe_command, native_shader_command
 
 def run(*args):
     print("RUN", " ".join(map(str, args)), flush=True)
@@ -98,6 +98,9 @@ def main():
     smoke = artifacts / "metal-smoke"
     run(*probe_command("metal-smoke", smoke))
     report["metal-smoke"] = inspect_macho(smoke, 2)
+    native_shader = artifacts / 'native-shader-probe'
+    run(*native_shader_command(stage, native_shader))
+    report['native-shader-probe'] = inspect_macho(native_shader, 2)
     shutil.copytree(stage / "LICENSES", artifacts / "LICENSES")
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         shutil.copy2(stage / name, artifacts / ("UPSTREAM-" + name))

@@ -11,6 +11,13 @@ python -m unittest discover -s tests -v
 
 The output directory must not exist. Use a fresh directory for another preparation; the tool never recursively deletes a previous build. The nullarc submodule must match upstream.lock.json exactly and be clean. Source is exported from the pinned Git objects, not copied from an arbitrary worktree.
 
+The native GPUVM acceptance candidate is described in `NATIVE-SHADER-PROBE.md`.
+POSIX Clang++ can run its fake-IOKit ASan/UBSan cases with
+`python3 tools/test_native_shader_probe.py --out build/native-shader-simulation`.
+The macOS preflight compiles the real-framework executable and executes only
+its non-target `--check` refusal. Local full builds also package
+`native-shader-probe` beside `metal-smoke`. No target dispatch is automated.
+
 With clang++ installed:
 
 ```sh

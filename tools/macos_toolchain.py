@@ -55,6 +55,29 @@ def probe_command(kind, output):
     return command + [str(ROOT / "tools" / source), "-o", str(output)]
 
 
+def native_shader_command(stage, output):
+    stage = Path(stage).resolve()
+    return ['xcrun', 'clang++', '-std=c++17', '-arch', 'x86_64', '-mmacosx-version-min=15.0',
+            '-O2', '-Wall', '-Wextra', '-Werror', '-I' + str(stage / 'src/phxbringup'),
+            '-I' + str(stage / 'tools/phxctl'), str(ROOT / 'tools/native_shader_probe.cpp'),
+            '-framework', 'IOKit', '-framework', 'CoreFoundation', '-o', str(output)]
+
+
+def compile_native_shader(stage, output):
+    if platform.system() != 'Darwin' or platform.machine() != 'x86_64':
+        raise RuntimeError('Native GPUVM probe compilation requires Intel macOS')
+    output = Path(output).resolve()
+    if output.exists(): raise RuntimeError('Native GPUVM probe output exists; choose a fresh path')
+    subprocess.run(native_shader_command(stage, output), check=True, timeout=60)
+    binary = inspect_macho(output, 2)
+    result = subprocess.run([str(output), '--check'], capture_output=True, text=True, timeout=15)
+    if result.returncode != 4 or result.stdout or not result.stderr.startswith('REFUSED:'):
+        raise RuntimeError('Native GPUVM probe did not refuse the non-target CI host')
+    return {'binary': binary, 'source_sha256': hashlib.sha256((ROOT / 'tools/native_shader_probe.cpp').read_bytes()).hexdigest(),
+            'native_iokit_linked': True, 'non_target_check_exit': 4, 'check_only_executed': True,
+            'gpu_work_submitted': False, 'target_hardware_tested': False, 'deployable': False}
+
+
 def packaging_preflight(out):
     """Exercise code/resource sealing with synthetic binaries, never real drivers."""
     if platform.system() != "Darwin" or platform.machine() != "x86_64":
@@ -126,6 +149,7 @@ def preflight(out):
         probes[kind] = inspect_macho(executable, 2)
     packaging = packaging_preflight(out / "packaging")
     bringup_transport = compile_native(out / "bringup-transport-native")
+    native_shader = compile_native_shader(out / 'bringup-transport-native/stage', out / 'native-shader-probe')
     inventory = capture_inventory(out / "inventory")
     inventory_summary = {"capture_completed": True, "system": inventory["system"],
                          "pci_root_count": inventory["pci"]["pci_root_count"],
@@ -137,9 +161,11 @@ def preflight(out):
         raise RuntimeError('Direct and imported native system metadata disagree')
     report = {"metal_compiler": compiler, "cases": reports, "compiled_probes": probes, "packaging": packaging,
               "bringup_transport_compile_only": bringup_transport,
+              "native_shader_check_only": native_shader,
               "read_only_host_inventory": inventory_summary,
               "read_only_native_capture": native_inventory,
-              "native_probes_executed": False, "driver_runtime_tested": False, "hardware_executed": False}
+              "native_probes_executed": True, "native_probe_execution": "native-shader-probe --check only; non-target refusal",
+              "driver_runtime_tested": False, "hardware_executed": False}
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2), flush=True)
     return report

@@ -66,7 +66,8 @@
     "patches/0022-checked-page-table-backing.patch",
     "patches/0023-checked-walk-cleanup.patch",
     "patches/0024-checked-context-table-clear.patch",
-    "patches/0025-gfx11-shader-dispatch-probe.patch"
+    "patches/0025-gfx11-shader-dispatch-probe.patch",
+    "patches/0026-share-gfx11-dispatch-packets.patch"
   ],
   "target": {
     "darwin_major": 25,
