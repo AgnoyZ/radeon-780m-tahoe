@@ -46,6 +46,11 @@ class NativeShaderProbeRunnerTests(unittest.TestCase):
         self.assertEqual(['host', 'matching', 'enumerate', 'parent', 'vendor', 'device', 'release-parent',
             'release-iterator', 'open', 'release-service', 'hello', 'info', 'close'], events)
         self.assertEqual(2, expected_result('ok')[1].count('wait-1') + expected_result('ok')[1].count('wait-2'))
+        # Parsed vendor values are compared after both properties are read;
+        # malformed properties stop inside pciValue before reading the device.
+        self.assertIn('device', expected_result('vendor-wrong')[1])
+        for suffix in ('missing', 'negative', 'wide', 'number-status', 'type', 'short', 'long', 'null'):
+            self.assertNotIn('device', expected_result('vendor-' + suffix)[1])
 
     def test_accounting_crashes_false_markers_and_continuation_are_rejected(self):
         _, events = expected_result('ok')

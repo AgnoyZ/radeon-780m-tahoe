@@ -64,7 +64,9 @@ def expected_result(fault):
     if fault == 'parent-status': return 4, e + ['release-service', 'release-iterator']
     if fault == 'non-pci': return 4, e + ['release-parent', 'release-service', 'release-iterator']
     e.append('vendor')
-    if fault.startswith('vendor-'): return 4, e + ['release-parent', 'release-service', 'release-iterator']
+    if fault.startswith('vendor-'):
+        if fault == 'vendor-wrong': e.append('device')
+        return 4, e + ['release-parent', 'release-service', 'release-iterator']
     e.append('device')
     if fault.startswith('device-'): return 4, e + ['release-parent', 'release-service', 'release-iterator']
     e.append('release-parent')

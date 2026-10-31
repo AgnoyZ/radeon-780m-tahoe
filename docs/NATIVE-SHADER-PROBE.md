@@ -84,3 +84,8 @@ GPU writes are explicitly supplied by the harness after WAITSEQ; it has no ISA
 interpreter and performs no real GPUVM translation. These are control-flow and
 acceptance-checker tests, not GPU execution evidence. Native compilation and
 POSIX scenario results for this revision remain pending until CI is audited.
+The first source CI (`41170266892`, code `6cea778`) compiled the actual C++
+probe but failed its test accounting for a parsed wrong vendor: the identity
+expression reads both properties before comparing values. Malformed vendor
+properties short-circuit earlier. The expected trace is corrected without
+changing the production identity checks; this failed run is not a full pass.
